@@ -16,7 +16,6 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Initialize auth state from localStorage
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem('token');
@@ -24,15 +23,25 @@ export const AuthProvider = ({ children }) => {
 
       if (token && savedUser) {
         try {
-          // Verify token is still valid
           const response = await authAPI.getMe();
           setUser(response.data.user);
           localStorage.setItem('user', JSON.stringify(response.data.user));
         } catch (err) {
-          // Token invalid - clear auth
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setUser(null);
+          // If API fails, try to use saved user for demo
+          try {
+            const parsed = JSON.parse(savedUser);
+            if (parsed && parsed.email) {
+              setUser(parsed);
+            } else {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              setUser(null);
+            }
+          } catch {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+          }
         }
       }
       setLoading(false);
@@ -43,8 +52,24 @@ export const AuthProvider = ({ children }) => {
 
   // Mock user accounts for demo
   const mockUsers = {
-    'demo@woori.com': {
+    'admin@woori.com': {
       id: 1,
+      email: 'admin@woori.com',
+      name_ko: '최고관리자',
+      name_en: 'Super Admin',
+      role: 'admin',
+      department: '시스템관리팀',
+    },
+    'instructor@woori.com': {
+      id: 2,
+      email: 'instructor@woori.com',
+      name_ko: '김강사',
+      name_en: 'Kim Instructor',
+      role: 'instructor',
+      department: '교육팀',
+    },
+    'demo@woori.com': {
+      id: 3,
       email: 'demo@woori.com',
       name_ko: '홍길동',
       name_en: 'Hong Gildong',
@@ -52,22 +77,6 @@ export const AuthProvider = ({ children }) => {
       department: '금융컨설팅팀',
       retirement_date: '2024-01-15',
       skills: ['자산관리', '투자상담', '고객관리'],
-    },
-    'admin@woori.com': {
-      id: 2,
-      email: 'admin@woori.com',
-      name_ko: '관리자',
-      name_en: 'Admin',
-      role: 'admin',
-      department: '시스템관리팀',
-    },
-    'instructor@woori.com': {
-      id: 3,
-      email: 'instructor@woori.com',
-      name_ko: '김강사',
-      name_en: 'Kim Instructor',
-      role: 'instructor',
-      department: '교육팀',
     },
   };
 
@@ -96,12 +105,11 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      // If backend is not available, show demo login hint
-      const message = err.response?.data?.message || '로그인에 실패했습니다. 데모 계정: demo@woori.com / demo1234';
+      const message = err.response?.data?.message || '로그인에 실패했습니다. 데모 계정을 사용해주세요.';
       setError(message);
       return { success: false, error: message };
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const register = useCallback(async (userData) => {
     setError(null);
@@ -162,29 +170,32 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Check if user has specific role
   const hasRole = useCallback((roles) => {
     if (!user) return false;
     if (typeof roles === 'string') {
+      // admin (superadmin) has access to everything
+      if (user.role === 'admin') return true;
       return user.role === roles;
     }
+    if (user.role === 'admin') return true;
     return roles.includes(user.role);
   }, [user]);
 
-  // Check if user is admin
   const isAdmin = useCallback(() => {
-    return hasRole('admin');
-  }, [hasRole]);
+    return user?.role === 'admin';
+  }, [user]);
 
-  // Check if user is instructor
+  const isSuperAdmin = useCallback(() => {
+    return user?.role === 'admin';
+  }, [user]);
+
   const isInstructor = useCallback(() => {
-    return hasRole(['admin', 'instructor']);
-  }, [hasRole]);
+    return user?.role === 'instructor' || user?.role === 'admin';
+  }, [user]);
 
-  // Check if user is HR manager
   const isHRManager = useCallback(() => {
-    return hasRole(['admin', 'hr_manager']);
-  }, [hasRole]);
+    return user?.role === 'hr_manager' || user?.role === 'admin';
+  }, [user]);
 
   const value = {
     user,
@@ -198,6 +209,7 @@ export const AuthProvider = ({ children }) => {
     changePassword,
     hasRole,
     isAdmin,
+    isSuperAdmin,
     isInstructor,
     isHRManager,
   };

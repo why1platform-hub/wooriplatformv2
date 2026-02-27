@@ -10,8 +10,9 @@ import theme from './styles/theme';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import Layout from './components/layout/Layout';
+import AdminLayout from './components/admin/AdminLayout';
 
-// Lazy load pages for better performance
+// Lazy load pages
 const Home = lazy(() => import('./pages/home/Home'));
 const Login = lazy(() => import('./pages/auth/Login'));
 const Register = lazy(() => import('./pages/auth/Register'));
@@ -39,6 +40,7 @@ const CourseManagement = lazy(() => import('./pages/admin/CourseManagement'));
 const AnnouncementManagement = lazy(() => import('./pages/admin/AnnouncementManagement'));
 const FAQManagement = lazy(() => import('./pages/admin/FAQManagement'));
 const InquiryManagement = lazy(() => import('./pages/admin/InquiryManagement'));
+const BannerManagement = lazy(() => import('./pages/admin/BannerManagement'));
 
 // Loading component
 const LoadingFallback = () => (
@@ -110,7 +112,72 @@ const AppRoutes = () => {
           }
         />
 
-        {/* Protected routes with layout */}
+        {/* Admin routes - separate CMS layout */}
+        <Route
+          path="/admin/*"
+          element={
+            <ProtectedRoute roles={['admin', 'hr_manager', 'instructor']}>
+              <AdminLayout>
+                <Routes>
+                  <Route path="/" element={<AdminDashboard />} />
+                  <Route path="/users" element={<UserManagement />} />
+                  <Route
+                    path="/programs"
+                    element={
+                      <ProtectedRoute roles={['admin', 'instructor']}>
+                        <ProgramManagement />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/jobs" element={<JobManagement />} />
+                  <Route
+                    path="/courses"
+                    element={
+                      <ProtectedRoute roles={['admin', 'instructor']}>
+                        <CourseManagement />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/announcements"
+                    element={
+                      <ProtectedRoute roles={['admin']}>
+                        <AnnouncementManagement />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/faq"
+                    element={
+                      <ProtectedRoute roles={['admin']}>
+                        <FAQManagement />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/inquiries"
+                    element={
+                      <ProtectedRoute roles={['admin']}>
+                        <InquiryManagement />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/banners"
+                    element={
+                      <ProtectedRoute roles={['admin']}>
+                        <BannerManagement />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="*" element={<Navigate to="/admin" replace />} />
+                </Routes>
+              </AdminLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* User routes with user layout */}
         <Route
           path="/*"
           element={
@@ -152,72 +219,6 @@ const AppRoutes = () => {
                   <Route path="/support/faq" element={<FAQ />} />
                   <Route path="/support/inquiry" element={<Inquiry />} />
                   <Route path="/support/inquiry/list" element={<InquiryList />} />
-
-                  {/* Admin routes */}
-                  <Route
-                    path="/admin"
-                    element={
-                      <ProtectedRoute roles={['admin', 'hr_manager']}>
-                        <AdminDashboard />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/users"
-                    element={
-                      <ProtectedRoute roles={['admin', 'hr_manager']}>
-                        <UserManagement />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/programs"
-                    element={
-                      <ProtectedRoute roles={['admin', 'instructor']}>
-                        <ProgramManagement />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/jobs"
-                    element={
-                      <ProtectedRoute roles={['admin', 'hr_manager']}>
-                        <JobManagement />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/courses"
-                    element={
-                      <ProtectedRoute roles={['admin', 'instructor']}>
-                        <CourseManagement />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/announcements"
-                    element={
-                      <ProtectedRoute roles={['admin']}>
-                        <AnnouncementManagement />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/faq"
-                    element={
-                      <ProtectedRoute roles={['admin']}>
-                        <FAQManagement />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/inquiries"
-                    element={
-                      <ProtectedRoute roles={['admin']}>
-                        <InquiryManagement />
-                      </ProtectedRoute>
-                    }
-                  />
 
                   {/* 404 */}
                   <Route path="*" element={<Navigate to="/" replace />} />

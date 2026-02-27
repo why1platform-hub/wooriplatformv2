@@ -105,19 +105,9 @@ const menuItems = [
 const adminMenuItems = [
   {
     id: 'admin',
-    labelKey: '관리자',
+    labelKey: '관리자 패널',
     icon: <AdminIcon />,
     path: '/admin',
-    children: [
-      { id: 'admin-dashboard', labelKey: '대시보드', path: '/admin' },
-      { id: 'admin-users', labelKey: '사용자 관리', path: '/admin/users' },
-      { id: 'admin-programs', labelKey: '프로그램 관리', path: '/admin/programs' },
-      { id: 'admin-jobs', labelKey: '채용 관리', path: '/admin/jobs' },
-      { id: 'admin-courses', labelKey: '학습자료 관리', path: '/admin/courses' },
-      { id: 'admin-announcements', labelKey: '공지사항 관리', path: '/admin/announcements' },
-      { id: 'admin-faq', labelKey: 'FAQ 관리', path: '/admin/faq' },
-      { id: 'admin-inquiries', labelKey: '문의 관리', path: '/admin/inquiries' },
-    ],
   },
 ];
 
