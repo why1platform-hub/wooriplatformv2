@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -9,7 +8,6 @@ import {
   Button,
   Grid,
   Divider,
-  Chip,
   Skeleton,
 } from '@mui/material';
 import {
@@ -24,7 +22,6 @@ import StatusBadge from '../../components/common/StatusBadge';
 import CategoryBadge from '../../components/common/CategoryBadge';
 
 const ProgramDetail = () => {
-  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);

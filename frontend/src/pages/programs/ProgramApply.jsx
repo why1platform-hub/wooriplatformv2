@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -21,7 +20,6 @@ import { useNotification } from '../../contexts/NotificationContext';
 const steps = ['프로그램 확인', '신청서 작성', '신청 완료'];
 
 const ProgramApply = () => {
-  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();

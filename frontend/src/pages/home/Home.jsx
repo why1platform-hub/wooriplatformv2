@@ -30,7 +30,6 @@ import CategoryBadge from '../../components/common/CategoryBadge';
 
 // Announcement List Component
 const AnnouncementList = ({ announcements, loading }) => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
 
   if (loading) {
@@ -435,7 +434,6 @@ const JobRecommendations = ({ jobs, loading }) => {
 
 // Quick Access Component
 const QuickAccess = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const items = [
@@ -478,7 +476,7 @@ const QuickAccess = () => {
 // Main Home Page
 const Home = () => {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  useAuth();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
 

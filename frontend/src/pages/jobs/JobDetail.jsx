@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -25,7 +24,6 @@ import { jobsAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
 
 const JobDetail = () => {
-  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();

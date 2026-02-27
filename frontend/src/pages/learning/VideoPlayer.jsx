@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -28,7 +27,6 @@ import { coursesAPI } from '../../services/api';
 import CategoryBadge from '../../components/common/CategoryBadge';
 
 const VideoPlayer = () => {
-  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const videoRef = useRef(null);

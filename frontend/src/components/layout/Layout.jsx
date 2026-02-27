@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Toolbar, useTheme, Dialog, DialogContent, DialogActions,
+  Box, Toolbar, Dialog, DialogContent, DialogActions,
   Button, Typography, IconButton, Checkbox, FormControlLabel,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
@@ -12,7 +12,6 @@ import Footer from './Footer';
 const DRAWER_WIDTH = 240;
 
 const Layout = ({ children }) => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 

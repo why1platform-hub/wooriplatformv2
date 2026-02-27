@@ -15,7 +15,6 @@ import {
   Button,
   Tabs,
   Tab,
-  Paper,
   Skeleton,
   Grid,
 } from '@mui/material';

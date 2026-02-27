@@ -23,12 +23,6 @@ import {
   Support as SupportIcon,
   ExpandLess,
   ExpandMore,
-  Announcement as AnnouncementIcon,
-  Event as EventIcon,
-  Description as DescriptionIcon,
-  Bookmark as BookmarkIcon,
-  Help as HelpIcon,
-  ContactSupport as ContactSupportIcon,
   AdminPanelSettings as AdminIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';

@@ -32,7 +32,7 @@ import { useAuth } from '../../contexts/AuthContext';
 const ResumeManager = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  useAuth();
   const { showSuccess, showError } = useNotification();
 
   const [resumes, setResumes] = useState([]);
