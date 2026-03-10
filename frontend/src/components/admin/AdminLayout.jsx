@@ -54,6 +54,7 @@ const allNavItems = [
   { id: 'faq', label: 'FAQ 관리', icon: <FaqIcon />, path: '/admin/faq', roles: ['admin'] },
   { id: 'inquiries', label: '문의 관리', icon: <InquiryIcon />, path: '/admin/inquiries', roles: ['admin'] },
   { id: 'banners', label: '배너 관리', icon: <BannerIcon />, path: '/admin/banners', roles: ['admin'] },
+  { id: 'settings', label: '설정', icon: <SettingsIcon />, path: '/admin/settings', roles: ['admin'] },
 ];
 
 const AdminLayout = ({ children }) => {

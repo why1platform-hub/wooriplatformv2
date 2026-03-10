@@ -134,13 +134,15 @@ const Layout = ({ children }) => {
           display: 'flex',
           flexDirection: 'column',
           minHeight: '100vh',
-          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          width: { xs: '100%', md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          maxWidth: '100vw',
+          overflow: 'hidden',
           ml: { md: 0 },
         }}
       >
         <Toolbar />
 
-        <Box sx={{ flexGrow: 1, p: { xs: 2, sm: 3 }, backgroundColor: '#F8F9FA' }}>
+        <Box sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2, md: 3 }, backgroundColor: '#F8F9FA', overflow: 'auto' }}>
           {children}
         </Box>
 

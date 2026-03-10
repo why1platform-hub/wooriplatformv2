@@ -62,55 +62,19 @@ const ConsultationBooking = () => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // Mock consultants - defined outside component to avoid dependency warnings
-  const mockConsultants = React.useMemo(() => [
-    { id: 'c1', name_ko: '김영수', department: '금융컨설팅', position: '수석 컨설턴트', completed_consultations: 78 },
-    { id: 'c2', name_ko: '이미영', department: '부동산', position: '전문 상담사', completed_consultations: 65 },
-    { id: 'c3', name_ko: '박준혁', department: '창업', position: '창업 멘토', completed_consultations: 54 },
-    { id: 'c4', name_ko: '최수진', department: '디지털', position: '디지털 전문가', completed_consultations: 48 },
-    { id: 'c5', name_ko: '정민호', department: '건강', position: '건강관리사', completed_consultations: 42 },
-    { id: 'c6', name_ko: '한소영', department: '사회공헌', position: '사회공헌 매니저', completed_consultations: 38 },
-  ], []);
-
-  // Generate mock availability for a consultant
-  const generateMockSlots = (consultantId) => {
-    const slots = [];
-    const baseDate = dayjs();
-    for (let d = 1; d <= 14; d++) {
-      const date = baseDate.add(d, 'day');
-      if (date.day() === 0 || date.day() === 6) continue; // Skip weekends
-      const times = ['09:00', '09:30', '10:00', '10:30', '11:00', '14:00', '14:30', '15:00', '15:30', '16:00'];
-      const availableTimes = times.filter(() => Math.random() > 0.4);
-      availableTimes.forEach((time) => {
-        const [h, m] = time.split(':').map(Number);
-        const endTime = `${String(h + (m === 30 ? 1 : 0)).padStart(2, '0')}:${m === 30 ? '00' : '30'}`;
-        slots.push({
-          id: `slot-${date.format('YYYY-MM-DD')}-${time}`,
-          consultant_id: consultantId,
-          available_date: date.format('YYYY-MM-DD'),
-          start_time: time,
-          end_time: endTime,
-          is_booked: false,
-        });
-      });
-    }
-    return slots;
-  };
-
   useEffect(() => {
     const fetchConsultants = async () => {
       setLoading(true);
       try {
         const response = await consultationsAPI.getConsultants();
-        setConsultants(response.data.length > 0 ? response.data : mockConsultants);
+        setConsultants(response.data || []);
       } catch {
-        setConsultants(mockConsultants);
+        setConsultants([]);
       } finally {
         setLoading(false);
       }
     };
     fetchConsultants();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -119,17 +83,15 @@ const ConsultationBooking = () => {
         setSlotsLoading(true);
         try {
           const response = await consultationsAPI.getAvailability(selectedConsultant.id);
-          const slots = response.data.length > 0 ? response.data : generateMockSlots(selectedConsultant.id);
-          setAvailableSlots(slots);
+          setAvailableSlots(response.data || []);
         } catch {
-          setAvailableSlots(generateMockSlots(selectedConsultant.id));
+          setAvailableSlots([]);
         } finally {
           setSlotsLoading(false);
         }
       };
       fetchSlots();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedConsultant]);
 
   const uniqueDates = [...new Set(availableSlots.map((s) => s.available_date))].sort();
@@ -213,6 +175,12 @@ const ConsultationBooking = () => {
                 <Skeleton variant="rectangular" height={160} sx={{ borderRadius: 2 }} />
               </Grid>
             ))
+          ) : consultants.length === 0 ? (
+            <Grid item xs={12}>
+              <Alert severity="info" sx={{ mt: 2 }}>
+                현재 등록된 상담사가 없습니다. 관리자에게 문의해주세요.
+              </Alert>
+            </Grid>
           ) : (
             consultants.map((c) => (
               <Grid item xs={12} sm={6} md={4} key={c.id}>

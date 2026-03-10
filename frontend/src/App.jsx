@@ -47,6 +47,7 @@ const FAQManagement = lazy(() => import('./pages/admin/FAQManagement'));
 const InquiryManagement = lazy(() => import('./pages/admin/InquiryManagement'));
 const BannerManagement = lazy(() => import('./pages/admin/BannerManagement'));
 const ConsultationManagement = lazy(() => import('./pages/admin/ConsultationManagement'));
+const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 
 // Loading component
 const LoadingFallback = () => (
@@ -190,6 +191,14 @@ const AppRoutes = () => {
                     element={
                       <ProtectedRoute roles={['admin', 'hr_manager']}>
                         <ConsultationManagement />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <ProtectedRoute roles={['admin']}>
+                        <AdminSettings />
                       </ProtectedRoute>
                     }
                   />

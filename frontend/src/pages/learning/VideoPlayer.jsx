@@ -89,15 +89,6 @@ const VideoEmbed = ({ url, videoRef, onTimeUpdate, onEnded, title }) => {
   );
 };
 
-// Sample free demo videos for mock data
-const DEMO_VIDEOS = [
-  'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-  'https://www.youtube.com/watch?v=jNQXAC9IVRw',
-  'https://www.youtube.com/watch?v=9bZkp7q19f0',
-  'https://www.youtube.com/watch?v=kJQP7kiw5Fk',
-  'https://www.youtube.com/watch?v=RgKAFK5djSk',
-  'https://www.youtube.com/watch?v=JGwWNGJdvx8',
-];
 
 const VideoPlayer = () => {
   const { id } = useParams();
@@ -120,28 +111,6 @@ const VideoPlayer = () => {
         }
       } catch (error) {
         console.error('Failed to fetch course:', error);
-        // Mock data with playable demo videos
-        const mockCourse = {
-          id,
-          title: '은퇴 후 스마트한 자산 관리',
-          description: '은퇴 후 효과적인 자산 관리 방법과 투자 전략에 대해 알아봅니다. 전문 금융 컨설턴트가 제공하는 실용적인 조언과 사례를 통해 안정적인 노후 생활을 준비하세요.',
-          category: '금융',
-          instructor: '김재테크',
-          total_duration: '2시간 15분',
-          views: 1234,
-          created_at: '2024.05.15',
-          progress: 60,
-          lessons: [
-            { id: 1, title: '1강. 은퇴 자금 현황 분석', duration: '15:30', completed: true, video_url: DEMO_VIDEOS[0] },
-            { id: 2, title: '2강. 연금 활용 전략', duration: '18:45', completed: true, video_url: DEMO_VIDEOS[1] },
-            { id: 3, title: '3강. 투자 포트폴리오 구성', duration: '22:00', completed: false, video_url: DEMO_VIDEOS[2] },
-            { id: 4, title: '4강. 부동산 자산 관리', duration: '20:15', completed: false, video_url: DEMO_VIDEOS[3] },
-            { id: 5, title: '5강. 세금 및 상속 계획', duration: '25:00', completed: false, video_url: DEMO_VIDEOS[4] },
-            { id: 6, title: '6강. Q&A 및 사례 분석', duration: '33:30', completed: false, video_url: DEMO_VIDEOS[5] },
-          ],
-        };
-        setCourse(mockCourse);
-        setCurrentLesson(mockCourse.lessons[0]);
       } finally {
         setLoading(false);
       }

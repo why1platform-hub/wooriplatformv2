@@ -1,4 +1,6 @@
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+let OIDCStrategy;
+try { OIDCStrategy = require('passport-azure-ad').OIDCStrategy; } catch { /* optional dependency */ }
 const JwtStrategy = require('passport-jwt').Strategy;
 const ExtractJwt = require('passport-jwt').ExtractJwt;
 const db = require('./database');
@@ -82,6 +84,68 @@ module.exports = (passport) => {
                 profile.id,
                 profile.photos[0]?.value
               ]
+            );
+
+            return done(null, newUser.rows[0]);
+          } catch (error) {
+            return done(error, null);
+          }
+        }
+      )
+    );
+  }
+
+  // Microsoft Entra ID (Azure AD) OAuth Strategy
+  if (OIDCStrategy && process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET && process.env.MICROSOFT_TENANT_ID) {
+    passport.use('microsoft',
+      new OIDCStrategy(
+        {
+          identityMetadata: `https://login.microsoftonline.com/${process.env.MICROSOFT_TENANT_ID}/v2.0/.well-known/openid-configuration`,
+          clientID: process.env.MICROSOFT_CLIENT_ID,
+          clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+          responseType: 'code',
+          responseMode: 'query',
+          redirectUrl: process.env.MICROSOFT_CALLBACK_URL || '/api/auth/microsoft/callback',
+          scope: ['openid', 'profile', 'email'],
+          passReqToCallback: false,
+        },
+        async (iss, sub, profile, accessToken, refreshToken, done) => {
+          try {
+            const email = profile._json?.email || profile.upn || profile._json?.preferred_username;
+            const displayName = profile.displayName || email;
+
+            // Check if user exists with Microsoft OAuth
+            let result = await db.query(
+              'SELECT * FROM users WHERE oauth_provider = $1 AND oauth_id = $2',
+              ['microsoft', profile.oid]
+            );
+
+            if (result.rows.length > 0) {
+              await db.query(
+                'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
+                [result.rows[0].id]
+              );
+              return done(null, result.rows[0]);
+            }
+
+            // Check if user exists with same email
+            if (email) {
+              result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+              if (result.rows.length > 0) {
+                await db.query(
+                  'UPDATE users SET oauth_provider = $1, oauth_id = $2, last_login_at = CURRENT_TIMESTAMP WHERE id = $3',
+                  ['microsoft', profile.oid, result.rows[0].id]
+                );
+                return done(null, result.rows[0]);
+              }
+            }
+
+            // Create new user
+            const newUser = await db.query(
+              `INSERT INTO users (email, name_ko, name_en, oauth_provider, oauth_id, status)
+               VALUES ($1, $2, $3, $4, $5, 'active')
+               RETURNING *`,
+              [email, displayName, displayName, 'microsoft', profile.oid]
             );
 
             return done(null, newUser.rows[0]);

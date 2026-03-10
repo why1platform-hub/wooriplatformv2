@@ -138,6 +138,31 @@ router.get('/google/callback',
   }
 );
 
+// Microsoft OAuth
+router.get('/microsoft',
+  (req, res, next) => {
+    if (!passport._strategy('microsoft')) {
+      return res.status(400).json({ error: 'Microsoft SSO is not configured' });
+    }
+    next();
+  },
+  passport.authenticate('microsoft', { scope: ['openid', 'profile', 'email'] })
+);
+
+router.get('/microsoft/callback',
+  (req, res, next) => {
+    if (!passport._strategy('microsoft')) {
+      return res.redirect(`${process.env.FRONTEND_URL}/login?error=sso_not_configured`);
+    }
+    next();
+  },
+  passport.authenticate('microsoft', { session: false, failureRedirect: '/login' }),
+  (req, res) => {
+    const token = generateToken(req.user);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+  }
+);
+
 // Get current user
 router.get('/me', authenticate, async (req, res) => {
   try {
@@ -236,6 +261,24 @@ router.put('/password', authenticate, [
     console.error('Change password error:', error);
     res.status(500).json({ error: 'Failed to change password' });
   }
+});
+
+// SSO Config - Admin only (stored in memory/env for now)
+let ssoConfigStore = null;
+
+router.get('/sso-config', authenticate, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin only' });
+  }
+  res.json({ config: ssoConfigStore || null });
+});
+
+router.put('/sso-config', authenticate, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin only' });
+  }
+  ssoConfigStore = req.body.config;
+  res.json({ message: 'SSO config saved', config: ssoConfigStore });
 });
 
 // Logout (for token blacklisting if needed)

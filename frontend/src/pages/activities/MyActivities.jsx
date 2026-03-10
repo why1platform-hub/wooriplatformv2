@@ -18,6 +18,7 @@ import {
   Grid,
   LinearProgress,
   Skeleton,
+  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -107,56 +108,9 @@ const MyActivities = () => {
     fetchData();
   }, [tab]);
 
-  // Mock data
-  const mockApplications = [
-    { id: 1, date: '2026.03.01', title: '[시니어] 은퇴 자금 설계', category: '재무', status: '승인대기' },
-    { id: 2, date: '2026.02.15', title: '건강한 노후를 위한 식단 관리', category: '건강', status: '승인완료' },
-    { id: 3, date: '2026.02.10', title: '디지털 시대의 금융 생활 가이드', category: '디지털', status: '진행중' },
-    { id: 4, date: '2026.02.05', title: '부동산 임대 사업 A to Z', category: '부동산', status: '승인완료' },
-    { id: 5, date: '2026.01.20', title: '[특강] 은퇴 후 취미 생활 찾기', category: '여가', status: '승인완료' },
-  ];
-
-  const mockConsultations = [
-    {
-      id: 'mc1', date: '2026.03.10 14:00', consultant: '김영수 컨설턴트', consultant_department: '금융컨설팅',
-      topic: '노후 재무 플랜 상담', status: '예약됨', method: '온라인',
-      records: [],
-    },
-    {
-      id: 'mc2', date: '2026.03.05 10:00', consultant: '이미영 컨설턴트', consultant_department: '부동산',
-      topic: '부동산 투자 전략', status: '완료', method: '오프라인',
-      records: [
-        { id: 'r1', record_type: 'text', content: '서울 강남 지역 오피스텔 투자 전략 상담. 월세 수익률 분석 결과 공유.', author_name: '이미영', created_at: '2026-03-05 10:25' },
-        { id: 'r2', record_type: 'file', file_name: '투자분석보고서.pdf', author_name: '이미영', created_at: '2026-03-05 10:28' },
-      ],
-    },
-    {
-      id: 'mc3', date: '2026.02.28 15:00', consultant: '박준혁 컨설턴트', consultant_department: '창업',
-      topic: '창업 아이디어 검토', status: '완료', method: '전화',
-      records: [
-        { id: 'r3', record_type: 'text', content: '카페 창업 비즈니스 모델 검토. 입지 선정 및 초기 투자비 분석. 다음 상담에서 세부 사업계획서 검토 예정.', author_name: '박준혁', created_at: '2026-02-28 15:25' },
-      ],
-    },
-    {
-      id: 'mc4', date: '2026.02.20 09:30', consultant: '최수진 컨설턴트', consultant_department: '디지털',
-      topic: '디지털 역량 상담', status: '완료', method: '온라인',
-      records: [
-        { id: 'r4', record_type: 'text', content: '엑셀, 파워포인트 활용 수준 평가 완료. 디지털 마케팅 기초 과정 추천.', author_name: '최수진', created_at: '2026-02-20 09:55' },
-        { id: 'r5', record_type: 'file', file_name: '디지털역량평가결과.pdf', author_name: '최수진', created_at: '2026-02-20 10:00' },
-        { id: 'r6', record_type: 'text', content: '추천 강의 목록: 디지털 마케팅 입문, 데이터 분석 기초, SNS 활용법', author_name: '최수진', created_at: '2026-02-20 10:02' },
-      ],
-    },
-  ];
-
-  const mockCourses = [
-    { id: 1, title: '은퇴 후 스마트한 자산 관리', progress: 60, status: '진행중' },
-    { id: 2, title: '성공적인 부동산 투자 전략', progress: 50, status: '진행중' },
-    { id: 3, title: '시니어 금융 활용 가이드', progress: 100, status: '완료' },
-  ];
-
-  const displayApplications = applications.length > 0 ? applications : mockApplications;
-  const displayConsultations = consultations.length > 0 ? consultations : mockConsultations;
-  const displayCourses = courses.length > 0 ? courses : mockCourses;
+  const displayApplications = applications;
+  const displayConsultations = consultations;
+  const displayCourses = courses;
 
   const stats = {
     totalApplications: displayApplications.length,
@@ -204,15 +158,13 @@ const MyActivities = () => {
     try {
       await consultationsAPI.cancel(consultation.id);
     } catch {
-      // demo mode
+      // API may fail for demo data
     }
     // Update locally
-    const updated = displayConsultations.map((c) =>
+    const updated = consultations.map((c) =>
       c.id === consultation.id ? { ...c, status: '취소' } : c
     );
-    if (consultations.length > 0) {
-      setConsultations(updated);
-    }
+    setConsultations(updated);
     setCancelConfirmOpen(false);
     setCancelTarget(null);
   };
@@ -257,6 +209,11 @@ const MyActivities = () => {
                 <>
                   {/* Application History */}
                   {tab === 0 && (
+                    displayApplications.length === 0 ? (
+                      <Box sx={{ textAlign: 'center', py: 8 }}>
+                        <Typography color="text.secondary">신청 내역이 없습니다.</Typography>
+                      </Box>
+                    ) : (
                     <TableContainer>
                       <Table>
                         <TableHead>
@@ -289,6 +246,7 @@ const MyActivities = () => {
                         </TableBody>
                       </Table>
                     </TableContainer>
+                    )
                   )}
 
                   {/* Consultation Records */}
@@ -303,6 +261,14 @@ const MyActivities = () => {
                           상담 예약하기
                         </Button>
                       </Box>
+                      {displayConsultations.length === 0 ? (
+                        <Box sx={{ textAlign: 'center', py: 8 }}>
+                          <Typography color="text.secondary" sx={{ mb: 2 }}>상담 내역이 없습니다.</Typography>
+                          <Button variant="outlined" onClick={() => navigate('/consultations/booking')}>
+                            첫 상담 예약하기
+                          </Button>
+                        </Box>
+                      ) : (
                       <TableContainer>
                         <Table>
                           <TableHead>
@@ -377,13 +343,18 @@ const MyActivities = () => {
                           </TableBody>
                         </Table>
                       </TableContainer>
+                      )}
                     </Box>
                   )}
 
                   {/* Course Status */}
                   {tab === 2 && (
                     <Box>
-                      {displayCourses.map((course) => (
+                      {displayCourses.length === 0 ? (
+                        <Box sx={{ textAlign: 'center', py: 8 }}>
+                          <Typography color="text.secondary">수강 중인 강의가 없습니다.</Typography>
+                        </Box>
+                      ) : displayCourses.map((course) => (
                         <Box
                           key={course.id}
                           sx={{ p: 2, mb: 2, border: '1px solid #E5E5E5', borderRadius: 1 }}

@@ -381,6 +381,7 @@ const DashboardWidget = ({ title, children, action, noPadding }) => (
 // Main Home Page
 const Home = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   useAuth();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
@@ -421,12 +422,12 @@ const Home = () => {
 
   const widgets = useMemo(() => ({
     announcements: (
-      <DashboardWidget title={t('home.announcements')} action={<Button size="small" href="/announcements">{t('common.viewMore')}</Button>}>
+      <DashboardWidget title={t('home.announcements')} action={<Button size="small" onClick={() => navigate('/announcements')}>{t('common.viewMore')}</Button>}>
         <AnnouncementList announcements={dashboardData?.announcements} loading={loading} />
       </DashboardWidget>
     ),
     programs: (
-      <DashboardWidget title={t('home.ongoingPrograms')} action={<Button size="small" href="/programs">{t('common.viewMore')}</Button>}>
+      <DashboardWidget title={t('home.ongoingPrograms')} action={<Button size="small" onClick={() => navigate('/programs')}>{t('common.viewMore')}</Button>}>
         <OngoingPrograms programs={dashboardData?.programs} loading={loading} />
       </DashboardWidget>
     ),
@@ -441,7 +442,7 @@ const Home = () => {
       </DashboardWidget>
     ),
     jobs: (
-      <DashboardWidget title={t('home.jobRecommendations')} action={<Button size="small" href="/jobs">{t('common.viewMore')}</Button>}>
+      <DashboardWidget title={t('home.jobRecommendations')} action={<Button size="small" onClick={() => navigate('/jobs')}>{t('common.viewMore')}</Button>}>
         <JobRecommendations jobs={dashboardData?.jobs} loading={loading} />
       </DashboardWidget>
     ),
@@ -450,7 +451,7 @@ const Home = () => {
         <QuickAccess />
       </DashboardWidget>
     ),
-  }), [dashboardData, loading, t]);
+  }), [dashboardData, loading, t, navigate]);
 
   return (
     <Box>

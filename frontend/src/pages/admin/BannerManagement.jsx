@@ -590,13 +590,22 @@ const BannerManagement = () => {
             </Paper>
           </Box>
 
-          <Box sx={{ mt: 3 }}>
+          <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Button variant="outlined" startIcon={<ImageIcon />} onClick={() => logoInputRef.current?.click()}>
               로고 이미지 업로드
             </Button>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            <Typography variant="caption" color="text.secondary">
               권장: PNG 또는 SVG, 높이 32~40px, 투명 배경
             </Typography>
+            <Typography variant="subtitle2" fontWeight={600} sx={{ mt: 1 }}>또는 이미지 URL 붙여넣기</Typography>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="https://example.com/logo.png"
+              value={siteLogo.imageUrl?.startsWith('data:') ? '' : (siteLogo.imageUrl || '')}
+              onChange={(e) => setSiteLogo({ imageUrl: e.target.value })}
+              helperText="외부 이미지 URL을 직접 입력하세요"
+            />
           </Box>
         </Paper>
       )}
