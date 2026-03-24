@@ -20,8 +20,8 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
-  alpha,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import {
   CalendarMonth as CalendarIcon,
   ChevronLeft as PrevIcon,

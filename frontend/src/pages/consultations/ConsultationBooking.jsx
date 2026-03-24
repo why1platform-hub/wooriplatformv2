@@ -37,7 +37,7 @@ import {
 import dayjs from 'dayjs';
 import { consultationsAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
-import { hasIntakeForm } from './IntakeForm';
+import IntakeForm, { hasIntakeForm } from './IntakeForm';
 
 const methodOptions = [
   { value: '온라인', label: '온라인', icon: <OnlineIcon />, color: '#0047BA', desc: '화상 상담 (Zoom/Meet)' },
@@ -142,7 +142,37 @@ const ConsultationBooking = () => {
     return true;
   };
 
+  const [showIntake, setShowIntake] = useState(false);
   const needsIntake = user?.id && !hasIntakeForm(user.id);
+
+  // After booking, auto-show intake if needed
+  useEffect(() => {
+    if (success && needsIntake) setShowIntake(true);
+  }, [success, needsIntake]);
+
+  if (success && showIntake && needsIntake) {
+    return (
+      <Box>
+        {/* Booking confirmation banner */}
+        <Box sx={{
+          p: 2, mb: 3, borderRadius: '12px',
+          bgcolor: '#ECFDF5', border: '1px solid #A7F3D0',
+          display: 'flex', alignItems: 'center', gap: 1.5,
+        }}>
+          <CheckIcon sx={{ color: '#059669' }} />
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="body2" fontWeight={600} sx={{ color: '#065F46' }}>
+              상담 예약 완료 — {selectedConsultant?.name_ko} 상담사 | {selectedSlot?.available_date} {selectedSlot?.start_time}
+            </Typography>
+          </Box>
+        </Box>
+        <IntakeForm
+          mode="user"
+          onComplete={() => setShowIntake(false)}
+        />
+      </Box>
+    );
+  }
 
   if (success) {
     return (
@@ -154,36 +184,14 @@ const ConsultationBooking = () => {
         <Typography color="text.secondary" sx={{ mb: 1 }}>
           {selectedConsultant?.name_ko} 상담사 | {selectedSlot?.available_date} {selectedSlot?.start_time}
         </Typography>
-        <Typography color="text.secondary" sx={{ mb: needsIntake ? 3 : 4 }}>
+        <Typography color="text.secondary" sx={{ mb: 4 }}>
           상담 방법: {method} | 주제: {topic}
         </Typography>
-
-        {needsIntake && (
-          <Box sx={{
-            maxWidth: 480, mx: 'auto', mb: 4, p: 3,
-            bgcolor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '12px',
-          }}>
-            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
-              초기상담 인테이크 양식을 작성해주세요
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              상담사가 맞춤 상담을 준비할 수 있도록 기본 정보를 입력해주세요. (최초 1회만 작성)
-            </Typography>
-            <Button
-              variant="contained" fullWidth
-              onClick={() => navigate('/consultations/intake')}
-              sx={{ bgcolor: '#D97706', '&:hover': { bgcolor: '#B45309' } }}
-            >
-              인테이크 양식 작성하기
-            </Button>
-          </Box>
-        )}
-
         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
           <Button variant="outlined" onClick={() => navigate('/activities/consultations')}>
             내 상담 내역
           </Button>
-          <Button variant="contained" onClick={() => { setSuccess(false); setActiveStep(0); setSelectedConsultant(null); setSelectedSlot(null); setSelectedDate(null); setTopic(''); }}>
+          <Button variant="contained" onClick={() => { setSuccess(false); setShowIntake(false); setActiveStep(0); setSelectedConsultant(null); setSelectedSlot(null); setSelectedDate(null); setTopic(''); }}>
             새 상담 예약
           </Button>
         </Box>
