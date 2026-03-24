@@ -392,10 +392,15 @@ const ConsultationBooking = () => {
                   placeholder="예: 노후 재무 플랜 상담, 부동산 투자 전략 등"
                   fullWidth
                   multiline
-                  rows={3}
+                  minRows={6}
+                  maxRows={12}
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
-                  sx={{ mb: 4 }}
+                  sx={{
+                    mb: 4,
+                    '& .MuiInputBase-root': { minHeight: 300 },
+                    '& .MuiInputBase-input': { minHeight: '260px !important' },
+                  }}
                 />
 
                 <FormControl>

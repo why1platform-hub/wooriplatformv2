@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, TextField, InputAdornment, IconButton, Chip, Menu, MenuItem,
@@ -11,43 +11,21 @@ import {
   CheckCircle as ApproveIcon, Cancel as RejectIcon,
 } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
+import {
+  loadPrograms, savePrograms,
+  loadApplications, saveApplications,
+  getApplicationsForProgram,
+} from '../../utils/programStore';
 
-// Auto-determine status based on dates
-const autoStatus = (startDate, endDate, manualStatus) => {
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
-  if (endDate < today) return '종료';
-  if (manualStatus) return manualStatus;
-  return '모집중';
-};
-
-const INITIAL_PROGRAMS = [
-  { id: 1, title_ko: '은퇴 후 자산 관리 심화 과정', category: '금융컨설팅', status: '모집중', start_date: '2026.04.01', end_date: '2026.06.30', applicants: 12, capacity: 30, description: '은퇴를 앞두고 있거나 이미 은퇴한 분들을 위한 자산 관리 심화 프로그램입니다.' },
-  { id: 2, title_ko: '도심형 소규모 부동산 투자 전략', category: '부동산', status: '모집중', start_date: '2026.04.10', end_date: '2026.05.31', applicants: 28, capacity: 35, description: '부동산 투자의 기초부터 고급 전략까지 배웁니다.' },
-  { id: 3, title_ko: '제2의 인생, 창업 아이디어 워크숍', category: '창업', status: '마감예정', start_date: '2026.03.25', end_date: '2026.04.20', applicants: 38, capacity: 40, description: '퇴직 후 창업을 꿈꾸는 시니어를 위한 실전 프로그램입니다.' },
-  { id: 4, title_ko: '지역 사회 봉사 활동 리더 양성', category: '사회공헌', status: '진행중', start_date: '2026.03.01', end_date: '2026.08.31', applicants: 56, capacity: 100, description: '지역 사회에 기여할 수 있는 봉사 프로그램입니다.' },
-  { id: 5, title_ko: '디지털 금융 활용 교육 (시니어)', category: '금융컨설팅', status: '종료', start_date: '2025.12.25', end_date: '2026.01.15', applicants: 40, capacity: 40, description: '디지털 금융 서비스 활용법을 배웁니다.' },
-  { id: 6, title_ko: '은퇴 전문가 매칭 및 컨설팅', category: '금융컨설팅', status: '모집중', start_date: '2026.04.08', end_date: '2026.05.28', applicants: 15, capacity: 30, description: '전문가 매칭을 통한 맞춤 컨설팅 프로그램입니다.' },
-].map((p) => ({ ...p, status: autoStatus(p.start_date, p.end_date, p.status) }));
-
-const INITIAL_APPLICATIONS = [
-  { id: 1, user_name: '홍길동', email: 'hong@woori.com', program_title: '은퇴 후 자산 관리 심화 과정', applied_at: '2026.03.20', status: '승인대기' },
-  { id: 2, user_name: '김영희', email: 'kim@woori.com', program_title: '도심형 소규모 부동산 투자 전략', applied_at: '2026.03.19', status: '승인대기' },
-  { id: 3, user_name: '이철수', email: 'lee@woori.com', program_title: '제2의 인생, 창업 아이디어 워크숍', applied_at: '2026.03.18', status: '승인대기' },
-  { id: 4, user_name: '박민수', email: 'park@woori.com', program_title: '은퇴 후 자산 관리 심화 과정', applied_at: '2026.03.17', status: '승인대기' },
-  { id: 5, user_name: '정수연', email: 'jung@woori.com', program_title: '지역 사회 봉사 활동 리더 양성', applied_at: '2026.03.16', status: '승인대기' },
-  { id: 6, user_name: '강민호', email: 'kang@woori.com', program_title: '은퇴 전문가 매칭 및 컨설팅', applied_at: '2026.03.15', status: '승인' },
-  { id: 7, user_name: '윤서아', email: 'yoon@woori.com', program_title: '은퇴 후 자산 관리 심화 과정', applied_at: '2026.03.14', status: '반려' },
-];
-
-const CATEGORIES = ['금융', '부동산', '창업', '사회공헌', '교육', '기타'];
+const CATEGORIES = ['금융컨설팅', '부동산', '창업', '사회공헌', '교육', '기타'];
 const STATUS_OPTIONS = ['모집중', '마감예정', '진행중', '종료'];
 
 const ProgramManagement = () => {
   const { showSuccess } = useNotification();
 
   const [tab, setTab] = useState(0);
-  const [programs, setPrograms] = useState(INITIAL_PROGRAMS);
-  const [applications, setApplications] = useState(INITIAL_APPLICATIONS);
+  const [programs, setPrograms] = useState([]);
+  const [applications, setApplications] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -57,12 +35,28 @@ const ProgramManagement = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const [form, setForm] = useState({
-    title_ko: '', category: '금융', status: '모집중', start_date: '', end_date: '',
-    capacity: 30, description: '',
+    title_ko: '', category: '금융컨설팅', status: '모집중', start_date: '', end_date: '',
+    capacity: 30, description: '', location: '', instructor: '',
   });
 
+  // Load from shared store
+  useEffect(() => {
+    setPrograms(loadPrograms());
+    setApplications(loadApplications());
+  }, []);
+
+  // Persist programs to shared store on change
+  useEffect(() => {
+    if (programs.length > 0) savePrograms(programs);
+  }, [programs]);
+
+  // Persist applications to shared store on change
+  useEffect(() => {
+    if (applications.length > 0) saveApplications(applications);
+  }, [applications]);
+
   const getCategoryColor = (cat) => {
-    const colors = { '금융': 'primary', '부동산': 'secondary', '창업': 'warning', '사회공헌': 'success', '교육': 'info' };
+    const colors = { '금융컨설팅': 'primary', '부동산': 'secondary', '창업': 'warning', '사회공헌': 'success', '교육': 'info' };
     return colors[cat] || 'default';
   };
 
@@ -84,7 +78,7 @@ const ProgramManagement = () => {
 
   const handleAddNew = () => {
     setEditMode(false);
-    setForm({ title_ko: '', category: '금융', status: '모집중', start_date: '', end_date: '', capacity: 30, description: '' });
+    setForm({ title_ko: '', category: '금융컨설팅', status: '모집중', start_date: '', end_date: '', capacity: 30, description: '', location: '', instructor: '' });
     setDialogOpen(true);
   };
 
@@ -99,6 +93,7 @@ const ProgramManagement = () => {
       title_ko: selectedItem.title_ko, category: selectedItem.category, status: selectedItem.status,
       start_date: selectedItem.start_date, end_date: selectedItem.end_date,
       capacity: selectedItem.capacity || 30, description: selectedItem.description || '',
+      location: selectedItem.location || '', instructor: selectedItem.instructor || '',
     });
     setDialogOpen(true);
     handleMenuClose();
@@ -143,6 +138,11 @@ const ProgramManagement = () => {
     showSuccess(`${app.user_name}님의 신청이 반려되었습니다`);
   };
 
+  // Get applicants for the selected program (for detail view)
+  const selectedProgramApplicants = selectedItem
+    ? applications.filter((a) => String(a.programId) === String(selectedItem.id))
+    : [];
+
   return (
     <Box>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -181,26 +181,32 @@ const ProgramManagement = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredPrograms.map((program) => (
-                  <TableRow key={program.id} hover>
-                    <TableCell><Typography variant="body2" fontWeight={500}>{program.title_ko}</Typography></TableCell>
-                    <TableCell align="center">
-                      <Chip label={program.category} size="small" color={getCategoryColor(program.category)} variant="outlined" />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip label={program.status} size="small" color={getStatusColor(program.status)} />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="body2">{program.start_date} ~ {program.end_date}</Typography>
-                    </TableCell>
-                    <TableCell align="center">{program.applicants}/{program.capacity}명</TableCell>
-                    <TableCell align="center">
-                      <IconButton size="small" onClick={(e) => handleMenuOpen(e, program)}>
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredPrograms.map((program) => {
+                  const appCount = applications.filter(
+                    (a) => String(a.programId) === String(program.id) && a.status !== '취소' && a.status !== '반려'
+                  ).length;
+                  const displayApplicants = Math.max(program.applicants || 0, appCount);
+                  return (
+                    <TableRow key={program.id} hover>
+                      <TableCell><Typography variant="body2" fontWeight={500}>{program.title_ko}</Typography></TableCell>
+                      <TableCell align="center">
+                        <Chip label={program.category} size="small" color={getCategoryColor(program.category)} variant="outlined" />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip label={program.status} size="small" color={getStatusColor(program.status)} />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2">{program.start_date} ~ {program.end_date}</Typography>
+                      </TableCell>
+                      <TableCell align="center">{displayApplicants}/{program.capacity}명</TableCell>
+                      <TableCell align="center">
+                        <IconButton size="small" onClick={(e) => handleMenuOpen(e, program)}>
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {filteredPrograms.length === 0 && (
                   <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                     <Typography color="text.secondary">프로그램이 없습니다</Typography>
@@ -265,8 +271,8 @@ const ProgramManagement = () => {
         </MenuItem>
       </Menu>
 
-      {/* View Detail Dialog */}
-      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth
+      {/* View Detail Dialog — now includes applicant list */}
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="md" fullWidth
         PaperProps={{ sx: { borderRadius: '12px' } }}>
         <DialogTitle fontWeight={700}>프로그램 상세</DialogTitle>
         <DialogContent dividers>
@@ -275,32 +281,92 @@ const ProgramManagement = () => {
               <Typography variant="subtitle2" color="text.secondary">프로그램명</Typography>
               <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.title_ko}</Typography>
               <Grid container spacing={2}>
-                <Grid item xs={6}>
+                <Grid item xs={6} sm={3}>
                   <Typography variant="subtitle2" color="text.secondary">분야</Typography>
                   <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.category}</Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={6} sm={3}>
                   <Typography variant="subtitle2" color="text.secondary">상태</Typography>
-                  <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.status}</Typography>
+                  <Chip label={selectedItem.status} size="small" color={getStatusColor(selectedItem.status)} sx={{ mb: 2 }} />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={6} sm={3}>
                   <Typography variant="subtitle2" color="text.secondary">기간</Typography>
                   <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.start_date} ~ {selectedItem.end_date}</Typography>
                 </Grid>
-                <Grid item xs={6}>
-                  <Typography variant="subtitle2" color="text.secondary">신청/정원</Typography>
-                  <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.applicants}/{selectedItem.capacity}명</Typography>
+                <Grid item xs={6} sm={3}>
+                  <Typography variant="subtitle2" color="text.secondary">정원</Typography>
+                  <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.capacity}명</Typography>
                 </Grid>
+                {selectedItem.location && (
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="subtitle2" color="text.secondary">장소</Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.location}</Typography>
+                  </Grid>
+                )}
+                {selectedItem.instructor && (
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="subtitle2" color="text.secondary">담당 강사</Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.instructor}</Typography>
+                  </Grid>
+                )}
               </Grid>
               <Typography variant="subtitle2" color="text.secondary">설명</Typography>
-              <Typography variant="body1">{selectedItem.description || '-'}</Typography>
+              <Typography variant="body1" sx={{ mb: 3, whiteSpace: 'pre-line' }}>{selectedItem.description || '-'}</Typography>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Applicant list for this program */}
+              <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+                신청자 목록 ({selectedProgramApplicants.length}명)
+              </Typography>
+              {selectedProgramApplicants.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">신청자가 없습니다</Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>신청자</TableCell>
+                        <TableCell>이메일</TableCell>
+                        <TableCell align="center">신청일</TableCell>
+                        <TableCell align="center">상태</TableCell>
+                        <TableCell align="center">처리</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {selectedProgramApplicants.map((app) => (
+                        <TableRow key={app.id}>
+                          <TableCell>{app.user_name}</TableCell>
+                          <TableCell>{app.email}</TableCell>
+                          <TableCell align="center">{app.applied_at}</TableCell>
+                          <TableCell align="center">
+                            <Chip label={app.status} size="small" color={getStatusColor(app.status)} />
+                          </TableCell>
+                          <TableCell align="center">
+                            {app.status === '승인대기' ? (
+                              <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                <Button size="small" variant="contained" color="success"
+                                  onClick={() => handleApprove(app)} sx={{ fontSize: '0.7rem', minWidth: 0, px: 1 }}>승인</Button>
+                                <Button size="small" variant="outlined" color="error"
+                                  onClick={() => handleReject(app)} sx={{ fontSize: '0.7rem', minWidth: 0, px: 1 }}>반려</Button>
+                              </Box>
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">처리완료</Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </Box>
           )}
         </DialogContent>
         <DialogActions><Button onClick={() => setViewOpen(false)}>닫기</Button></DialogActions>
       </Dialog>
 
-      {/* Add/Edit Dialog */}
+      {/* Add/Edit Dialog — includes capacity, location, instructor */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth
         PaperProps={{ sx: { borderRadius: '12px' } }}>
         <DialogTitle fontWeight={700}>{editMode ? '프로그램 수정' : '새 프로그램 등록'}</DialogTitle>
@@ -328,7 +394,8 @@ const ProgramManagement = () => {
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField fullWidth label="정원" type="number" value={form.capacity}
-                onChange={(e) => setForm({ ...form, capacity: parseInt(e.target.value) || 0 })} />
+                onChange={(e) => setForm({ ...form, capacity: parseInt(e.target.value) || 0 })}
+                InputProps={{ inputProps: { min: 1 } }} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="시작일" placeholder="YYYY.MM.DD" value={form.start_date}
@@ -337,6 +404,14 @@ const ProgramManagement = () => {
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="종료일" placeholder="YYYY.MM.DD" value={form.end_date}
                 onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="장소" value={form.location}
+                onChange={(e) => setForm({ ...form, location: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="담당 강사" value={form.instructor}
+                onChange={(e) => setForm({ ...form, instructor: e.target.value })} />
             </Grid>
             <Grid item xs={12}>
               <TextField fullWidth label="설명" multiline rows={4} value={form.description}

@@ -22,9 +22,9 @@ import {
   Info as InfoIcon,
   HelpOutline as HelpIcon,
 } from '@mui/icons-material';
-import { programsAPI } from '../../services/api';
 import StatusBadge from '../../components/common/StatusBadge';
 import CategoryBadge from '../../components/common/CategoryBadge';
+import { loadPrograms, getUserApplication } from '../../utils/programStore';
 
 const ProgramList = () => {
   const { t } = useTranslation();
@@ -34,38 +34,13 @@ const ProgramList = () => {
   const [programs, setPrograms] = useState([]);
 
   useEffect(() => {
-    const fetchPrograms = async () => {
-      try {
-        const response = await programsAPI.getAll();
-        setPrograms(response.data.programs || []);
-      } catch (error) {
-        console.error('Failed to fetch programs:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPrograms();
+    // Load from shared localStorage store
+    const data = loadPrograms();
+    setPrograms(data);
+    setLoading(false);
   }, []);
 
-  // Mock data — aligned with admin ProgramManagement, auto-마감 for past end dates
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
-  const mockPrograms = [
-    { id: 1, title: '은퇴 후 자산 관리 심화 과정', category: '금융컨설팅', period: '2026.04.01 - 2026.06.30', status: '모집중' },
-    { id: 2, title: '도심형 소규모 부동산 투자 전략', category: '부동산', period: '2026.04.10 - 2026.05.31', status: '모집중' },
-    { id: 3, title: '제2의 인생, 창업 아이디어 워크숍', category: '창업', period: '2026.03.25 - 2026.04.20', status: '마감예정' },
-    { id: 4, title: '지역 사회 봉사 활동 리더 양성', category: '사회공헌', period: '2026.03.01 - 2026.08.31', status: '진행중' },
-    { id: 5, title: '디지털 금융 활용 교육 (시니어)', category: '금융컨설팅', period: '2025.12.25 - 2026.01.15', status: '종료' },
-    { id: 6, title: '은퇴 전문가 매칭 및 컨설팅', category: '금융컨설팅', period: '2026.04.08 - 2026.05.28', status: '모집중' },
-  ].map((p) => {
-    const endDate = p.period.split(' - ')[1];
-    if (endDate && endDate < today) return { ...p, status: '종료' };
-    return p;
-  });
-
-  const displayPrograms = programs.length > 0 ? programs : mockPrograms;
-
-  const filteredPrograms = displayPrograms.filter((program) => {
+  const filteredPrograms = programs.filter((program) => {
     if (tab === 0) return true;
     if (tab === 1) return program.status === '모집중' || program.status === '진행중';
     if (tab === 2) return program.status === '마감예정';
@@ -75,7 +50,7 @@ const ProgramList = () => {
 
   const handleApply = (programId, e) => {
     e.stopPropagation();
-    navigate(`/programs/${programId}/apply`);
+    navigate(`/programs/${programId}`);
   };
 
   return (
@@ -139,41 +114,50 @@ const ProgramList = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredPrograms.map((program) => (
-                        <TableRow
-                          key={program.id}
-                          hover
-                          sx={{ cursor: 'pointer' }}
-                          onClick={() => navigate(`/programs/${program.id}`)}
-                        >
-                          <TableCell>
-                            <Typography variant="body2" fontWeight={500}>
-                              {program.title || program.title_ko}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <CategoryBadge category={program.category} />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Typography variant="body2" color="text.secondary">
-                              {program.period || `${program.recruitment_start} - ${program.recruitment_end}`}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <StatusBadge status={program.status} />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              disabled={program.status === '종료'}
-                              onClick={(e) => handleApply(program.id, e)}
-                            >
-                              {program.status === '종료' ? '마감' : t('programs.applyNow')}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      filteredPrograms.map((program) => {
+                        const existing = getUserApplication(program.id);
+                        return (
+                          <TableRow
+                            key={program.id}
+                            hover
+                            sx={{ cursor: 'pointer' }}
+                            onClick={() => navigate(`/programs/${program.id}`)}
+                          >
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={500}>
+                                {program.title_ko || program.title}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <CategoryBadge category={program.category} />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Typography variant="body2" color="text.secondary">
+                                {program.start_date} ~ {program.end_date}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <StatusBadge status={program.status} />
+                            </TableCell>
+                            <TableCell align="center">
+                              {existing ? (
+                                <Button variant="outlined" size="small" color={existing.status === '승인' ? 'success' : 'inherit'} disabled>
+                                  {existing.status === '승인' ? '승인됨' : existing.status === '반려' ? '반려됨' : '신청완료'}
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  disabled={program.status === '종료'}
+                                  onClick={(e) => handleApply(program.id, e)}
+                                >
+                                  {program.status === '종료' ? '마감' : t('programs.applyNow')}
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>

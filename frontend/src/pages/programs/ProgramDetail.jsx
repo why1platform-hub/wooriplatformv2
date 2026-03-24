@@ -15,6 +15,7 @@ import {
   DialogContent,
   DialogActions,
   Alert,
+  Chip,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -25,24 +26,17 @@ import {
   CheckCircle as CheckIcon,
   NotificationsActive as NotifyIcon,
 } from '@mui/icons-material';
-import { programsAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
 import StatusBadge from '../../components/common/StatusBadge';
 import CategoryBadge from '../../components/common/CategoryBadge';
+import {
+  getProgramById,
+  loadApplications,
+  saveApplications,
+  getApplicationsForProgram,
+} from '../../utils/programStore';
 
-const APPLICATIONS_KEY = 'woori_program_applications';
 const NOTIFICATIONS_KEY = 'woori_program_notifications';
-
-const loadApplications = () => {
-  try {
-    const saved = localStorage.getItem(APPLICATIONS_KEY);
-    return saved ? JSON.parse(saved) : [];
-  } catch { return []; }
-};
-
-const saveApplications = (apps) => {
-  localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(apps));
-};
 
 const loadNotifications = () => {
   try {
@@ -62,85 +56,62 @@ const ProgramDetail = () => {
   const [loading, setLoading] = useState(true);
   const [program, setProgram] = useState(null);
   const [applied, setApplied] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState(null);
   const [notified, setNotified] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [currentParticipants, setCurrentParticipants] = useState(0);
 
   useEffect(() => {
-    const fetchProgram = async () => {
-      try {
-        const response = await programsAPI.getById(id);
-        setProgram(response.data.program);
-      } catch {
-        setProgram({
-          id,
-          title_ko: '은퇴 후 자산 관리 심화 과정',
-          title_en: 'Advanced Asset Management After Retirement',
-          category: '금융컨설팅',
-          status: '모집중',
-          description_ko: `본 과정은 은퇴를 앞두고 있거나 이미 은퇴한 분들을 위한 자산 관리 심화 프로그램입니다.
-
-주요 내용:
-- 은퇴 후 소득 원천 다변화 전략
-- 부동산 및 금융자산 포트폴리오 관리
-- 세금 최적화 및 상속 계획
-- 안정적인 현금흐름 창출 방법
-
-본 과정을 통해 은퇴 후에도 안정적인 재무 생활을 영위할 수 있는 역량을 키울 수 있습니다.`,
-          recruitment_start: '2026-01-05',
-          recruitment_end: '2026-01-25',
-          program_start: '2026-02-01',
-          program_end: '2026-02-28',
-          location: '우리은행 본점 교육관',
-          max_participants: 30,
-          current_participants: 12,
-          instructor: '김재무 전문위원',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProgram();
+    // Load from shared store
+    const p = getProgramById(id);
+    setProgram(p);
+    setLoading(false);
   }, [id]);
 
   // Check if already applied or notified
   useEffect(() => {
     if (!program) return;
     const apps = loadApplications();
-    const existing = apps.find((a) => String(a.programId) === String(id) && a.status !== '취소');
+    const existing = apps.find(
+      (a) => String(a.programId) === String(id) && a.status !== '취소'
+    );
     setApplied(!!existing);
-    setCurrentParticipants(program.current_participants || 0);
+    setApplicationStatus(existing?.status || null);
+
+    // Count approved + pending applicants for this program
+    const programApps = getApplicationsForProgram(id);
+    const activeCount = programApps.filter((a) => a.status !== '취소' && a.status !== '반려').length;
+    setCurrentParticipants(program.applicants || activeCount);
 
     const notifs = loadNotifications();
     setNotified(notifs.includes(String(id)));
   }, [program, id]);
 
-  const isFull = currentParticipants >= (program?.max_participants || 30);
-  const capacityPercent = Math.min(100, (currentParticipants / (program?.max_participants || 30)) * 100);
+  const maxCap = program?.capacity || 30;
+  const isFull = currentParticipants >= maxCap;
+  const capacityPercent = Math.min(100, (currentParticipants / maxCap) * 100);
 
   const handleApply = () => {
     setConfirmOpen(true);
   };
 
-  const confirmApply = async () => {
-    try {
-      await programsAPI.apply(id, {});
-    } catch {
-      // mock mode
-    }
+  const confirmApply = () => {
     const apps = loadApplications();
     apps.push({
       id: Date.now(),
       programId: String(id),
-      title: program.title_ko || program.title,
+      user_name: '나 (현재 사용자)',
+      email: 'me@woori.com',
+      program_title: program.title_ko || program.title,
       category: program.category,
       status: '승인대기',
+      applied_at: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
       date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
     });
     saveApplications(apps);
     setApplied(true);
+    setApplicationStatus('승인대기');
     setCurrentParticipants((p) => p + 1);
     setConfirmOpen(false);
     showSuccess('프로그램 신청이 완료되었습니다!');
@@ -159,6 +130,7 @@ const ProgramDetail = () => {
     );
     saveApplications(updated);
     setApplied(false);
+    setApplicationStatus(null);
     setCurrentParticipants((p) => Math.max(0, p - 1));
     setCancelOpen(false);
     showSuccess('신청이 취소되었습니다.');
@@ -196,6 +168,9 @@ const ProgramDetail = () => {
     );
   }
 
+  const statusLabel = applicationStatus === '승인' ? '승인 완료' : applicationStatus === '반려' ? '반려됨' : '승인 대기 중';
+  const statusSeverity = applicationStatus === '승인' ? 'success' : applicationStatus === '반려' ? 'error' : 'info';
+
   return (
     <Box>
       <Button
@@ -219,11 +194,6 @@ const ProgramDetail = () => {
                 <Typography variant="h5" fontWeight={700}>
                   {program.title_ko || program.title}
                 </Typography>
-                {program.title_en && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    {program.title_en}
-                  </Typography>
-                )}
               </Box>
 
               <Divider sx={{ my: 3 }} />
@@ -233,20 +203,9 @@ const ProgramDetail = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                     <CalendarIcon color="action" fontSize="small" />
                     <Box>
-                      <Typography variant="caption" color="text.secondary">모집 기간</Typography>
-                      <Typography variant="body2">
-                        {program.recruitment_start} ~ {program.recruitment_end}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <CalendarIcon color="action" fontSize="small" />
-                    <Box>
                       <Typography variant="caption" color="text.secondary">프로그램 기간</Typography>
                       <Typography variant="body2">
-                        {program.program_start} ~ {program.program_end}
+                        {program.start_date} ~ {program.end_date}
                       </Typography>
                     </Box>
                   </Box>
@@ -269,6 +228,15 @@ const ProgramDetail = () => {
                     </Box>
                   </Box>
                 </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                    <GroupIcon color="action" fontSize="small" />
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">정원</Typography>
+                      <Typography variant="body2">{maxCap}명</Typography>
+                    </Box>
+                  </Box>
+                </Grid>
               </Grid>
 
               <Divider sx={{ my: 3 }} />
@@ -277,7 +245,7 @@ const ProgramDetail = () => {
                 프로그램 소개
               </Typography>
               <Typography variant="body2" sx={{ whiteSpace: 'pre-line', lineHeight: 1.8 }}>
-                {program.description_ko || program.description || '상세 설명이 없습니다.'}
+                {program.description || '상세 설명이 없습니다.'}
               </Typography>
             </CardContent>
           </Card>
@@ -295,7 +263,7 @@ const ProgramDetail = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <GroupIcon color="action" />
                 <Typography variant="body2" fontWeight={500}>
-                  {currentParticipants} / {program.max_participants || 30}명 신청
+                  {currentParticipants} / {maxCap}명 신청
                 </Typography>
               </Box>
 
@@ -318,15 +286,19 @@ const ProgramDetail = () => {
                     {isFull ? '마감' : `${Math.round(capacityPercent)}% 모집 완료`}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    잔여 {Math.max(0, (program.max_participants || 30) - currentParticipants)}석
+                    잔여 {Math.max(0, maxCap - currentParticipants)}석
                   </Typography>
                 </Box>
               </Box>
 
               {/* Status alerts */}
               {applied && (
-                <Alert severity="success" icon={<CheckIcon />} sx={{ mb: 2, fontSize: '0.85rem' }}>
-                  신청 완료! 승인 결과를 기다려주세요.
+                <Alert severity={statusSeverity} icon={<CheckIcon />} sx={{ mb: 2, fontSize: '0.85rem' }}>
+                  {applicationStatus === '승인'
+                    ? '신청이 승인되었습니다!'
+                    : applicationStatus === '반려'
+                    ? '신청이 반려되었습니다.'
+                    : '신청 완료! 승인 결과를 기다려주세요.'}
                 </Alert>
               )}
 
@@ -336,13 +308,19 @@ const ProgramDetail = () => {
                   모집 마감
                 </Button>
               ) : applied ? (
-                <Button
-                  fullWidth variant="outlined" color="error" size="large"
-                  onClick={handleCancel}
-                  sx={{ py: 1.5 }}
-                >
-                  신청 취소
-                </Button>
+                applicationStatus === '반려' ? (
+                  <Button fullWidth variant="contained" size="large" disabled sx={{ py: 1.5 }}>
+                    반려됨
+                  </Button>
+                ) : (
+                  <Button
+                    fullWidth variant="outlined" color="error" size="large"
+                    onClick={handleCancel}
+                    sx={{ py: 1.5 }}
+                  >
+                    신청 취소
+                  </Button>
+                )
               ) : isFull ? (
                 <Button
                   fullWidth variant="contained" size="large"
@@ -386,7 +364,7 @@ const ProgramDetail = () => {
             <strong>"{program.title_ko || program.title}"</strong> 프로그램을 신청하시겠습니까?
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            현재 {currentParticipants}/{program.max_participants || 30}명 신청 중
+            현재 {currentParticipants}/{maxCap}명 신청 중
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
