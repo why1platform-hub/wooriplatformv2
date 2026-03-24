@@ -30,7 +30,7 @@ const FAQ = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [expanded, setExpanded] = useState(null);
-  const [showViewCount, setShowViewCount] = useState(() => {
+  const [showViewCount] = useState(() => {
     try {
       const saved = localStorage.getItem(FAQ_SETTINGS_KEY);
       if (saved) return JSON.parse(saved).showViewCount === true;

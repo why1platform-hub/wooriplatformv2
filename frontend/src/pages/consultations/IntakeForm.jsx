@@ -15,13 +15,8 @@ import {
   Checkbox,
   Radio,
   RadioGroup,
-  Divider,
   Alert,
-  Chip,
   Rating,
-  MenuItem,
-  Select,
-  InputLabel,
   Paper,
 } from '@mui/material';
 import {
@@ -210,7 +205,7 @@ const defaultFormData = {
 const IntakeForm = ({ mode = 'user', userId: propUserId, onComplete }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const { showSuccess } = useNotification();
 
   const isConsultantMode = mode === 'consultant' || searchParams.get('mode') === 'consultant';
