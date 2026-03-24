@@ -373,7 +373,7 @@ const IntakeForm = ({ mode = 'user', userId: propUserId, onComplete }) => {
             </Grid>
             <Grid item xs={12}>
               <TextField
-                fullWidth size="small" multiline rows={3}
+                fullWidth multiline rows={5}
                 label="퇴직 후 현재까지의 상황 (자유 기술)"
                 placeholder="퇴직 후 어떤 활동을 하셨는지, 현재 어떤 고민이 있는지 자유롭게 작성해주세요."
                 value={formData.currentSituation}
@@ -391,7 +391,7 @@ const IntakeForm = ({ mode = 'user', userId: propUserId, onComplete }) => {
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
-                fullWidth size="small" multiline rows={3}
+                fullWidth multiline rows={5}
                 label="주요 수행 업무 (자유 기술)"
                 placeholder="재직 중 주로 수행한 업무를 기술해주세요."
                 value={formData.mainDuties}
@@ -622,7 +622,7 @@ const IntakeForm = ({ mode = 'user', userId: propUserId, onComplete }) => {
             </Grid>
             <Grid item xs={12}>
               <TextField
-                fullWidth size="small" multiline rows={3}
+                fullWidth multiline rows={5}
                 label="프로그램에 바라는 점 / 기타 요청사항 (자유 기술)"
                 placeholder="기타 요청사항이 있으시면 자유롭게 작성해주세요."
                 value={formData.additionalRequests}
