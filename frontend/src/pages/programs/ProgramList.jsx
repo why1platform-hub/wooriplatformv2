@@ -48,15 +48,20 @@ const ProgramList = () => {
     fetchPrograms();
   }, []);
 
-  // Mock data
+  // Mock data — aligned with admin ProgramManagement, auto-마감 for past end dates
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
   const mockPrograms = [
-    { id: 1, title: '은퇴 후 자산 관리 심화 과정', category: '금융컨설팅', period: '2026.01.05 - 2026.01.25', status: '모집중' },
-    { id: 2, title: '도심형 소규모 부동산 투자 전략', category: '부동산', period: '2026.01.10 - 2026.01.31', status: '모집중' },
-    { id: 3, title: '제2의 인생, 창업 아이디어 워크숍', category: '창업', period: '2026.01.01 - 2026.01.20', status: '마감예정' },
-    { id: 4, title: '지역 사회 봉사 활동 리더 양성', category: '사회공헌', period: '2026.01.15 - 2026.02.15', status: '모집중' },
+    { id: 1, title: '은퇴 후 자산 관리 심화 과정', category: '금융컨설팅', period: '2026.04.01 - 2026.06.30', status: '모집중' },
+    { id: 2, title: '도심형 소규모 부동산 투자 전략', category: '부동산', period: '2026.04.10 - 2026.05.31', status: '모집중' },
+    { id: 3, title: '제2의 인생, 창업 아이디어 워크숍', category: '창업', period: '2026.03.25 - 2026.04.20', status: '마감예정' },
+    { id: 4, title: '지역 사회 봉사 활동 리더 양성', category: '사회공헌', period: '2026.03.01 - 2026.08.31', status: '진행중' },
     { id: 5, title: '디지털 금융 활용 교육 (시니어)', category: '금융컨설팅', period: '2025.12.25 - 2026.01.15', status: '종료' },
-    { id: 6, title: '은퇴 전문가 매칭 및 컨설팅', category: '금융컨설팅', period: '2026.01.08 - 2026.01.28', status: '모집중' },
-  ];
+    { id: 6, title: '은퇴 전문가 매칭 및 컨설팅', category: '금융컨설팅', period: '2026.04.08 - 2026.05.28', status: '모집중' },
+  ].map((p) => {
+    const endDate = p.period.split(' - ')[1];
+    if (endDate && endDate < today) return { ...p, status: '종료' };
+    return p;
+  });
 
   const displayPrograms = programs.length > 0 ? programs : mockPrograms;
 

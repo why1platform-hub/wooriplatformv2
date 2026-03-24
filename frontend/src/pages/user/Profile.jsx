@@ -51,7 +51,9 @@ const Profile = () => {
     <Box>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>내 프로필</Typography>
-        <Typography variant="body2" color="text.secondary">개인정보를 확인하고 수정합니다.</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {user?.name_ko || user?.name_en || '회원'}님, 환영합니다! 개인정보를 확인하고 수정할 수 있습니다.
+        </Typography>
       </Box>
 
       <Grid container spacing={3}>
