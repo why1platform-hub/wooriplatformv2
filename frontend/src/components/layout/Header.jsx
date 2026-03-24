@@ -58,7 +58,6 @@ const navItems = [
       { label: '상담 기록', path: '/activities/consultations' },
       { label: '수강 현황', path: '/activities/courses' },
       { label: '상담 예약', path: '/consultations/booking' },
-      { label: '인테이크 양식', path: '/consultations/intake' },
       { label: '상담 일정 관리', path: '/consultations/schedule' },
     ],
   },
