@@ -86,21 +86,14 @@ const ConsultantSchedule = () => {
     return slots;
   };
 
+  // Use mock data directly to avoid 401 redirect from non-existent backend
   useEffect(() => {
-    const fetchSlots = async () => {
-      setLoading(true);
-      try {
-        const dateFrom = weekDays[0].format('YYYY-MM-DD');
-        const dateTo = weekDays[4].format('YYYY-MM-DD');
-        const response = await consultationsAPI.getMyAvailability({ date_from: dateFrom, date_to: dateTo });
-        setMySlots(response.data.length > 0 ? response.data : generateMockSlots());
-      } catch {
-        setMySlots(generateMockSlots());
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSlots();
+    setLoading(true);
+    const timer = setTimeout(() => {
+      setMySlots(generateMockSlots());
+      setLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWeek]);
 
