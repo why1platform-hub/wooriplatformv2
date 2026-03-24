@@ -18,7 +18,6 @@ import {
   Grid,
   LinearProgress,
   Skeleton,
-  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -29,8 +28,8 @@ import {
   IconButton,
   TextField,
   Paper,
-  alpha,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import {
   Assignment as AssignmentIcon,
   EventNote as EventIcon,
@@ -354,34 +353,64 @@ const MyActivities = () => {
                         <Box sx={{ textAlign: 'center', py: 8 }}>
                           <Typography color="text.secondary">수강 중인 강의가 없습니다.</Typography>
                         </Box>
-                      ) : displayCourses.map((course) => (
-                        <Box
-                          key={course.id}
-                          sx={{ p: 2, mb: 2, border: '1px solid #E5E5E5', borderRadius: 1 }}
-                        >
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                            <Typography variant="subtitle1" fontWeight={500}>
-                              {course.title || course.course?.title_ko}
-                            </Typography>
-                            <StatusBadge status={course.status || (course.progress === 100 ? '완료' : '진행중')} />
-                          </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Box sx={{ flex: 1 }}>
-                              <LinearProgress
-                                variant="determinate"
-                                value={course.progress || course.progress_percent || 0}
-                                sx={{ height: 8, borderRadius: 4 }}
+                      ) : displayCourses.map((course) => {
+                        const progress = course.progress || course.progress_percent || 0;
+                        const isComplete = progress === 100;
+                        return (
+                          <Box
+                            key={course.id}
+                            onClick={() => navigate(`/learning/${course.course_id || course.id}`)}
+                            sx={{
+                              p: 2, mb: 2, borderRadius: '10px', cursor: 'pointer',
+                              border: '1px solid',
+                              borderColor: isComplete ? '#0047BA' : '#E5E5E5',
+                              bgcolor: isComplete ? '#0047BA' : '#fff',
+                              color: isComplete ? '#fff' : 'inherit',
+                              opacity: isComplete ? 1 : 0.7,
+                              transition: 'all 0.2s ease',
+                              '&:hover': {
+                                opacity: 1,
+                                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+                                borderColor: isComplete ? '#003399' : '#C5D1E0',
+                              },
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                              <Typography variant="subtitle1" fontWeight={500}>
+                                {course.title || course.course?.title_ko}
+                              </Typography>
+                              <Chip
+                                label={isComplete ? '참여완료' : '진행중'}
+                                size="small"
+                                sx={{
+                                  fontWeight: 600, fontSize: '0.75rem',
+                                  bgcolor: isComplete ? 'rgba(255,255,255,0.2)' : '#DBEAFE',
+                                  color: isComplete ? '#fff' : '#1E40AF',
+                                }}
                               />
                             </Box>
-                            <Typography variant="body2" fontWeight={500}>
-                              {course.progress || course.progress_percent || 0}%
-                            </Typography>
-                            <Button size="small" variant="outlined">
-                              {course.progress === 100 ? '수료증' : '계속 학습'}
-                            </Button>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <Box sx={{ flex: 1 }}>
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={progress}
+                                  sx={{
+                                    height: 8, borderRadius: 4,
+                                    bgcolor: isComplete ? 'rgba(255,255,255,0.2)' : '#E5E7EB',
+                                    '& .MuiLinearProgress-bar': {
+                                      bgcolor: isComplete ? '#fff' : '#0047BA',
+                                      borderRadius: 4,
+                                    },
+                                  }}
+                                />
+                              </Box>
+                              <Typography variant="body2" fontWeight={600} sx={{ color: isComplete ? '#fff' : 'text.primary' }}>
+                                {progress}%
+                              </Typography>
+                            </Box>
                           </Box>
-                        </Box>
-                      ))}
+                        );
+                      })}
                     </Box>
                   )}
                 </>

@@ -316,14 +316,13 @@ const AdminDashboard = () => {
     <Box>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>관리자 대시보드</Typography>
-        <Typography variant="body2" color="text.secondary">2026년 2월 27일 기준 종합 현황</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>관리자 대시보드</Typography>
       </Box>
 
       {/* KPI Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {kpiData.map((kpi) => (
-          <Grid item xs={6} sm={4} md={2} key={kpi.id}>
+          <Grid item xs={6} sm={4} md={4} lg={2} key={kpi.id}>
             <Paper
               elevation={0}
               sx={{

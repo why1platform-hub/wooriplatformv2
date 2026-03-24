@@ -32,9 +32,17 @@ const FAQ = lazy(() => import('./pages/support/FAQ'));
 const Inquiry = lazy(() => import('./pages/support/Inquiry'));
 const InquiryList = lazy(() => import('./pages/support/InquiryList'));
 
+// User pages
+const Profile = lazy(() => import('./pages/user/Profile'));
+const UserSettings = lazy(() => import('./pages/user/UserSettings'));
+
 // Consultation pages
 const ConsultationBooking = lazy(() => import('./pages/consultations/ConsultationBooking'));
 const ConsultantSchedule = lazy(() => import('./pages/consultations/ConsultantSchedule'));
+const IntakeForm = lazy(() => import('./pages/consultations/IntakeForm'));
+
+// Policy page (public)
+const PolicyPage = lazy(() => import('./pages/support/PolicyPage'));
 
 // Admin pages
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
@@ -128,6 +136,9 @@ const AppRoutes = () => {
           }
         />
 
+        {/* Public policy pages - accessible without login */}
+        <Route path="/policy/:type" element={<PolicyPage />} />
+
         {/* Admin routes - separate CMS layout */}
         <Route
           path="/admin/*"
@@ -219,7 +230,10 @@ const AppRoutes = () => {
                   {/* Home */}
                   <Route path="/" element={<Home />} />
                   <Route path="/announcements" element={<Notices />} />
-                  <Route path="/calendar" element={<Home />} />
+
+                  {/* User Profile & Settings */}
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/settings" element={<UserSettings />} />
 
                   {/* Programs */}
                   <Route path="/programs" element={<ProgramList />} />
@@ -236,6 +250,8 @@ const AppRoutes = () => {
                   {/* Consultations */}
                   <Route path="/consultations/booking" element={<ConsultationBooking />} />
                   <Route path="/consultations/schedule" element={<ConsultantSchedule />} />
+                  <Route path="/consultations/intake" element={<IntakeForm />} />
+                  <Route path="/consultations/intake/:userId" element={<IntakeForm mode="consultant" />} />
 
                   {/* Jobs */}
                   <Route path="/jobs" element={<JobList />} />

@@ -1,20 +1,18 @@
 import { createTheme } from '@mui/material/styles';
 
-// Woori Bank Design System Colors
 const wooriColors = {
-  primary: '#0047BA',      // Woori Blue - main buttons, links, emphasis
-  background: '#FFFFFF',   // Full page background
-  sectionBg: '#F8F9FA',    // Section backgrounds, cards
-  text: '#333333',         // Body text
-  border: '#E5E5E5',       // Borders, dividers
-  // Status colors
-  success: '#28A745',      // 모집중 (green)
-  warning: '#F59E0B',      // 마감예정 (orange)
-  error: '#DC3545',        // 긴급 (red)
-  info: '#17A2B8',         // 안내 (blue)
+  primary: '#0047BA',
+  background: '#FFFFFF',
+  sectionBg: '#FAFBFC',
+  text: '#1a1a1a',
+  textSecondary: '#6B7280',
+  border: '#EAEDF0',
+  success: '#28A745',
+  warning: '#F59E0B',
+  error: '#DC3545',
+  info: '#17A2B8',
 };
 
-// Category badge colors
 export const categoryColors = {
   '금융컨설팅': '#0047BA',
   '부동산': '#059669',
@@ -26,9 +24,9 @@ export const categoryColors = {
   '재무': '#0891B2',
 };
 
-// Status badge colors
 export const statusColors = {
   '모집중': { bg: '#DCFCE7', text: '#166534' },
+  '접수중': { bg: '#DBEAFE', text: '#1E40AF' },
   '마감예정': { bg: '#FEF3C7', text: '#92400E' },
   '종료': { bg: '#F3F4F6', text: '#6B7280' },
   '진행중': { bg: '#DBEAFE', text: '#1E40AF' },
@@ -57,170 +55,109 @@ const theme = createTheme({
     },
     text: {
       primary: wooriColors.text,
-      secondary: '#6B7280',
+      secondary: wooriColors.textSecondary,
     },
     divider: wooriColors.border,
-    success: {
-      main: wooriColors.success,
-    },
-    warning: {
-      main: wooriColors.warning,
-    },
-    error: {
-      main: wooriColors.error,
-    },
-    info: {
-      main: wooriColors.info,
-    },
+    success: { main: wooriColors.success },
+    warning: { main: wooriColors.warning },
+    error: { main: wooriColors.error },
+    info: { main: wooriColors.info },
   },
   typography: {
     fontFamily: '"Pretendard", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     fontSize: 14,
-    h1: {
-      fontSize: '2rem',
-      fontWeight: 700,
-      lineHeight: 1.5,
-    },
-    h2: {
-      fontSize: '1.5rem',
-      fontWeight: 700,
-      lineHeight: 1.5,
-    },
-    h3: {
-      fontSize: '1.25rem',
-      fontWeight: 700,
-      lineHeight: 1.5,
-    },
-    h4: {
-      fontSize: '1.125rem',
-      fontWeight: 600,
-      lineHeight: 1.5,
-    },
-    h5: {
-      fontSize: '1rem',
-      fontWeight: 600,
-      lineHeight: 1.5,
-    },
-    h6: {
-      fontSize: '0.875rem',
-      fontWeight: 600,
-      lineHeight: 1.5,
-    },
-    body1: {
-      fontSize: '1rem',
-      lineHeight: 1.6,
-    },
-    body2: {
-      fontSize: '0.875rem',
-      lineHeight: 1.6,
-    },
-    button: {
-      textTransform: 'none',
-      fontWeight: 500,
-    },
+    h1: { fontSize: '2rem', fontWeight: 700, lineHeight: 1.4 },
+    h2: { fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.4 },
+    h3: { fontSize: '1.25rem', fontWeight: 700, lineHeight: 1.4 },
+    h4: { fontSize: '1.125rem', fontWeight: 600, lineHeight: 1.4 },
+    h5: { fontSize: '1rem', fontWeight: 600, lineHeight: 1.5 },
+    h6: { fontSize: '0.875rem', fontWeight: 600, lineHeight: 1.5 },
+    body1: { fontSize: '0.95rem', lineHeight: 1.6 },
+    body2: { fontSize: '0.875rem', lineHeight: 1.6 },
+    button: { textTransform: 'none', fontWeight: 500 },
   },
   shape: {
-    borderRadius: 4,
+    borderRadius: 8,
   },
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 4,
+          borderRadius: 8,
           padding: '8px 16px',
           fontWeight: 500,
+          fontSize: '0.875rem',
         },
         outlined: {
-          borderColor: wooriColors.primary,
+          borderColor: wooriColors.border,
           '&:hover': {
-            backgroundColor: wooriColors.primary,
-            color: '#FFFFFF',
+            borderColor: wooriColors.primary,
+            backgroundColor: 'rgba(0, 71, 186, 0.04)',
           },
         },
         contained: {
           boxShadow: 'none',
-          '&:hover': {
-            boxShadow: 'none',
-          },
+          '&:hover': { boxShadow: 'none' },
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 4,
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          borderRadius: 12,
+          boxShadow: 'none',
           border: `1px solid ${wooriColors.border}`,
         },
       },
     },
     MuiPaper: {
       styleOverrides: {
-        root: {
-          borderRadius: 4,
-        },
-        elevation1: {
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-        },
+        root: { borderRadius: 12 },
+        elevation0: { boxShadow: 'none' },
+        elevation1: { boxShadow: '0 1px 3px rgba(0, 0, 0, 0.06)' },
       },
     },
     MuiTableHead: {
       styleOverrides: {
         root: {
           backgroundColor: wooriColors.sectionBg,
-          '& .MuiTableCell-head': {
-            fontWeight: 600,
-            color: wooriColors.text,
-          },
+          '& .MuiTableCell-head': { fontWeight: 600, color: wooriColors.text },
         },
       },
     },
     MuiTableCell: {
       styleOverrides: {
-        root: {
-          borderBottom: `1px solid ${wooriColors.border}`,
-          padding: '12px 16px',
-        },
+        root: { borderBottom: `1px solid ${wooriColors.border}`, padding: '12px 16px' },
       },
     },
     MuiChip: {
       styleOverrides: {
-        root: {
-          borderRadius: 4,
-          fontWeight: 500,
-        },
+        root: { borderRadius: 6, fontWeight: 500 },
       },
     },
     MuiTab: {
       styleOverrides: {
-        root: {
-          textTransform: 'none',
-          fontWeight: 500,
-          minWidth: 120,
-        },
+        root: { textTransform: 'none', fontWeight: 500, minWidth: 100 },
       },
     },
     MuiAppBar: {
       styleOverrides: {
-        root: {
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-        },
+        root: { boxShadow: '0 1px 0 rgba(0, 0, 0, 0.06)' },
       },
     },
     MuiDrawer: {
       styleOverrides: {
-        paper: {
-          borderRight: `1px solid ${wooriColors.border}`,
-        },
+        paper: { borderRight: 'none' },
       },
     },
     MuiTextField: {
       styleOverrides: {
-        root: {
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 4,
-          },
-        },
+        root: { '& .MuiOutlinedInput-root': { borderRadius: 8 } },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: { borderRadius: 16 },
       },
     },
   },

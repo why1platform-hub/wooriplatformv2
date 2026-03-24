@@ -10,6 +10,8 @@ import {
   Delete as DeleteIcon, Add as AddIcon, Edit as EditIcon,
   ArrowBack as ArrowBackIcon, ArrowForward as ArrowForwardIcon,
   BrandingWatermark as LogoIcon, Slideshow as SlideshowIcon,
+  Home as HomeIcon,
+  ChevronLeft, ChevronRight,
 } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
 
@@ -56,6 +58,43 @@ const DEFAULT_SLIDES = [
   { id: 4, active: true, title: '창업 지원 서비스', subtitle: '성공적인 창업을 위한 첫걸음', imageUrl: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&h=450&fit=crop' },
 ];
 
+const createDefaultHomeBanner = (id) => ({
+  id,
+  active: true,
+  title: '',
+  subtitle: '',
+  imageUrl: '',
+  linkUrl: '',
+  linkText: '자세히 보기',
+});
+
+const DEFAULT_HOME_BANNERS = [
+  {
+    id: 1, active: true,
+    title: '2026년도 연간 교육 일정 안내',
+    subtitle: '퇴직자 종사자를 위한',
+    imageUrl: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=1200&h=500&fit=crop',
+    linkUrl: '/programs',
+    linkText: '자세히 보기',
+  },
+  {
+    id: 2, active: true,
+    title: '맞춤형 재취업 컨설팅 오픈',
+    subtitle: '전문가와 함께하는 커리어 설계',
+    imageUrl: 'https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=1200&h=500&fit=crop',
+    linkUrl: '/consultations/booking',
+    linkText: '자세히 보기',
+  },
+  {
+    id: 3, active: true,
+    title: '새로운 온라인 강좌 오픈',
+    subtitle: '언제 어디서나 학습하세요',
+    imageUrl: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=1200&h=500&fit=crop',
+    linkUrl: '/learning',
+    linkText: '자세히 보기',
+  },
+];
+
 const BannerManagement = () => {
   const { showSuccess } = useNotification();
   const [tab, setTab] = useState(0);
@@ -67,6 +106,7 @@ const BannerManagement = () => {
   const imageInputRef = useRef(null);
   const logoInputRef = useRef(null);
   const slideImageInputRef = useRef(null);
+  const homeBannerImageInputRef = useRef(null);
 
   // Load saved popup banners
   const [popups, setPopups] = useState(() => {
@@ -113,6 +153,16 @@ const BannerManagement = () => {
     } catch { return DEFAULT_SLIDES; }
   });
 
+  // Load home page banners
+  const [homeBanners, setHomeBanners] = useState(() => {
+    try {
+      const saved = localStorage.getItem('woori_home_banners');
+      return saved ? JSON.parse(saved) : DEFAULT_HOME_BANNERS;
+    } catch { return DEFAULT_HOME_BANNERS; }
+  });
+  const [editingHomeBannerIndex, setEditingHomeBannerIndex] = useState(null);
+  const [homeBannerPreviewIndex, setHomeBannerPreviewIndex] = useState(0);
+
   // ─── Save handlers ─────────────────────────────────
   const handleSavePopups = () => {
     localStorage.setItem('woori_popup_banners', JSON.stringify(popups));
@@ -135,6 +185,11 @@ const BannerManagement = () => {
   const handleSaveSlides = () => {
     localStorage.setItem('woori_landing_slides', JSON.stringify(slides));
     showSuccess('랜딩 배너가 저장되었습니다. 새로고침 후 반영됩니다.');
+  };
+
+  const handleSaveHomeBanners = () => {
+    localStorage.setItem('woori_home_banners', JSON.stringify(homeBanners));
+    showSuccess('홈 배너가 저장되었습니다. 새로고침 후 반영됩니다.');
   };
 
   // ─── Popup handlers ─────────────────────────────────
@@ -216,6 +271,33 @@ const BannerManagement = () => {
     reader.readAsDataURL(file);
   };
 
+  // ─── Home Banner handlers ─────────────────────────────────
+  const addHomeBanner = () => {
+    const newId = Math.max(0, ...homeBanners.map((b) => b.id)) + 1;
+    setHomeBanners((prev) => [...prev, createDefaultHomeBanner(newId)]);
+    setEditingHomeBannerIndex(homeBanners.length);
+  };
+
+  const removeHomeBanner = (index) => {
+    setHomeBanners((prev) => prev.filter((_, i) => i !== index));
+    if (editingHomeBannerIndex === index) setEditingHomeBannerIndex(null);
+    else if (editingHomeBannerIndex !== null && editingHomeBannerIndex > index) setEditingHomeBannerIndex(editingHomeBannerIndex - 1);
+  };
+
+  const updateHomeBanner = (index, field, value) => {
+    setHomeBanners((prev) => prev.map((b, i) => i === index ? { ...b, [field]: value } : b));
+  };
+
+  const handleHomeBannerImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || editingHomeBannerIndex === null) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      updateHomeBanner(editingHomeBannerIndex, 'imageUrl', ev.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const activePreviewPopups = popups.filter((p) => p.active);
 
   return (
@@ -223,21 +305,179 @@ const BannerManagement = () => {
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>배너 관리</Typography>
         <Typography variant="body2" color="text.secondary">
-          팝업 배너, 하단 롤링 배너, 랜딩 배너, 사이트 로고를 관리합니다
+          홈 배너, 팝업 배너, 하단 롤링 배너, 랜딩 배너, 사이트 로고를 관리합니다
         </Typography>
       </Box>
 
-      <Tabs value={tab} onChange={(_, v) => { setTab(v); setEditingIndex(null); setEditingSlideIndex(null); }}
+      <Tabs value={tab} onChange={(_, v) => { setTab(v); setEditingIndex(null); setEditingSlideIndex(null); setEditingHomeBannerIndex(null); }}
         sx={{ mb: 3, '& .MuiTab-root': { fontSize: '0.875rem' } }}
         variant="scrollable" scrollButtons="auto">
+        <Tab icon={<HomeIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="홈 배너" />
         <Tab icon={<BannerIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="팝업 배너" />
         <Tab icon={<TextIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="하단 롤링 배너" />
         <Tab icon={<SlideshowIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="랜딩 배너" />
         <Tab icon={<LogoIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="사이트 로고" />
       </Tabs>
 
-      {/* ─── Tab 0: Popup Banners ─────────────────────────────── */}
+      {/* ─── Tab 0: Home Banner Management ─────────────────────── */}
       {tab === 0 && (
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" fontWeight={600} fontSize="0.9375rem">
+              홈 페이지 롤링 배너 ({homeBanners.length}개)
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button size="small" variant="outlined" startIcon={<PreviewIcon />}
+                onClick={() => { setPreviewType('homeBanner'); setHomeBannerPreviewIndex(0); setPreviewOpen(true); }}
+                disabled={homeBanners.filter((b) => b.active).length === 0}>
+                미리보기
+              </Button>
+              <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={handleSaveHomeBanners}>
+                저장
+              </Button>
+            </Box>
+          </Box>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            로그인 후 홈 페이지 상단에 표시되는 롤링 배너를 관리합니다. 이미지, 제목, 부제목, 링크를 설정할 수 있습니다.
+          </Typography>
+
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            {homeBanners.map((banner, index) => (
+              <Grid item xs={12} sm={6} md={4} key={banner.id}>
+                <Card variant="outlined" sx={{
+                  borderRadius: '12px',
+                  borderColor: editingHomeBannerIndex === index ? 'primary.main' : 'divider',
+                  borderWidth: editingHomeBannerIndex === index ? 2 : 1,
+                  opacity: banner.active ? 1 : 0.6,
+                }}>
+                  {banner.imageUrl ? (
+                    <Box sx={{
+                      width: '100%', height: 140, position: 'relative',
+                      backgroundImage: `linear-gradient(90deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 100%), url(${banner.imageUrl})`,
+                      backgroundSize: 'cover', backgroundPosition: 'center',
+                      display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', p: 1.5,
+                    }}>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.65rem' }}>{banner.subtitle}</Typography>
+                      <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 700, lineHeight: 1.2 }}>{banner.title || '(제목 없음)'}</Typography>
+                    </Box>
+                  ) : (
+                    <Box sx={{ width: '100%', height: 140, bgcolor: '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <ImageIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
+                    </Box>
+                  )}
+                  <CardContent sx={{ pb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                      <Chip label={banner.active ? '활성' : '비활성'} size="small"
+                        color={banner.active ? 'success' : 'default'} />
+                      <Switch size="small" checked={banner.active}
+                        onChange={(e) => updateHomeBanner(index, 'active', e.target.checked)} />
+                    </Box>
+                    {banner.linkUrl && (
+                      <Typography variant="caption" color="text.secondary">
+                        링크: {banner.linkUrl}
+                      </Typography>
+                    )}
+                  </CardContent>
+                  <CardActions sx={{ pt: 0, px: 2, pb: 1.5 }}>
+                    <Button size="small" startIcon={<EditIcon />}
+                      onClick={() => setEditingHomeBannerIndex(editingHomeBannerIndex === index ? null : index)}>
+                      편집
+                    </Button>
+                    <Box sx={{ flex: 1 }} />
+                    <IconButton size="small" color="error" onClick={() => removeHomeBanner(index)}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
+
+            <Grid item xs={12} sm={6} md={4}>
+              <Card variant="outlined" sx={{
+                borderRadius: '12px', borderStyle: 'dashed', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', minHeight: 220,
+                cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' },
+              }}
+                onClick={addHomeBanner}>
+                <Box sx={{ textAlign: 'center', p: 2 }}>
+                  <AddIcon sx={{ fontSize: 32, color: 'text.secondary', mb: 0.5 }} />
+                  <Typography variant="body2" color="text.secondary">새 배너 추가</Typography>
+                </Box>
+              </Card>
+            </Grid>
+          </Grid>
+
+          {editingHomeBannerIndex !== null && homeBanners[editingHomeBannerIndex] && (
+            <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'primary.main', borderRadius: '12px' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight={600}>
+                  배너 #{editingHomeBannerIndex + 1} 편집
+                </Typography>
+                <IconButton size="small" onClick={() => setEditingHomeBannerIndex(null)}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth label="제목" placeholder="2026년도 연간 교육 일정 안내"
+                    value={homeBanners[editingHomeBannerIndex].title}
+                    onChange={(e) => updateHomeBanner(editingHomeBannerIndex, 'title', e.target.value)} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth label="부제목" placeholder="퇴직자 종사자를 위한"
+                    value={homeBanners[editingHomeBannerIndex].subtitle}
+                    onChange={(e) => updateHomeBanner(editingHomeBannerIndex, 'subtitle', e.target.value)} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth label="링크 URL" placeholder="/programs"
+                    value={homeBanners[editingHomeBannerIndex].linkUrl}
+                    onChange={(e) => updateHomeBanner(editingHomeBannerIndex, 'linkUrl', e.target.value)} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth label="링크 버튼 텍스트" placeholder="자세히 보기"
+                    value={homeBanners[editingHomeBannerIndex].linkText}
+                    onChange={(e) => updateHomeBanner(editingHomeBannerIndex, 'linkText', e.target.value)} />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth label="이미지 URL (외부 링크)" placeholder="https://..."
+                    value={homeBanners[editingHomeBannerIndex].imageUrl?.startsWith('data:') ? '' : (homeBanners[editingHomeBannerIndex].imageUrl || '')}
+                    onChange={(e) => updateHomeBanner(editingHomeBannerIndex, 'imageUrl', e.target.value)} />
+                </Grid>
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 1 }} />
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>또는 이미지 업로드</Typography>
+                  <input type="file" accept="image/*" ref={homeBannerImageInputRef} hidden onChange={handleHomeBannerImageUpload} />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Button variant="outlined" startIcon={<ImageIcon />} onClick={() => homeBannerImageInputRef.current?.click()}>
+                      이미지 업로드
+                    </Button>
+                    {homeBanners[editingHomeBannerIndex].imageUrl && (
+                      <Box sx={{ position: 'relative' }}>
+                        <Box component="img" src={homeBanners[editingHomeBannerIndex].imageUrl} alt="Banner"
+                          sx={{ width: 240, height: 100, objectFit: 'cover', borderRadius: '8px', border: '1px solid', borderColor: 'divider' }} />
+                        <IconButton size="small"
+                          onClick={() => updateHomeBanner(editingHomeBannerIndex, 'imageUrl', '')}
+                          sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'error.main', color: '#fff', width: 20, height: 20,
+                            '&:hover': { bgcolor: 'error.dark' } }}>
+                          <CloseIcon sx={{ fontSize: 12 }} />
+                        </IconButton>
+                      </Box>
+                    )}
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                    권장: 1200 x 500px, JPG 또는 PNG
+                  </Typography>
+                </Grid>
+              </Grid>
+            </Paper>
+          )}
+        </Box>
+      )}
+
+      {/* ─── Tab 1: Popup Banners ─────────────────────────────── */}
+      {tab === 1 && (
         <Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6" fontWeight={600} fontSize="0.9375rem">
@@ -369,8 +609,8 @@ const BannerManagement = () => {
         </Box>
       )}
 
-      {/* ─── Tab 1: Footer Running Banner ──────────────────────── */}
-      {tab === 1 && (
+      {/* ─── Tab 2: Footer Running Banner ──────────────────────── */}
+      {tab === 2 && (
         <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6" fontWeight={600} fontSize="0.9375rem">하단 롤링 배너 설정</Typography>
@@ -418,8 +658,8 @@ const BannerManagement = () => {
         </Paper>
       )}
 
-      {/* ─── Tab 2: Landing Page Banner Slides ─────────────────── */}
-      {tab === 2 && (
+      {/* ─── Tab 3: Landing Page Banner Slides ─────────────────── */}
+      {tab === 3 && (
         <Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6" fontWeight={600} fontSize="0.9375rem">
@@ -535,8 +775,8 @@ const BannerManagement = () => {
         </Box>
       )}
 
-      {/* ─── Tab 3: Site Logo ──────────────────────────────────── */}
-      {tab === 3 && (
+      {/* ─── Tab 4: Site Logo ──────────────────────────────────── */}
+      {tab === 4 && (
         <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6" fontWeight={600} fontSize="0.9375rem">사이트 로고 설정</Typography>
@@ -615,13 +855,62 @@ const BannerManagement = () => {
         PaperProps={{ sx: { borderRadius: '12px' } }}>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6" fontWeight={700} fontSize="1rem">
-            {previewType === 'popup' ? '팝업 배너 미리보기' : previewType === 'slides' ? '랜딩 배너 미리보기' : '하단 배너 미리보기'}
+            {previewType === 'homeBanner' ? '홈 배너 미리보기' : previewType === 'popup' ? '팝업 배너 미리보기' : previewType === 'slides' ? '랜딩 배너 미리보기' : '하단 배너 미리보기'}
           </Typography>
           <IconButton size="small" onClick={() => setPreviewOpen(false)}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
         <DialogContent>
+          {previewType === 'homeBanner' && (() => {
+            const activeBanners = homeBanners.filter((b) => b.active);
+            const banner = activeBanners[homeBannerPreviewIndex];
+            if (!banner) return null;
+            return (
+              <Box sx={{ py: 2 }}>
+                {activeBanners.length > 1 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <IconButton size="small" disabled={homeBannerPreviewIndex === 0}
+                      onClick={() => setHomeBannerPreviewIndex((i) => i - 1)}>
+                      <ChevronLeft fontSize="small" />
+                    </IconButton>
+                    <Typography variant="body2" fontWeight={600}>
+                      {homeBannerPreviewIndex + 1} / {activeBanners.length}
+                    </Typography>
+                    <IconButton size="small" disabled={homeBannerPreviewIndex >= activeBanners.length - 1}
+                      onClick={() => setHomeBannerPreviewIndex((i) => i + 1)}>
+                      <ChevronRight fontSize="small" />
+                    </IconButton>
+                  </Box>
+                )}
+                <Box sx={{
+                  position: 'relative', borderRadius: '16px', overflow: 'hidden', height: 220,
+                  backgroundImage: banner.imageUrl
+                    ? `linear-gradient(90deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.1) 100%), url(${banner.imageUrl})`
+                    : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  backgroundSize: 'cover', backgroundPosition: 'center',
+                  display: 'flex', flexDirection: 'column', justifyContent: 'center', p: 3,
+                }}>
+                  {banner.subtitle && (
+                    <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.85)', mb: 0.5 }}>{banner.subtitle}</Typography>
+                  )}
+                  <Typography variant="h5" sx={{ color: '#fff', fontWeight: 800, mb: 1.5 }}>{banner.title || '(제목 없음)'}</Typography>
+                  {banner.linkText && (
+                    <Button variant="outlined" size="small" sx={{
+                      color: '#fff', borderColor: 'rgba(255,255,255,0.7)', borderRadius: '20px',
+                      width: 'fit-content', fontSize: '0.8rem',
+                    }}>
+                      {banner.linkText}
+                    </Button>
+                  )}
+                </Box>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="caption" color="text.secondary">
+                  활성 배너: {activeBanners.length}개 · 자동 전환: 5초
+                </Typography>
+              </Box>
+            );
+          })()}
           {previewType === 'popup' && activePreviewPopups.length > 0 && (
             <Box sx={{ textAlign: 'center', py: 2 }}>
               {activePreviewPopups.length > 1 && (

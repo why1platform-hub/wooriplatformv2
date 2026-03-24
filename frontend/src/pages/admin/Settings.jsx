@@ -12,17 +12,69 @@ import {
   CheckCircle as CheckIcon,
   Error as ErrorIcon,
   Window as MicrosoftIcon,
+  Description as PolicyIcon,
+  Home as HomeIcon,
+  ArrowUpward as ArrowUpIcon,
+  ArrowDownward as ArrowDownIcon,
+  DragIndicator as DragIcon,
 } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
 
 const API_BASE = '/api';
+const POLICIES_STORAGE_KEY = 'woori_policies';
+const HOMEPAGE_ORDER_KEY = 'woori_homepage_order';
+
+const DEFAULT_SECTION_ORDER = ['announcements', 'status', 'programs', 'jobs'];
+
+const SECTION_LABELS = {
+  announcements: '중요 공지사항',
+  status: '나의 현황',
+  programs: '진행 중인 프로그램',
+  jobs: '추천 채용정보',
+};
+
+const loadSectionOrder = () => {
+  try {
+    const saved = localStorage.getItem(HOMEPAGE_ORDER_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch { /* ignore */ }
+  return DEFAULT_SECTION_ORDER;
+};
+
+const DEFAULT_POLICIES = {
+  privacy: {
+    title: '개인정보처리방침',
+    updatedAt: '2024.05.01',
+    content: '제1조 (개인정보의 처리 목적)\n\n우리은행 퇴직자 통합지원 플랫폼(이하 "플랫폼")은 다음의 목적을 위하여 개인정보를 처리합니다...',
+  },
+  terms: {
+    title: '이용약관',
+    updatedAt: '2024.05.01',
+    content: '제1조 (목적)\n\n이 약관은 우리은행 퇴직자 통합지원 플랫폼(이하 "플랫폼")이 제공하는 모든 서비스의 이용조건 및 절차를 규정함을 목적으로 합니다...',
+  },
+};
+
+const loadPolicies = () => {
+  try {
+    const saved = localStorage.getItem(POLICIES_STORAGE_KEY);
+    if (saved) return { ...DEFAULT_POLICIES, ...JSON.parse(saved) };
+  } catch { /* ignore */ }
+  return DEFAULT_POLICIES;
+};
 
 const Settings = () => {
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess } = useNotification();
   const [tab, setTab] = useState(0);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+
+  // Policy management
+  const [policies, setPolicies] = useState(loadPolicies);
+  const [policySaving, setPolicySaving] = useState(false);
+
+  // Homepage section order
+  const [sectionOrder, setSectionOrder] = useState(loadSectionOrder);
 
   // Microsoft SSO settings
   const [ssoConfig, setSsoConfig] = useState(() => {
@@ -125,9 +177,11 @@ const Settings = () => {
         <Typography variant="body2" color="text.secondary">SSO 및 인증 설정을 관리합니다.</Typography>
       </Box>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: '1px solid', borderColor: 'divider' }} variant="scrollable" scrollButtons="auto">
         <Tab icon={<MicrosoftIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Microsoft SSO" />
         <Tab icon={<SecurityIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="보안 설정" />
+        <Tab icon={<PolicyIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="약관 관리" />
+        <Tab icon={<HomeIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="홈페이지 관리" />
       </Tabs>
 
       {/* Tab 0: Microsoft SSO */}
@@ -345,6 +399,146 @@ const Settings = () => {
             추가 보안 설정은 추후 업데이트됩니다. (비밀번호 정책, 2단계 인증 등)
           </Typography>
         </Paper>
+      )}
+
+      {/* Tab 3: Homepage Management */}
+      {tab === 3 && (
+        <Box>
+          <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+              <HomeIcon color="primary" />
+              <Box>
+                <Typography variant="subtitle1" fontWeight={600}>홈페이지 섹션 순서</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  드래그 또는 화살표 버튼으로 섹션 표시 순서를 변경합니다. 변경 사항은 즉시 홈페이지에 반영됩니다.
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {sectionOrder.map((key, index) => (
+                <Paper key={key} elevation={0} sx={{
+                  display: 'flex', alignItems: 'center', gap: 2, p: 2,
+                  border: '1px solid', borderColor: 'divider', borderRadius: '10px',
+                  bgcolor: '#FAFBFC',
+                }}>
+                  <DragIcon sx={{ color: '#bbb', fontSize: 20 }} />
+                  <Chip label={index + 1} size="small" sx={{
+                    minWidth: 28, height: 24, fontWeight: 700, fontSize: '0.75rem',
+                    bgcolor: '#0047BA', color: '#fff',
+                  }} />
+                  <Typography variant="body2" fontWeight={600} sx={{ flex: 1 }}>
+                    {SECTION_LABELS[key] || key}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <IconButton size="small" disabled={index === 0}
+                      onClick={() => {
+                        const newOrder = [...sectionOrder];
+                        [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+                        setSectionOrder(newOrder);
+                        localStorage.setItem(HOMEPAGE_ORDER_KEY, JSON.stringify(newOrder));
+                        showSuccess('섹션 순서가 변경되었습니다.');
+                      }}>
+                      <ArrowUpIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton size="small" disabled={index === sectionOrder.length - 1}
+                      onClick={() => {
+                        const newOrder = [...sectionOrder];
+                        [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+                        setSectionOrder(newOrder);
+                        localStorage.setItem(HOMEPAGE_ORDER_KEY, JSON.stringify(newOrder));
+                        showSuccess('섹션 순서가 변경되었습니다.');
+                      }}>
+                      <ArrowDownIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Paper>
+              ))}
+            </Box>
+
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="outlined" size="small" onClick={() => {
+                setSectionOrder(DEFAULT_SECTION_ORDER);
+                localStorage.setItem(HOMEPAGE_ORDER_KEY, JSON.stringify(DEFAULT_SECTION_ORDER));
+                showSuccess('기본 순서로 초기화되었습니다.');
+              }}>
+                기본 순서로 초기화
+              </Button>
+            </Box>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Tab 2: Policy Management */}
+      {tab === 2 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Privacy Policy */}
+          <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+              <PolicyIcon color="primary" />
+              <Box>
+                <Typography variant="subtitle1" fontWeight={600}>개인정보처리방침</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  사용자에게 표시되는 개인정보처리방침을 편집합니다. (경로: /policy/privacy)
+                </Typography>
+              </Box>
+            </Box>
+            <TextField
+              fullWidth label="제목" size="small" value={policies.privacy.title} sx={{ mb: 2 }}
+              onChange={(e) => setPolicies((p) => ({ ...p, privacy: { ...p.privacy, title: e.target.value } }))}
+            />
+            <TextField
+              fullWidth label="내용" multiline rows={12} value={policies.privacy.content}
+              onChange={(e) => setPolicies((p) => ({ ...p, privacy: { ...p.privacy, content: e.target.value } }))}
+              placeholder="개인정보처리방침 내용을 입력하세요..."
+              sx={{ '& .MuiInputBase-root': { fontFamily: 'monospace', fontSize: '0.85rem' } }}
+            />
+          </Paper>
+
+          {/* Terms of Service */}
+          <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+              <PolicyIcon color="primary" />
+              <Box>
+                <Typography variant="subtitle1" fontWeight={600}>이용약관</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  사용자에게 표시되는 이용약관을 편집합니다. (경로: /policy/terms)
+                </Typography>
+              </Box>
+            </Box>
+            <TextField
+              fullWidth label="제목" size="small" value={policies.terms.title} sx={{ mb: 2 }}
+              onChange={(e) => setPolicies((p) => ({ ...p, terms: { ...p.terms, title: e.target.value } }))}
+            />
+            <TextField
+              fullWidth label="내용" multiline rows={12} value={policies.terms.content}
+              onChange={(e) => setPolicies((p) => ({ ...p, terms: { ...p.terms, content: e.target.value } }))}
+              placeholder="이용약관 내용을 입력하세요..."
+              sx={{ '& .MuiInputBase-root': { fontFamily: 'monospace', fontSize: '0.85rem' } }}
+            />
+          </Paper>
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="contained" startIcon={<SaveIcon />}
+              disabled={policySaving}
+              onClick={() => {
+                setPolicySaving(true);
+                const now = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
+                const updated = {
+                  privacy: { ...policies.privacy, updatedAt: now },
+                  terms: { ...policies.terms, updatedAt: now },
+                };
+                localStorage.setItem(POLICIES_STORAGE_KEY, JSON.stringify(updated));
+                setPolicies(updated);
+                showSuccess('약관이 저장되었습니다.');
+                setPolicySaving(false);
+              }}
+            >
+              {policySaving ? '저장 중...' : '약관 저장'}
+            </Button>
+          </Box>
+        </Box>
       )}
     </Box>
   );

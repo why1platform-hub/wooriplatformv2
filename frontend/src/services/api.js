@@ -162,7 +162,6 @@ export const inquiriesAPI = {
 export const dashboardAPI = {
   getHome: () => api.get('/dashboard/home'),
   getStats: () => api.get('/dashboard/stats'),
-  getCalendar: (params) => api.get('/dashboard/calendar', { params }),
 };
 
 // Users API

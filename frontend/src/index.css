@@ -14,6 +14,7 @@ html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -35,21 +36,22 @@ button {
 
 input, textarea, select {
   font-family: inherit;
+  font-size: 16px; /* Prevent iOS zoom on input focus */
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #F8F9FA;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: #D1D5DB;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -67,7 +69,6 @@ input, textarea, select {
   body {
     background: white;
   }
-
   .no-print {
     display: none !important;
   }
@@ -79,48 +80,77 @@ html, body, #root {
   overflow-x: hidden;
 }
 
+/* iOS safe area support */
+body {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+#root {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+html {
+  height: -webkit-fill-available;
+}
+
 /* Responsive typography */
 @media (max-width: 768px) {
   html {
-    font-size: 14px;
+    font-size: 15px;
   }
 
-  /* Prevent tables from breaking layout */
   .MuiTableContainer-root {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Ensure cards don't overflow */
   .MuiCard-root {
     overflow: hidden;
     word-break: break-word;
-  }
-
-  /* Make chips wrap properly */
-  .MuiChip-label {
-    white-space: normal;
   }
 }
 
 @media (max-width: 480px) {
   html {
-    font-size: 13px;
+    font-size: 14px;
+  }
+}
+
+/* Touch-friendly interactions on mobile */
+@media (hover: none) {
+  * {
+    -webkit-tap-highlight-color: rgba(0, 71, 186, 0.08);
   }
 }
 
 /* Loading skeleton animation */
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 .skeleton {
   background: linear-gradient(90deg, #F3F4F6 25%, #E5E7EB 50%, #F3F4F6 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Horizontal scroll container for mobile cards */
+.horizontal-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.horizontal-scroll::-webkit-scrollbar {
+  display: none;
+}
+.horizontal-scroll > * {
+  scroll-snap-align: start;
 }

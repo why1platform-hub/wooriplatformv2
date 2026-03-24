@@ -37,7 +37,6 @@ const menuItems = [
     path: '/',
     children: [
       { id: 'announcements', labelKey: 'home.announcements', path: '/announcements' },
-      { id: 'calendar', labelKey: 'home.monthlyCalendar', path: '/calendar' },
     ],
   },
   {

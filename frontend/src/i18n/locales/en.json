@@ -34,7 +34,7 @@
     "announcements": "Important Announcements",
     "ongoingPrograms": "Ongoing Programs",
     "myStatus": "My Status",
-    "monthlyCalendar": "Monthly Calendar",
+    "monthlyCalendar": "",
     "jobRecommendations": "Job Recommendations",
     "quickAccess": "Quick Access",
     "appliedPrograms": "Applied Programs",
@@ -127,6 +127,7 @@
     "title": "Customer Support",
     "notices": "Notices",
     "faq": "FAQ",
+    "faqDescription": "Find answers to frequently asked questions",
     "inquiry": "1:1 Inquiry",
     "myInquiries": "My Inquiries",
     "submitInquiry": "Submit Inquiry",
@@ -172,11 +173,6 @@
     "new": "NEW"
   },
   "calendar": {
-    "today": "Today",
-    "month": "Month",
-    "week": "Week",
-    "day": "Day",
-    "event": "Event"
   },
   "footer": {
     "copyright": "© {year} Woori Bank. All rights reserved.",

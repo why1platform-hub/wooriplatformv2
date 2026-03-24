@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -11,506 +11,538 @@ import {
   Chip,
   IconButton,
   Skeleton,
-  Tooltip,
+  Paper,
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
   Chat as ChatIcon,
   School as SchoolIcon,
   Work as WorkIcon,
-  MenuBook as MenuBookIcon,
   Support as SupportIcon,
   ChevronLeft,
   ChevronRight,
   Bookmark as BookmarkIcon,
-  Lock as LockIcon,
-  LockOpen as LockOpenIcon,
+  Campaign as CampaignIcon,
+  ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
-import { ResponsiveGridLayout as RGLResponsive, useContainerWidth } from 'react-grid-layout';
-import 'react-grid-layout/css/styles.css';
-import 'react-resizable/css/styles.css';
 import { useAuth } from '../../contexts/AuthContext';
 import { dashboardAPI } from '../../services/api';
 import StatusBadge from '../../components/common/StatusBadge';
 import CategoryBadge from '../../components/common/CategoryBadge';
 
-// Wrap ResponsiveGridLayout with container width measurement
-const ResponsiveGridLayout = React.forwardRef(function WrappedRGL(props, ref) {
-  const { containerRef, width } = useContainerWidth();
-  return (
-    <div ref={containerRef}>
-      {width > 0 && <RGLResponsive {...props} ref={ref} width={width} />}
-    </div>
-  );
-});
+// ─── Constants ─────────────────────────────────
+const CARD_RADIUS = '12px';
+const CARD_BORDER = '1px solid #EAEDF0';
+const CARD_HEIGHT_SM = 320;
 
-const LAYOUT_STORAGE_KEY = 'woori_dashboard_layout';
+const HOME_BANNER_STORAGE_KEY = 'woori_home_banners';
+const HOMEPAGE_ORDER_KEY = 'woori_homepage_order';
 
-const DEFAULT_LAYOUTS = {
-  lg: [
-    { i: 'announcements', x: 0, y: 0, w: 7, h: 5, minW: 4, minH: 3 },
-    { i: 'programs', x: 0, y: 5, w: 7, h: 5, minW: 4, minH: 3 },
-    { i: 'myStatus', x: 7, y: 0, w: 5, h: 3, minW: 3, minH: 2 },
-    { i: 'calendar', x: 7, y: 3, w: 5, h: 7, minW: 3, minH: 5 },
-    { i: 'jobs', x: 7, y: 10, w: 5, h: 4, minW: 3, minH: 3 },
-    { i: 'quickAccess', x: 0, y: 10, w: 12, h: 3, minW: 6, minH: 2 },
-  ],
-  md: [
-    { i: 'announcements', x: 0, y: 0, w: 6, h: 5, minW: 4, minH: 3 },
-    { i: 'programs', x: 0, y: 5, w: 6, h: 5, minW: 4, minH: 3 },
-    { i: 'myStatus', x: 6, y: 0, w: 4, h: 3, minW: 3, minH: 2 },
-    { i: 'calendar', x: 6, y: 3, w: 4, h: 7, minW: 3, minH: 5 },
-    { i: 'jobs', x: 6, y: 10, w: 4, h: 4, minW: 3, minH: 3 },
-    { i: 'quickAccess', x: 0, y: 10, w: 10, h: 3, minW: 6, minH: 2 },
-  ],
-  sm: [
-    { i: 'announcements', x: 0, y: 0, w: 6, h: 5, minW: 3, minH: 3 },
-    { i: 'myStatus', x: 0, y: 5, w: 6, h: 3, minW: 3, minH: 2 },
-    { i: 'programs', x: 0, y: 8, w: 6, h: 5, minW: 3, minH: 3 },
-    { i: 'calendar', x: 0, y: 13, w: 6, h: 7, minW: 3, minH: 5 },
-    { i: 'jobs', x: 0, y: 20, w: 6, h: 4, minW: 3, minH: 3 },
-    { i: 'quickAccess', x: 0, y: 24, w: 6, h: 3, minW: 3, minH: 2 },
-  ],
+const DEFAULT_SECTION_ORDER = ['announcements', 'status', 'programs', 'jobs'];
+
+const loadSectionOrder = () => {
+  try {
+    const saved = localStorage.getItem(HOMEPAGE_ORDER_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch { /* ignore */ }
+  return DEFAULT_SECTION_ORDER;
 };
 
-// Announcement List Component
-const AnnouncementList = ({ announcements, loading }) => {
+const DEFAULT_HOME_BANNERS = [
+  {
+    id: 1, active: true,
+    title: '2026년도 연간 교육 일정 안내',
+    subtitle: '퇴직자 종사자를 위한',
+    imageUrl: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=1200&h=500&fit=crop',
+    linkUrl: '/programs', linkText: '자세히 보기',
+  },
+  {
+    id: 2, active: true,
+    title: '맞춤형 재취업 컨설팅 오픈',
+    subtitle: '전문가와 함께하는 커리어 설계',
+    imageUrl: 'https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=1200&h=500&fit=crop',
+    linkUrl: '/consultations/booking', linkText: '자세히 보기',
+  },
+  {
+    id: 3, active: true,
+    title: '새로운 온라인 강좌 오픈',
+    subtitle: '언제 어디서나 학습하세요',
+    imageUrl: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=1200&h=500&fit=crop',
+    linkUrl: '/learning', linkText: '자세히 보기',
+  },
+];
+
+const loadHomeBanners = () => {
+  try {
+    const saved = localStorage.getItem(HOME_BANNER_STORAGE_KEY);
+    if (saved) return JSON.parse(saved).filter((b) => b.active);
+  } catch { /* ignore */ }
+  return DEFAULT_HOME_BANNERS;
+};
+
+// ─── Banner Carousel ─────────────────────────────────
+const HomeBannerCarousel = () => {
   const navigate = useNavigate();
+  const [banners] = useState(loadHomeBanners);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
 
-  if (loading) {
-    return (
-      <Box>
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} variant="rectangular" height={60} sx={{ mb: 1, borderRadius: 1 }} />
-        ))}
-      </Box>
-    );
-  }
+  const goTo = useCallback((index) => {
+    setCurrentIndex((index + banners.length) % banners.length);
+  }, [banners.length]);
 
-  const items = announcements?.length > 0 ? announcements : [
-    { id: 1, title: '2024년 하반기 퇴직자 교육 일정 변경 안내', type: '긴급', date: '2024.05.10' },
-    { id: 2, title: '5월 퇴직자 네트워킹 프로그램 참여 신청 마감', type: '안내', date: '2024.05.08' },
-    { id: 3, title: '맞춤형 재취업 컨설팅 신규 과정 개설', type: '안내', date: '2024.05.05' },
-  ];
+  useEffect(() => {
+    if (banners.length <= 1 || isHovered) return;
+    const timer = setInterval(() => setCurrentIndex((p) => (p + 1) % banners.length), 5000);
+    return () => clearInterval(timer);
+  }, [banners.length, isHovered]);
+
+  if (banners.length === 0) return null;
+  const current = banners[currentIndex];
 
   return (
-    <Box>
-      {items.map((item) => (
-        <Box
-          key={item.id}
-          onClick={() => navigate(`/announcements/${item.id}`)}
-          sx={{
-            display: 'flex', alignItems: 'center', gap: 2, p: 2, mb: 1,
-            backgroundColor: '#FFFFFF', borderRadius: 1, cursor: 'pointer',
-            '&:hover': { backgroundColor: '#F8F9FA' },
-          }}
-        >
-          <Chip label={item.type} size="small"
+    <Box
+      sx={{
+        position: 'relative', mb: 4, borderRadius: { xs: '12px', md: '16px' },
+        overflow: 'hidden', width: '100%',
+        height: { xs: 180, sm: 280, md: 360 },
+        boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Slides */}
+      <Box sx={{ position: 'absolute', inset: 0, display: 'flex', transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)', transform: `translateX(-${currentIndex * 100}%)` }}>
+        {banners.map((banner, i) => (
+          <Box key={banner.id} sx={{
+            position: 'relative', minWidth: '100%', height: '100%',
+            backgroundImage: banner.imageUrl ? `url(${banner.imageUrl})` : 'linear-gradient(135deg, #1a3a6b 0%, #0047BA 100%)',
+            backgroundSize: 'cover', backgroundPosition: 'center',
+            '&::after': {
+              content: '""', position: 'absolute', inset: 0,
+              background: 'linear-gradient(90deg, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)',
+            },
+          }} />
+        ))}
+      </Box>
+
+      {/* Content overlay */}
+      <Box sx={{
+        position: 'absolute', inset: 0, zIndex: 1,
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        px: { xs: 3, sm: 5, md: 7 }, py: 3,
+      }}>
+        {current.subtitle && (
+          <Typography sx={{
+            color: 'rgba(255,255,255,0.85)', mb: 0.5,
+            fontSize: { xs: '0.78rem', sm: '0.95rem', md: '1.05rem' },
+            fontWeight: 400, letterSpacing: '0.3px',
+          }}>
+            {current.subtitle}
+          </Typography>
+        )}
+        <Typography sx={{
+          color: '#fff', fontWeight: 800, mb: { xs: 1.5, md: 2.5 },
+          fontSize: { xs: '1.2rem', sm: '1.7rem', md: '2.2rem' },
+          lineHeight: 1.2, maxWidth: { xs: '80%', md: '55%' },
+        }}>
+          {current.title}
+        </Typography>
+        {current.linkText && (
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => current.linkUrl && navigate(current.linkUrl)}
             sx={{
-              backgroundColor: item.type === '긴급' ? '#FEE2E2' : '#DBEAFE',
-              color: item.type === '긴급' ? '#991B1B' : '#1E40AF',
-              fontWeight: 500, minWidth: 48,
+              color: '#fff', borderColor: 'rgba(255,255,255,0.6)',
+              borderRadius: '24px', px: 3, py: 0.8,
+              fontWeight: 600, fontSize: { xs: '0.78rem', md: '0.85rem' },
+              width: 'fit-content', backdropFilter: 'blur(4px)',
+              '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.15)' },
             }}
-          />
-          <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {item.title}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">{item.date}</Typography>
-        </Box>
-      ))}
-    </Box>
-  );
-};
-
-// Ongoing Programs Component
-const OngoingPrograms = ({ programs, loading }) => {
-  const navigate = useNavigate();
-
-  if (loading) {
-    return (
-      <Grid container spacing={2}>
-        {[1, 2].map((i) => (
-          <Grid item xs={12} sm={6} key={i}>
-            <Skeleton variant="rectangular" height={180} sx={{ borderRadius: 1 }} />
-          </Grid>
-        ))}
-      </Grid>
-    );
-  }
-
-  const items = programs?.length > 0 ? programs : [
-    { id: 1, title: '은퇴 후 자산관리 심화 과정', category: '금융컨설팅', period: '2024.05.01 ~ 2024.05.31', deadline: '2024.05.31', dDay: 10, status: '진행중' },
-    { id: 2, title: '퇴직 임원 리더십 코칭', category: '창업', period: '2024.05.15 ~ 2024.06.15', deadline: '2024.06.15', dDay: 24, status: '접수중' },
-  ];
-
-  const getDaysRemaining = (deadline) => {
-    const today = new Date();
-    const end = new Date(deadline);
-    return Math.ceil((end - today) / (1000 * 60 * 60 * 24));
-  };
-
-  return (
-    <Grid container spacing={2}>
-      {items.map((program) => (
-        <Grid item xs={12} sm={6} key={program.id}>
-          <Card sx={{ height: '100%', cursor: 'pointer', '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' } }}
-            onClick={() => navigate(`/programs/${program.id}`)}>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <CategoryBadge category={program.category} />
-                <StatusBadge status={program.status} />
-              </Box>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>{program.title}</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{program.period}</Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h5" fontWeight={700} color="primary">
-                  D-{program.dDay || getDaysRemaining(program.deadline)}
-                </Typography>
-                <Button variant="outlined" size="small">
-                  {program.status === '진행중' ? '학습하기' : '상세보기'}
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      ))}
-    </Grid>
-  );
-};
-
-// My Status Component
-const MyStatus = ({ stats, loading }) => {
-  const { t } = useTranslation();
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', gap: 2 }}>
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} variant="rectangular" width={80} height={60} sx={{ borderRadius: 1 }} />
-        ))}
-      </Box>
-    );
-  }
-
-  const items = [
-    { icon: <AssignmentIcon />, label: t('home.appliedPrograms'), value: stats?.appliedPrograms || 2 },
-    { icon: <ChatIcon />, label: t('home.scheduledConsultations'), value: stats?.scheduledConsultations || 1 },
-    { icon: <SchoolIcon />, label: t('home.ongoingCourses'), value: stats?.ongoingCourses || 1 },
-  ];
-
-  return (
-    <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-      {items.map((item, index) => (
-        <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{ color: 'primary.main' }}>{item.icon}</Box>
-          <Box>
-            <Typography variant="h5" fontWeight={700}>{item.value}건</Typography>
-            <Typography variant="caption" color="text.secondary">{item.label}</Typography>
-          </Box>
-        </Box>
-      ))}
-    </Box>
-  );
-};
-
-// Calendar Widget Component
-const CalendarWidget = ({ events }) => {
-  const [currentDate, setCurrentDate] = useState(new Date());
-
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  const days = [];
-  for (let i = 0; i < firstDay; i++) days.push(null);
-  for (let i = 1; i <= daysInMonth; i++) days.push(i);
-
-  const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
-
-  const today = new Date();
-  const isToday = (day) => day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-
-  const mockEvents = [
-    { date: 6, color: '#0047BA' }, { date: 14, color: '#DC2626' },
-    { date: 15, color: '#0047BA' }, { date: 20, color: '#059669' },
-    { date: 21, color: '#0047BA' }, { date: 27, color: '#7C3AED' },
-    { date: 28, color: '#0047BA' },
-  ];
-  const hasEvent = (day) => mockEvents.find((e) => e.date === day);
-
-  return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <IconButton size="small" onClick={() => setCurrentDate(new Date(year, month - 1, 1))}><ChevronLeft /></IconButton>
-        <Typography variant="subtitle1" fontWeight={600}>{year}년 {month + 1}월</Typography>
-        <IconButton size="small" onClick={() => setCurrentDate(new Date(year, month + 1, 1))}><ChevronRight /></IconButton>
-      </Box>
-
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.5 }}>
-        {weekDays.map((day) => (
-          <Typography key={day} variant="caption" sx={{
-            textAlign: 'center', py: 0.5, fontWeight: 500,
-            color: day === '일' ? '#DC2626' : day === '토' ? '#0047BA' : 'text.secondary',
-          }}>
-            {day}
-          </Typography>
-        ))}
-        {days.map((day, index) => {
-          const event = hasEvent(day);
-          return (
-            <Box key={index} sx={{
-              position: 'relative', aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              borderRadius: '50%', backgroundColor: isToday(day) ? '#0047BA' : 'transparent',
-              color: isToday(day) ? '#FFFFFF' : 'inherit', cursor: day ? 'pointer' : 'default',
-              '&:hover': day ? { backgroundColor: isToday(day) ? '#003399' : '#F3F4F6' } : {},
-            }}>
-              <Typography variant="caption" fontWeight={isToday(day) ? 600 : 400}>{day}</Typography>
-              {event && (
-                <Box sx={{ position: 'absolute', bottom: 2, width: 4, height: 4, borderRadius: '50%', backgroundColor: event.color }} />
-              )}
-            </Box>
-          );
-        })}
-      </Box>
-
-      <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #E5E5E5' }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>이번 달 일정</Typography>
-        {[
-          { color: '#0047BA', text: '5월 퇴직자 네트워킹 프로그램' },
-          { color: '#DC2626', text: '퇴직 임원 리더십 코칭' },
-          { color: '#059669', text: '맞춤형 재취업 컨설팅 과정' },
-        ].map((e, i) => (
-          <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: e.color }} />
-            <Typography variant="caption">{e.text}</Typography>
-          </Box>
-        ))}
-      </Box>
-    </Box>
-  );
-};
-
-// Job Recommendations Component
-const JobRecommendations = ({ jobs, loading }) => {
-  const navigate = useNavigate();
-
-  if (loading) {
-    return (
-      <Box>
-        {[1, 2].map((i) => (
-          <Skeleton key={i} variant="rectangular" height={80} sx={{ mb: 1, borderRadius: 1 }} />
-        ))}
-      </Box>
-    );
-  }
-
-  const items = jobs?.length > 0 ? jobs : [
-    { id: 1, company: '(주)한화생명', position: '시니어 금융 전문 컨설턴트', location: '서울 중구' },
-    { id: 2, company: 'KB국민은행', position: '디지털 금융 플랫폼 기획자', location: '서울 여의도' },
-  ];
-
-  return (
-    <Box>
-      {items.map((job) => (
-        <Box key={job.id} onClick={() => navigate(`/jobs/${job.id}`)}
-          sx={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-            p: 2, mb: 1, backgroundColor: '#FFFFFF', borderRadius: 1, cursor: 'pointer',
-            '&:hover': { backgroundColor: '#F8F9FA' },
-          }}>
-          <Box>
-            <Typography variant="caption" color="text.secondary">회사명 {job.company}</Typography>
-            <Typography variant="body2" fontWeight={500}>{job.position}</Typography>
-            <Typography variant="caption" color="text.secondary">지역 {job.location}</Typography>
-          </Box>
-          <IconButton size="small"><BookmarkIcon fontSize="small" /></IconButton>
-        </Box>
-      ))}
-    </Box>
-  );
-};
-
-// Quick Access Component
-const QuickAccess = () => {
-  const navigate = useNavigate();
-  const items = [
-    { icon: <AssignmentIcon />, label: '프로그램 신청', path: '/programs' },
-    { icon: <WorkIcon />, label: '채용정보 보기', path: '/jobs' },
-    { icon: <MenuBookIcon />, label: '학습자료실', path: '/learning' },
-    { icon: <SupportIcon />, label: '고객지원', path: '/support' },
-  ];
-
-  return (
-    <Grid container spacing={2}>
-      {items.map((item, index) => (
-        <Grid item xs={6} sm={3} key={index}>
-          <Button fullWidth variant="outlined" onClick={() => navigate(item.path)}
-            sx={{
-              py: 2, flexDirection: 'column', gap: 1, borderColor: '#E5E5E5',
-              '&:hover': { borderColor: '#0047BA', backgroundColor: 'rgba(0,71,186,0.04)' },
-            }}>
-            <Box sx={{ color: 'primary.main' }}>{item.icon}</Box>
-            <Typography variant="body2" fontWeight={500}>{item.label}</Typography>
+          >
+            {current.linkText}
           </Button>
-        </Grid>
-      ))}
-    </Grid>
-  );
-};
+        )}
+      </Box>
 
-// Widget wrapper with title
-const DashboardWidget = ({ title, children, action, noPadding }) => (
-  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-    <CardContent sx={{ flex: 1, overflow: 'auto', p: noPadding ? 0 : 2, '&:last-child': { pb: noPadding ? 0 : 2 } }}>
-      {title && (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, px: noPadding ? 2 : 0, pt: noPadding ? 2 : 0 }}>
-          <Typography variant="h6" fontWeight={700} color={title.includes('공지') ? 'primary' : 'inherit'}>
-            {title}
-          </Typography>
-          {action}
+      {/* Arrows */}
+      {banners.length > 1 && (
+        <>
+          <IconButton onClick={() => goTo(currentIndex - 1)} sx={{
+            position: 'absolute', left: { xs: 6, md: 12 }, top: '50%', transform: 'translateY(-50%)', zIndex: 2,
+            color: '#fff', bgcolor: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(4px)',
+            width: { xs: 36, md: 44 }, height: { xs: 36, md: 44 },
+            opacity: isHovered ? 1 : 0, transition: 'opacity 0.3s',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
+          }}>
+            <ChevronLeft />
+          </IconButton>
+          <IconButton onClick={() => goTo(currentIndex + 1)} sx={{
+            position: 'absolute', right: { xs: 6, md: 12 }, top: '50%', transform: 'translateY(-50%)', zIndex: 2,
+            color: '#fff', bgcolor: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(4px)',
+            width: { xs: 36, md: 44 }, height: { xs: 36, md: 44 },
+            opacity: isHovered ? 1 : 0, transition: 'opacity 0.3s',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
+          }}>
+            <ChevronRight />
+          </IconButton>
+        </>
+      )}
+
+      {/* Dots */}
+      {banners.length > 1 && (
+        <Box sx={{
+          position: 'absolute', bottom: { xs: 10, md: 16 }, left: '50%',
+          transform: 'translateX(-50%)', zIndex: 2, display: 'flex', gap: 0.8,
+        }}>
+          {banners.map((_, i) => (
+            <Box key={i} onClick={() => goTo(i)} sx={{
+              width: i === currentIndex ? 24 : 8, height: 8,
+              borderRadius: 4, cursor: 'pointer',
+              bgcolor: i === currentIndex ? '#fff' : 'rgba(255,255,255,0.45)',
+              transition: 'all 0.35s ease',
+            }} />
+          ))}
         </Box>
       )}
-      <Box sx={{ px: noPadding ? 2 : 0, pb: noPadding ? 2 : 0 }}>
-        {children}
-      </Box>
+
+      {/* Counter */}
+      {banners.length > 1 && (
+        <Box sx={{
+          position: 'absolute', bottom: { xs: 10, md: 16 }, right: { xs: 10, md: 20 }, zIndex: 2,
+          bgcolor: 'rgba(0,0,0,0.3)', borderRadius: '10px', px: 1.2, py: 0.3,
+        }}>
+          <Typography sx={{ color: '#fff', fontSize: '0.68rem', fontWeight: 600 }}>
+            {currentIndex + 1} / {banners.length}
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+// ─── Quick Menu ─────────────────────────────────
+const QuickMenu = () => {
+  const navigate = useNavigate();
+  const items = [
+    { icon: <CampaignIcon />, label: '공지사항', path: '/announcements', color: '#0047BA', bg: '#EBF0FA' },
+    { icon: <AssignmentIcon />, label: '프로그램 신청', path: '/programs', color: '#059669', bg: '#ECFDF5' },
+    { icon: <ChatIcon />, label: '상담 예약', path: '/consultations/booking', color: '#D97706', bg: '#FFFBEB' },
+    { icon: <WorkIcon />, label: '채용정보', path: '/jobs', color: '#DC2626', bg: '#FEF2F2' },
+    { icon: <SchoolIcon />, label: '온라인 학습', path: '/learning', color: '#7C3AED', bg: '#F5F3FF' },
+    { icon: <SupportIcon />, label: '고객지원', path: '/support', color: '#0891B2', bg: '#ECFEFF' },
+  ];
+
+  return (
+    <Box sx={{
+      display: 'grid',
+      gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(6, 1fr)' },
+      gap: { xs: 1, sm: 1, md: 1.5 }, mb: 4,
+      width: '100%', minWidth: 0, overflow: 'hidden',
+    }}>
+      {items.map((item, i) => (
+        <Paper
+          key={i} elevation={0}
+          onClick={() => navigate(item.path)}
+          sx={{
+            textAlign: 'center', py: { xs: 1.5, md: 2 }, px: 0.5,
+            borderRadius: CARD_RADIUS, cursor: 'pointer', border: CARD_BORDER,
+            transition: 'all 0.2s ease', bgcolor: '#fff', minWidth: 0, overflow: 'hidden',
+            '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 6px 20px rgba(0,0,0,0.06)', borderColor: item.color },
+          }}
+        >
+          <Box sx={{
+            width: { xs: 40, md: 48 }, height: { xs: 40, md: 48 },
+            borderRadius: '12px', bgcolor: item.bg,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            mx: 'auto', mb: 0.8,
+          }}>
+            {React.cloneElement(item.icon, { sx: { fontSize: { xs: 20, md: 24 }, color: item.color } })}
+          </Box>
+          <Typography sx={{ fontWeight: 600, fontSize: { xs: '0.72rem', sm: '0.78rem', md: '0.82rem' }, color: '#333' }}>
+            {item.label}
+          </Typography>
+        </Paper>
+      ))}
+    </Box>
+  );
+};
+
+// ─── Section Header ─────────────────────────────────
+const SectionHeader = ({ title, onMore }) => (
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Typography sx={{ fontWeight: 700, fontSize: { xs: '1rem', md: '1.1rem' }, color: '#1a1a1a' }}>
+      {title}
+    </Typography>
+    {onMore && (
+      <Button size="small" endIcon={<ArrowForwardIcon sx={{ fontSize: '14px !important' }} />}
+        onClick={onMore} sx={{ fontSize: '0.78rem', color: '#888', fontWeight: 500, minWidth: 'auto', '&:hover': { color: '#0047BA' } }}>
+        더보기
+      </Button>
+    )}
+  </Box>
+);
+
+// ─── Uniform Card Wrapper ─────────────────────────────────
+const SectionCard = ({ children, minHeight }) => (
+  <Card elevation={0} sx={{
+    borderRadius: CARD_RADIUS, border: CARD_BORDER, bgcolor: '#fff',
+    height: '100%', minHeight: minHeight || CARD_HEIGHT_SM,
+    display: 'flex', flexDirection: 'column',
+  }}>
+    <CardContent sx={{ p: { xs: 2, md: 2.5 }, flex: 1, display: 'flex', flexDirection: 'column', '&:last-child': { pb: { xs: 2, md: 2.5 } } }}>
+      {children}
     </CardContent>
   </Card>
 );
 
-// Main Home Page
-const Home = () => {
-  const { t } = useTranslation();
+// ─── Announcements ─────────────────────────────────
+const AnnouncementSection = ({ announcements, loading }) => {
   const navigate = useNavigate();
-  useAuth();
+  const items = announcements?.length > 0 ? announcements : [
+    { id: 1, title: '2026년 상반기 퇴직자 교육 일정 안내', type: '긴급', date: '2026.03.20' },
+    { id: 2, title: '3월 퇴직자 네트워킹 프로그램 참여 신청 마감', type: '안내', date: '2026.03.18' },
+    { id: 3, title: '맞춤형 재취업 컨설팅 신규 과정 개설', type: '안내', date: '2026.03.15' },
+    { id: 4, title: '온라인 강의 신규 콘텐츠 업데이트', type: '일반', date: '2026.03.12' },
+  ];
+
+  const typeColors = {
+    '긴급': { bg: '#FEE2E2', color: '#991B1B' },
+    '안내': { bg: '#DBEAFE', color: '#1E40AF' },
+    '중요': { bg: '#FEF3C7', color: '#92400E' },
+    '일반': { bg: '#F3F4F6', color: '#4B5563' },
+  };
+
+  if (loading) return <SectionCard><Box>{[1,2,3].map(i => <Skeleton key={i} height={52} sx={{ borderRadius: '8px', mb: 0.5 }} />)}</Box></SectionCard>;
+
+  return (
+    <SectionCard>
+      <SectionHeader title="중요 공지사항" onMore={() => navigate('/announcements')} />
+      <Box sx={{ flex: 1 }}>
+        {items.slice(0, 4).map((item, index) => (
+          <Box key={item.id} onClick={() => navigate('/announcements')}
+            sx={{
+              display: 'flex', alignItems: 'center', gap: 1.5, py: 1.3, cursor: 'pointer',
+              borderTop: index > 0 ? '1px solid #F5F5F5' : 'none',
+              '&:hover': { '& .title-text': { color: '#0047BA' } },
+            }}>
+            <Chip label={item.type} size="small" sx={{
+              bgcolor: (typeColors[item.type] || typeColors['일반']).bg,
+              color: (typeColors[item.type] || typeColors['일반']).color,
+              fontWeight: 600, minWidth: 44, fontSize: '0.68rem', height: 22,
+            }} />
+            <Typography className="title-text" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85rem', fontWeight: 450, transition: 'color 0.15s' }}>
+              {item.title}
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#aaa', flexShrink: 0, fontSize: '0.72rem' }}>{item.date}</Typography>
+          </Box>
+        ))}
+      </Box>
+    </SectionCard>
+  );
+};
+
+// ─── My Status ─────────────────────────────────
+const MyStatusCard = ({ stats, loading }) => {
+  const { t } = useTranslation();
+  if (loading) return <SectionCard minHeight="auto"><Skeleton height={100} sx={{ borderRadius: '8px' }} /></SectionCard>;
+
+  const items = [
+    { icon: <AssignmentIcon />, label: t('home.appliedPrograms'), value: stats?.appliedPrograms || 2, color: '#0047BA', bg: '#EBF0FA' },
+    { icon: <ChatIcon />, label: t('home.scheduledConsultations'), value: stats?.scheduledConsultations || 1, color: '#D97706', bg: '#FFFBEB' },
+    { icon: <SchoolIcon />, label: t('home.ongoingCourses'), value: stats?.ongoingCourses || 1, color: '#059669', bg: '#ECFDF5' },
+  ];
+
+  return (
+    <SectionCard minHeight="auto">
+      <SectionHeader title="나의 현황" />
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: 'repeat(3, 1fr)', md: 'repeat(3, 1fr)' },
+        gap: { xs: 1, md: 2 },
+      }}>
+        {items.map((item, i) => (
+          <Paper key={i} elevation={0} sx={{
+            display: 'flex', flexDirection: { xs: 'column', md: 'row' },
+            alignItems: 'center', gap: { xs: 1, md: 2 },
+            p: { xs: 1.5, md: 2 },
+            borderRadius: '10px', border: CARD_BORDER,
+            textAlign: { xs: 'center', md: 'left' },
+          }}>
+            <Box sx={{
+              width: { xs: 40, md: 48 }, height: { xs: 40, md: 48 },
+              borderRadius: '12px', bgcolor: item.bg,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              {React.cloneElement(item.icon, { sx: { fontSize: { xs: 20, md: 24 }, color: item.color } })}
+            </Box>
+            <Box>
+              <Typography sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' }, color: '#999', lineHeight: 1.2 }}>{item.label}</Typography>
+              <Typography sx={{ fontWeight: 800, fontSize: { xs: '1.1rem', md: '1.4rem' }, lineHeight: 1.2, color: item.color }}>{item.value}건</Typography>
+            </Box>
+          </Paper>
+        ))}
+      </Box>
+    </SectionCard>
+  );
+};
+
+// ─── Programs ─────────────────────────────────
+const ProgramsSection = ({ programs, loading }) => {
+  const navigate = useNavigate();
+  const items = programs?.length > 0 ? programs : [
+    { id: 1, title: '은퇴 후 자산관리 심화 과정', category: '금융컨설팅', period: '2026.03.01 ~ 2026.03.31', dDay: 7, status: '진행중' },
+    { id: 2, title: '퇴직 임원 리더십 코칭', category: '창업', period: '2026.04.01 ~ 2026.04.30', dDay: 21, status: '접수중' },
+    { id: 3, title: '디지털 금융 활용 교육', category: '디지털', period: '2026.04.15 ~ 2026.05.15', dDay: 35, status: '모집중' },
+    { id: 4, title: '건강한 노후를 위한 식단 관리', category: '건강', period: '2026.05.01 ~ 2026.05.31', dDay: 45, status: '모집중' },
+  ];
+
+  if (loading) return (
+    <SectionCard minHeight="auto">
+      <SectionHeader title="진행 중인 프로그램" />
+      <Grid container spacing={1.5}>{[1,2,3,4].map(i => <Grid item xs={12} sm={6} md={3} key={i}><Skeleton height={160} sx={{ borderRadius: '10px' }} /></Grid>)}</Grid>
+    </SectionCard>
+  );
+
+  const ProgramCard = ({ p }) => (
+    <Paper elevation={0} onClick={() => navigate(`/programs/${p.id}`)}
+      sx={{
+        p: { xs: 1.5, md: 2 }, borderRadius: '10px', cursor: 'pointer', border: CARD_BORDER,
+        aspectRatio: '4 / 3', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        transition: 'all 0.15s', '&:hover': { borderColor: '#C5D1E0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' },
+      }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, gap: 0.5, flexWrap: 'wrap' }}>
+        <CategoryBadge category={p.category} />
+        <StatusBadge status={p.status} />
+      </Box>
+      <Typography sx={{
+        fontWeight: 700, fontSize: { xs: '0.8rem', md: '0.9rem' }, mb: 0.3, lineHeight: 1.3,
+        overflow: 'hidden', textOverflow: 'ellipsis',
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+      }}>{p.title}</Typography>
+      <Typography sx={{ fontSize: { xs: '0.68rem', md: '0.75rem' }, color: '#999', mb: 'auto' }}>{p.period}</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}>
+        <Typography sx={{ fontWeight: 800, fontSize: { xs: '1rem', md: '1.2rem' }, color: '#0047BA' }}>D-{p.dDay}</Typography>
+        <Button variant="outlined" size="small" sx={{ borderRadius: '8px', fontSize: { xs: '0.68rem', md: '0.75rem' }, fontWeight: 600, py: 0.3, minWidth: { xs: 52, md: 64 } }}>
+          {p.status === '진행중' ? '학습하기' : '상세보기'}
+        </Button>
+      </Box>
+    </Paper>
+  );
+
+  return (
+    <SectionCard minHeight="auto">
+      <SectionHeader title="진행 중인 프로그램" onMore={() => navigate('/programs')} />
+      <Grid container spacing={1.5} sx={{ flex: 1 }}>
+        {items.slice(0, 6).map((p) => (
+          <Grid item xs={6} sm={6} md={3} key={p.id}>
+            <ProgramCard p={p} />
+          </Grid>
+        ))}
+      </Grid>
+    </SectionCard>
+  );
+};
+
+// ─── Jobs ─────────────────────────────────
+const JobSection = ({ jobs, loading }) => {
+  const navigate = useNavigate();
+  const items = jobs?.length > 0 ? jobs : [
+    { id: 1, company: '(주)한화생명', position: '시니어 금융 전문 컨설턴트', location: '서울 중구', type: '계약직' },
+    { id: 2, company: 'KB국민은행', position: '디지털 금융 플랫폼 기획자', location: '서울 여의도', type: '정규직' },
+    { id: 3, company: '삼성생명', position: '퇴직연금 전문 상담역', location: '서울 강남구', type: '정규직' },
+    { id: 4, company: '현대건설', position: '부동산 자문위원', location: '경기 성남시', type: '프리랜서' },
+    { id: 5, company: '신한은행', position: '자산관리 시니어 컨설턴트', location: '서울 강남구', type: '정규직' },
+    { id: 6, company: 'NH농협', position: '농촌 금융 전문 상담역', location: '전국', type: '계약직' },
+  ];
+
+  if (loading) return <SectionCard><Box>{[1,2,3].map(i => <Skeleton key={i} height={72} sx={{ borderRadius: '10px', mb: 1 }} />)}</Box></SectionCard>;
+
+  const JobCard = ({ job }) => (
+    <Paper elevation={0} onClick={() => navigate(`/jobs/${job.id}`)}
+      sx={{
+        p: { xs: 1.5, md: 2 }, borderRadius: '10px', cursor: 'pointer', border: CARD_BORDER,
+        aspectRatio: '4 / 3', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        transition: 'all 0.15s',
+        '&:hover': { borderColor: '#C5D1E0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' },
+      }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontSize: { xs: '0.65rem', md: '0.72rem' }, color: '#999', fontWeight: 500, mb: 0.3 }}>{job.company}</Typography>
+          <Typography sx={{
+            fontWeight: 600, fontSize: { xs: '0.78rem', md: '0.88rem' }, mb: 0.5, lineHeight: 1.3,
+            overflow: 'hidden', textOverflow: 'ellipsis',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          }}>{job.position}</Typography>
+          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Typography sx={{ fontSize: { xs: '0.62rem', md: '0.72rem' }, color: '#aaa' }}>{job.location}</Typography>
+            {job.type && <Chip label={job.type} size="small" sx={{ height: 18, fontSize: { xs: '0.58rem', md: '0.62rem' }, fontWeight: 600 }} />}
+          </Box>
+        </Box>
+        <IconButton size="small" sx={{ color: '#ddd', mt: -0.5, display: { xs: 'none', sm: 'flex' } }}><BookmarkIcon sx={{ fontSize: 18 }} /></IconButton>
+      </Box>
+    </Paper>
+  );
+
+  return (
+    <SectionCard minHeight="auto">
+      <SectionHeader title="추천 채용정보" onMore={() => navigate('/jobs')} />
+      <Grid container spacing={1.5}>
+        {items.slice(0, 6).map((job) => (
+          <Grid item xs={6} sm={6} md={4} key={job.id}>
+            <JobCard job={job} />
+          </Grid>
+        ))}
+      </Grid>
+    </SectionCard>
+  );
+};
+
+// ─── Main Home ─────────────────────────────────
+const Home = () => {
+  const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
-  const [isLocked, setIsLocked] = useState(true);
-
-  // Load saved layouts
-  const [layouts, setLayouts] = useState(() => {
-    try {
-      const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch { /* ignore */ }
-    return DEFAULT_LAYOUTS;
-  });
+  const [sectionOrder] = useState(loadSectionOrder);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchData = async () => {
       try {
         const response = await dashboardAPI.getHome();
         setDashboardData(response.data);
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
       } finally {
         setLoading(false);
       }
     };
-    fetchDashboardData();
+    fetchData();
   }, []);
 
-  const handleLayoutChange = (_, allLayouts) => {
-    setLayouts(allLayouts);
-    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(allLayouts));
-  };
-
-  const handleResetLayout = () => {
-    setLayouts(DEFAULT_LAYOUTS);
-    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(DEFAULT_LAYOUTS));
-  };
-
-  const widgets = useMemo(() => ({
-    announcements: (
-      <DashboardWidget title={t('home.announcements')} action={<Button size="small" onClick={() => navigate('/announcements')}>{t('common.viewMore')}</Button>}>
-        <AnnouncementList announcements={dashboardData?.announcements} loading={loading} />
-      </DashboardWidget>
-    ),
+  const sectionComponents = {
+    announcements: isAuthenticated ? (
+      <AnnouncementSection key="announcements" announcements={dashboardData?.announcements} loading={loading} />
+    ) : null,
+    status: isAuthenticated ? (
+      <MyStatusCard key="status" stats={dashboardData?.stats} loading={loading} />
+    ) : null,
     programs: (
-      <DashboardWidget title={t('home.ongoingPrograms')} action={<Button size="small" onClick={() => navigate('/programs')}>{t('common.viewMore')}</Button>}>
-        <OngoingPrograms programs={dashboardData?.programs} loading={loading} />
-      </DashboardWidget>
-    ),
-    myStatus: (
-      <DashboardWidget title={t('home.myStatus')}>
-        <MyStatus stats={dashboardData?.stats} loading={loading} />
-      </DashboardWidget>
-    ),
-    calendar: (
-      <DashboardWidget title={t('home.monthlyCalendar')}>
-        <CalendarWidget events={dashboardData?.events} />
-      </DashboardWidget>
+      <ProgramsSection key="programs" programs={dashboardData?.programs} loading={loading} />
     ),
     jobs: (
-      <DashboardWidget title={t('home.jobRecommendations')} action={<Button size="small" onClick={() => navigate('/jobs')}>{t('common.viewMore')}</Button>}>
-        <JobRecommendations jobs={dashboardData?.jobs} loading={loading} />
-      </DashboardWidget>
+      <JobSection key="jobs" jobs={dashboardData?.jobs} loading={loading} />
     ),
-    quickAccess: (
-      <DashboardWidget title={t('home.quickAccess')}>
-        <QuickAccess />
-      </DashboardWidget>
-    ),
-  }), [dashboardData, loading, t, navigate]);
+  };
 
   return (
     <Box>
-      {/* Layout controls */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1, mb: 1 }}>
-        {!isLocked && (
-          <Button size="small" variant="text" onClick={handleResetLayout} sx={{ fontSize: '0.75rem' }}>
-            레이아웃 초기화
-          </Button>
-        )}
-        <Tooltip title={isLocked ? '레이아웃 편집' : '레이아웃 잠금'}>
-          <IconButton size="small" onClick={() => setIsLocked(!isLocked)}
-            sx={{ color: isLocked ? 'text.secondary' : 'primary.main' }}>
-            {isLocked ? <LockIcon fontSize="small" /> : <LockOpenIcon fontSize="small" />}
-          </IconButton>
-        </Tooltip>
-      </Box>
+      <HomeBannerCarousel />
+      <QuickMenu />
 
-      <ResponsiveGridLayout
-        className="dashboard-grid"
-        layouts={layouts}
-        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480 }}
-        cols={{ lg: 12, md: 10, sm: 6, xs: 1 }}
-        rowHeight={60}
-        onLayoutChange={handleLayoutChange}
-        isDraggable={!isLocked}
-        isResizable={!isLocked}
-        draggableHandle=".drag-handle"
-        compactType="vertical"
-        margin={[16, 16]}
-      >
-        {Object.keys(widgets).map((key) => (
-          <Box
-            key={key}
-            sx={{
-              '& > *': { height: '100%' },
-              ...(isLocked ? {} : {
-                '&:hover': {
-                  outline: '2px dashed',
-                  outlineColor: 'primary.main',
-                  outlineOffset: -2,
-                  borderRadius: 1,
-                },
-              }),
-            }}
-          >
-            {!isLocked && (
-              <Box className="drag-handle" sx={{
-                position: 'absolute', top: 0, left: 0, right: 0, height: 28, zIndex: 10,
-                cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                '&:active': { cursor: 'grabbing' },
-              }}>
-                <Box sx={{ width: 32, height: 4, borderRadius: 2, bgcolor: 'rgba(0,0,0,0.15)' }} />
-              </Box>
-            )}
-            {widgets[key]}
-          </Box>
-        ))}
-      </ResponsiveGridLayout>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, md: 3 } }}>
+        {sectionOrder.map((key) => sectionComponents[key]).filter(Boolean)}
+      </Box>
     </Box>
   );
 };

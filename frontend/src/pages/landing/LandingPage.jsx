@@ -30,7 +30,7 @@ const DEFAULT_SLIDES = [
   {
     type: 'image',
     url: 'https://images.unsplash.com/photo-1560472355-536de3962603?w=800&h=450&fit=crop',
-    title: '우리은행 퇴직자 지원 프로그램',
+    title: '우리은행 퇴직자 통합지원 프로그램',
     subtitle: '새로운 시작을 함께합니다',
   },
   {
@@ -204,7 +204,7 @@ const LandingPage = () => {
           variant={isMobile ? 'body1' : 'h6'}
           sx={{ fontWeight: 700, color: '#fff', letterSpacing: '-0.02em' }}
         >
-          우리은행 퇴직자 지원 플랫폼
+          우리은행 퇴직자 통합지원 플랫폼
         </Typography>
       </Box>
       <Button

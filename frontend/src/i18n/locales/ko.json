@@ -34,7 +34,7 @@
     "announcements": "중요 공지사항",
     "ongoingPrograms": "진행 중인 프로그램",
     "myStatus": "나의 현황",
-    "monthlyCalendar": "이번 달 일정",
+    "monthlyCalendar": "",
     "jobRecommendations": "맞춤 채용정보",
     "quickAccess": "빠른 접근",
     "appliedPrograms": "신청 프로그램",
@@ -127,6 +127,7 @@
     "title": "고객지원",
     "notices": "공지사항",
     "faq": "FAQ",
+    "faqDescription": "자주 묻는 질문을 확인하세요",
     "inquiry": "1:1 문의",
     "myInquiries": "나의 문의 내역",
     "submitInquiry": "문의하기",
@@ -171,13 +172,7 @@
     "general": "일반",
     "new": "NEW"
   },
-  "calendar": {
-    "today": "오늘",
-    "month": "월",
-    "week": "주",
-    "day": "일",
-    "event": "일정"
-  },
+  "calendar": {},
   "footer": {
     "copyright": "© {year} 우리은행. All rights reserved.",
     "contact": "대표번호",
