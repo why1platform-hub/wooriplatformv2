@@ -181,16 +181,13 @@ const Login = () => {
             />
 
             <Box sx={{ textAlign: 'right', mb: 3 }}>
-              <Link
-                to="/forgot-password"
-                style={{
-                  color: '#0047BA',
-                  fontSize: '0.875rem',
-                  textDecoration: 'none',
-                }}
+              <Typography
+                component="span"
+                onClick={() => window.alert('비밀번호 재설정은 관리자에게 문의해주세요.\n연락처: 070-737-8600\nEmail: support@woori.com')}
+                sx={{ color: '#0047BA', fontSize: '0.875rem', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
               >
                 {t('auth.forgotPassword')}
-              </Link>
+              </Typography>
             </Box>
 
             <Button

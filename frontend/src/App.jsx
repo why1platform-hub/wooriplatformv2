@@ -158,7 +158,7 @@ const AppRoutes = () => {
                   />
                   <Route path="/jobs" element={<JobManagement />} />
                   <Route
-                    path="/courses"
+                    path="/learning"
                     element={
                       <ProtectedRoute roles={['admin', 'instructor']}>
                         <CourseManagement />

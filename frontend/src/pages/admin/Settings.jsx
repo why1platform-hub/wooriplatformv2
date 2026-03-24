@@ -82,6 +82,7 @@ const Settings = () => {
       const saved = localStorage.getItem('woori_sso_config');
       return saved ? JSON.parse(saved) : {
         enabled: false,
+        googleSSOEnabled: false,
         clientId: '',
         clientSecret: '',
         tenantId: '',
@@ -90,7 +91,7 @@ const Settings = () => {
         autoProvision: true,
         defaultRole: 'user',
       };
-    } catch { return { enabled: false, clientId: '', clientSecret: '', tenantId: '', redirectUri: `${window.location.origin}/auth/microsoft/callback`, allowedDomains: '', autoProvision: true, defaultRole: 'user' }; }
+    } catch { return { enabled: false, googleSSOEnabled: false, clientId: '', clientSecret: '', tenantId: '', redirectUri: `${window.location.origin}/auth/microsoft/callback`, allowedDomains: '', autoProvision: true, defaultRole: 'user' }; }
   });
 
   const [showSecret, setShowSecret] = useState(false);
@@ -187,6 +188,37 @@ const Settings = () => {
       {/* Tab 0: Microsoft SSO */}
       {tab === 0 && (
         <Box>
+          {/* Google SSO Toggle */}
+          <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px', mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{
+                  width: 40, height: 40, borderRadius: '8px', bgcolor: '#F3F4F6',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Box component="img" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" sx={{ width: 22, height: 22 }} />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle1" fontWeight={600}>Google SSO 로그인</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    로그인 페이지에서 Google 로그인 버튼 표시 여부
+                  </Typography>
+                </Box>
+              </Box>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={ssoConfig.googleSSOEnabled || false}
+                    onChange={(e) => updateConfig('googleSSOEnabled', e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label={ssoConfig.googleSSOEnabled ? '표시' : '숨김'}
+              />
+            </Box>
+          </Paper>
+
+          {/* Microsoft SSO */}
           <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px', mb: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

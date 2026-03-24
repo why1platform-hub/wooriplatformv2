@@ -132,6 +132,15 @@ const LandingPage = () => {
   // Load banner slides from admin settings
   const bannerSlides = useMemo(() => loadBannerSlides(), []);
 
+  // Load Google SSO visibility setting (default: hidden)
+  const showGoogleSSO = useMemo(() => {
+    try {
+      const saved = localStorage.getItem('woori_sso_config');
+      if (saved) return JSON.parse(saved).googleSSOEnabled === true;
+    } catch { /* ignore */ }
+    return false;
+  }, []);
+
   // Load custom logo from localStorage
   const customLogo = useMemo(() => {
     try {
@@ -441,12 +450,13 @@ const LandingPage = () => {
         />
 
         <Box sx={{ textAlign: 'right', mb: 1.5 }}>
-          <Link
-            to="/forgot-password"
-            style={{ color: '#0047BA', fontSize: '0.75rem', textDecoration: 'none' }}
+          <Typography
+            component="span"
+            onClick={() => window.alert('비밀번호 재설정은 관리자에게 문의해주세요.\n연락처: 070-737-8600\nEmail: support@woori.com')}
+            sx={{ color: '#0047BA', fontSize: '0.75rem', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
           >
             {t('auth.forgotPassword')}
-          </Link>
+          </Typography>
         </Box>
 
         <Button
@@ -460,34 +470,38 @@ const LandingPage = () => {
         </Button>
       </Box>
 
-      <Divider sx={{ my: 1.5 }}>
-        <Typography variant="caption" color="text.secondary">
-          또는
-        </Typography>
-      </Divider>
+      {showGoogleSSO && (
+        <>
+          <Divider sx={{ my: 1.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              또는
+            </Typography>
+          </Divider>
 
-      <Button
-        fullWidth
-        variant="outlined"
-        size="small"
-        onClick={handleGoogleLogin}
-        startIcon={
-          <Box
-            component="img"
-            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-            alt="Google"
-            sx={{ width: 16, height: 16 }}
-          />
-        }
-        sx={{
-          color: '#333',
-          borderColor: '#E5E5E5',
-          fontSize: '0.8125rem',
-          '&:hover': { borderColor: '#D1D5DB', backgroundColor: '#F9FAFB', color: '#333' },
-        }}
-      >
-        {t('auth.loginWithGoogle')}
-      </Button>
+          <Button
+            fullWidth
+            variant="outlined"
+            size="small"
+            onClick={handleGoogleLogin}
+            startIcon={
+              <Box
+                component="img"
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                alt="Google"
+                sx={{ width: 16, height: 16 }}
+              />
+            }
+            sx={{
+              color: '#333',
+              borderColor: '#E5E5E5',
+              fontSize: '0.8125rem',
+              '&:hover': { borderColor: '#D1D5DB', backgroundColor: '#F9FAFB', color: '#333' },
+            }}
+          >
+            {t('auth.loginWithGoogle')}
+          </Button>
+        </>
+      )}
 
       <Box sx={{ textAlign: 'center', mt: 1.5 }}>
         <Typography variant="caption" color="text.secondary">
