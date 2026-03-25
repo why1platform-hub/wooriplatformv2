@@ -11,10 +11,10 @@ const LOGO_KEY = 'woori_site_logo';
 
 // ── Edit these defaults to change what all devices see ──
 export const DEFAULT_BRANDING = {
-  title_ko: '우리은행 퇴직자 통합지원 플랫폼',
-  title_en: 'Woori Bank Retirement Support Platform',
-  title_short_ko: '퇴직지원 플랫폼',
-  title_short_en: 'Retirement Platform',
+  title_ko: '우리은행 퇴직 컨시어지 서비스',
+  title_en: 'Woori Bank Retirement Concierge Service',
+  title_short_ko: '퇴직 컨시어지',
+  title_short_en: 'Retirement Concierge',
 };
 
 export const loadBranding = () => {
