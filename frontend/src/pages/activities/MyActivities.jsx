@@ -56,6 +56,7 @@ const methodIcon = {
 
 const statusColors = {
   '배정대기': { color: '#92400E', bg: '#FEF3C7' },
+  '승인대기': { color: '#7C3AED', bg: '#F3F0FF' },
   '예약됨': { color: '#1E40AF', bg: '#DBEAFE' },
   '완료': { color: '#166534', bg: '#DCFCE7' },
   '취소': { color: '#991B1B', bg: '#FEE2E2' },
@@ -106,7 +107,7 @@ const MyActivities = () => {
             consultant_name: b.consultantName || '배정 대기',
             topic: b.method,
             method: b.method,
-            status: b.status === 'pending' ? '배정대기' : b.status === 'confirmed' ? '예약됨' : b.status === 'completed' ? '완료' : '취소',
+            status: b.status === 'pending' ? '배정대기' : b.status === 'pending_approval' ? '승인대기' : b.status === 'confirmed' ? '예약됨' : b.status === 'completed' ? '완료' : '취소',
             records: [],
           }));
           setConsultations(mapped);

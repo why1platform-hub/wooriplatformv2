@@ -13,10 +13,11 @@ import Layout from './components/layout/Layout';
 import AdminLayout from './components/admin/AdminLayout';
 
 // Data reset: clear old schema data on version change
-const DATA_VERSION = 'v4_instructor_availability';
+const DATA_VERSION = 'v5_approval_flow';
 if (localStorage.getItem('woori_data_version') !== DATA_VERSION) {
   ['woori_programs', 'woori_program_applications', 'woori_consultation_bookings',
-   'woori_intake_forms', 'woori_instructor_availability', 'woori_program_notifications', 'token', 'user'].forEach((k) => localStorage.removeItem(k));
+   'woori_intake_forms', 'woori_instructor_availability', 'woori_consultation_notes',
+   'woori_program_notifications', 'token', 'user'].forEach((k) => localStorage.removeItem(k));
   localStorage.setItem('woori_data_version', DATA_VERSION);
 }
 

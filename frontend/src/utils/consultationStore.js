@@ -6,6 +6,7 @@
 const BOOKINGS_KEY = 'woori_consultation_bookings';
 const INTAKE_KEY = 'woori_intake_forms';
 const AVAILABILITY_KEY = 'woori_instructor_availability';
+const NOTES_KEY = 'woori_consultation_notes';
 
 // ── System consultants (matches AuthContext) ──
 export const CONSULTANTS = [
@@ -149,8 +150,16 @@ export const assignConsultant = (bookingId, consultantId, consultantName) => {
   const bookings = loadBookings();
   const updated = bookings.map((b) =>
     b.id === bookingId
-      ? { ...b, consultantId, consultantName, status: 'confirmed' }
+      ? { ...b, consultantId, consultantName, status: 'pending_approval' }
       : b
+  );
+  saveBookings(updated);
+};
+
+export const approveBooking = (bookingId) => {
+  const bookings = loadBookings();
+  const updated = bookings.map((b) =>
+    b.id === bookingId ? { ...b, status: 'confirmed' } : b
   );
   saveBookings(updated);
 };
@@ -231,6 +240,7 @@ export const getConsultationStats = () => {
   return {
     total: active.length,
     pending: active.filter((b) => b.status === 'pending').length,
+    pending_approval: active.filter((b) => b.status === 'pending_approval').length,
     confirmed: active.filter((b) => b.status === 'confirmed').length,
     completed: active.filter((b) => b.status === 'completed').length,
     cancelled: bookings.filter((b) => b.status === 'cancelled').length,
@@ -257,25 +267,34 @@ export const getConsultantStats = () => {
 };
 
 // ── Instructor Availability ──
-// Structure: { [instructorId]: { [dateStr]: ['09:00','09:30',...] } }
+// Structure: { [instructorId]: { slots: { [dateStr]: ['09:00','09:30',...] }, sessionDuration: 30, repeatMode: 'none' } }
+
+// Generate seed availability for the current and next month (weekdays 9-17)
+const generateSeedSlots = (startH, endH) => {
+  const slots = [];
+  for (let h = startH; h < endH; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    }
+  }
+  return slots;
+};
+
+const buildSeedAvailability = () => {
+  const result = {};
+  const now = new Date();
+  for (let offset = 1; offset <= 30; offset++) {
+    const d = new Date(now); d.setDate(d.getDate() + offset);
+    if (d.getDay() === 0 || d.getDay() === 6) continue;
+    const ds = d.toISOString().slice(0, 10).replace(/-/g, '.');
+    result[ds] = generateSeedSlots(9, 17);
+  }
+  return result;
+};
 
 const SEED_AVAILABILITY = {
-  2: {
-    '2026.03.26': ['09:00','09:30','10:00','10:30','14:00','14:30','15:00'],
-    '2026.03.27': ['09:00','09:30','10:00','14:00','14:30'],
-    '2026.03.28': ['10:00','10:30','11:00','13:00','13:30','14:00','15:00','15:30'],
-    '2026.04.01': ['09:00','09:30','10:00','10:30','11:00','14:00','14:30','15:00','15:30','16:00'],
-    '2026.04.02': ['09:00','10:00','10:30','14:00','14:30','15:00'],
-    '2026.04.03': ['09:00','09:30','10:00','10:30','11:00','11:30','14:00','14:30'],
-  },
-  3: {
-    '2026.03.26': ['10:00','10:30','11:00','11:30','15:00','15:30','16:00'],
-    '2026.03.27': ['09:00','09:30','11:00','11:30','14:00','14:30','15:00','16:00'],
-    '2026.03.28': ['09:00','09:30','10:00','14:00','14:30'],
-    '2026.04.01': ['10:00','10:30','11:00','14:00','14:30','15:00','16:00','16:30'],
-    '2026.04.02': ['09:00','09:30','10:00','11:00','14:00','14:30','15:00','15:30','16:00'],
-    '2026.04.03': ['09:00','10:00','10:30','11:00','15:00','15:30','16:00'],
-  },
+  2: { slots: buildSeedAvailability(), sessionDuration: 30 },
+  3: { slots: buildSeedAvailability(), sessionDuration: 30 },
 };
 
 export const loadAvailability = () => {
@@ -293,13 +312,35 @@ export const saveAvailability = (data) => {
 
 export const getInstructorAvailability = (instructorId, dateStr) => {
   const all = loadAvailability();
-  return all[instructorId]?.[dateStr] || [];
+  return all[instructorId]?.slots?.[dateStr] || [];
+};
+
+export const getInstructorSessionDuration = (instructorId) => {
+  const all = loadAvailability();
+  return all[instructorId]?.sessionDuration || 30;
 };
 
 export const setInstructorAvailability = (instructorId, dateStr, slots) => {
   const all = loadAvailability();
-  if (!all[instructorId]) all[instructorId] = {};
-  all[instructorId][dateStr] = slots;
+  if (!all[instructorId]) all[instructorId] = { slots: {}, sessionDuration: 30 };
+  if (!all[instructorId].slots) all[instructorId].slots = {};
+  all[instructorId].slots[dateStr] = slots;
+  saveAvailability(all);
+};
+
+export const setInstructorSessionDuration = (instructorId, duration) => {
+  const all = loadAvailability();
+  if (!all[instructorId]) all[instructorId] = { slots: {}, sessionDuration: duration };
+  else all[instructorId].sessionDuration = duration;
+  saveAvailability(all);
+};
+
+// Copy one day's availability to a range of dates
+export const copyAvailabilityToRange = (instructorId, sourceDate, targetDates) => {
+  const all = loadAvailability();
+  if (!all[instructorId]?.slots?.[sourceDate]) return;
+  const sourceSlots = all[instructorId].slots[sourceDate];
+  targetDates.forEach((d) => { all[instructorId].slots[d] = [...sourceSlots]; });
   saveAvailability(all);
 };
 
@@ -311,9 +352,30 @@ export const getAvailableInstructorsForSlot = (dateStr, timeStr) => {
   const bookedInstructorIds = booked.map((b) => b.consultantId);
 
   return CONSULTANTS.filter((c) => {
-    const slots = all[c.id]?.[dateStr] || [];
+    const slots = all[c.id]?.slots?.[dateStr] || [];
     return slots.includes(timeStr) && !bookedInstructorIds.includes(c.id);
   });
+};
+
+// ── Consultation Notes (per booking) ──
+// Structure: { [bookingId]: { title: '', content: '', updatedAt: '' } }
+
+export const loadNotes = () => {
+  try {
+    const saved = localStorage.getItem(NOTES_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch { /* ignore */ }
+  return {};
+};
+
+export const getNote = (bookingId) => {
+  return loadNotes()[bookingId] || null;
+};
+
+export const saveNote = (bookingId, title, content) => {
+  const all = loadNotes();
+  all[bookingId] = { title, content, updatedAt: new Date().toISOString() };
+  localStorage.setItem(NOTES_KEY, JSON.stringify(all));
 };
 
 // ── Reset all data (for fresh start) ──
@@ -321,4 +383,5 @@ export const resetAllConsultationData = () => {
   localStorage.removeItem(BOOKINGS_KEY);
   localStorage.removeItem(INTAKE_KEY);
   localStorage.removeItem(AVAILABILITY_KEY);
+  localStorage.removeItem(NOTES_KEY);
 };
