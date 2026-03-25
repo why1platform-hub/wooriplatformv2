@@ -3,7 +3,7 @@ import {
   Box, Typography, Grid, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Chip, Tabs, Tab, Avatar, IconButton,
   Dialog, DialogTitle, DialogContent, DialogActions, Tooltip,
-  ToggleButton, ToggleButtonGroup,
+  ToggleButton, ToggleButtonGroup, TextField, InputAdornment,
 } from '@mui/material';
 import {
   CheckCircle as ApproveIcon,
@@ -18,6 +18,7 @@ import {
   ChevronLeft, ChevronRight,
   ContentCopy as CopyIcon,
   StickyNote2 as NoteIcon,
+  Search as SearchIcon,
   HowToReg as AcceptIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
@@ -73,8 +74,9 @@ const ConsultationManagement = () => {
   const isAdmin = user?.role === 'admin';
   const isConsultantRole = user?.role === 'consultant';
 
-  const [tab, setTab] = useState(isConsultantRole ? 0 : 0);
+  const [tab, setTab] = useState(0);
   const [bookings, setBookings] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignTarget, setAssignTarget] = useState(null);
   const [intakeOpen, setIntakeOpen] = useState(false);
@@ -113,10 +115,23 @@ const ConsultationManagement = () => {
   const stats = getConsultationStats();
   const consultantStats = getConsultantStats();
 
-  const myBookings = isConsultantRole
+  const allMyBookings = isConsultantRole
     ? bookings.filter((b) => b.consultantId === user.id && b.status !== 'cancelled')
     : bookings.filter((b) => b.status !== 'cancelled');
   const pendingBookings = bookings.filter((b) => b.status === 'pending');
+
+  // Apply search filter
+  const filterBooking = (b) => {
+    if (!searchTerm) return true;
+    const q = searchTerm.toLowerCase();
+    return (b.userName || '').toLowerCase().includes(q)
+      || (b.userEmail || '').toLowerCase().includes(q)
+      || (b.consultantName || '').toLowerCase().includes(q)
+      || (b.date || '').includes(q)
+      || (b.method || '').toLowerCase().includes(q);
+  };
+  const myBookings = allMyBookings.filter(filterBooking);
+  const PAGE_SIZE = 8;
 
   const availableInstructors = useMemo(() => {
     if (!assignTarget) return [];
@@ -283,13 +298,23 @@ const ConsultationManagement = () => {
       </Grid>
 
       <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
+        <Tabs value={tab} onChange={(_, v) => { setTab(v); setSearchTerm(''); }} sx={{ mb: 2 }}>
           {tabs.map((t, i) => <Tab key={i} label={t.label} />)}
         </Tabs>
 
+        {/* Search bar — shown on booking tabs */}
+        {((isAdmin && tab <= 1) || (isConsultantRole && tab <= 1)) && (
+          <TextField
+            fullWidth size="small" placeholder="검색 (이름, 이메일, 날짜, 방법...)"
+            value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
+            sx={{ mb: 2 }}
+          />
+        )}
+
         {/* ─── Tab 0 (Admin): Pending assignments ─── */}
         {isAdmin && tab === 0 && (
-          <TableContainer><Table size="small"><TableHead><TableRow>
+          <TableContainer sx={{ maxHeight: 480 }}><Table size="small" stickyHeader><TableHead><TableRow>
             <TableCell>신청자</TableCell><TableCell align="center">희망 날짜</TableCell>
             <TableCell align="center">희망 시간</TableCell><TableCell align="center">방법</TableCell>
             <TableCell align="center">가용 강사</TableCell><TableCell align="center">처리</TableCell>
@@ -320,7 +345,13 @@ const ConsultationManagement = () => {
 
         {/* ─── Tab 0 (Instructor): My bookings / Tab 1 (Admin): All bookings ─── */}
         {((isAdmin && tab === 1) || (isConsultantRole && tab === 0)) && (
-          <TableContainer><Table size="small"><TableHead><TableRow>
+          <Box>
+          {myBookings.length > PAGE_SIZE && (
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+              {myBookings.length}건 중 최근 {PAGE_SIZE}건 표시 (스크롤하여 더 보기)
+            </Typography>
+          )}
+          <TableContainer sx={{ maxHeight: 480 }}><Table size="small" stickyHeader><TableHead><TableRow>
             <TableCell>사용자</TableCell><TableCell align="center">날짜</TableCell>
             <TableCell align="center">시간</TableCell><TableCell align="center">방법</TableCell>
             {isAdmin && <TableCell align="center">강사</TableCell>}
@@ -363,6 +394,7 @@ const ConsultationManagement = () => {
               );
             })}
           </TableBody></Table></TableContainer>
+          </Box>
         )}
 
         {/* ─── Tab 2 (Admin) / Tab 2 (Instructor): Availability Management ─── */}
