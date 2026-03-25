@@ -125,15 +125,9 @@ export const AuthProvider = ({ children }) => {
 
   const logout = useCallback(async () => {
     try { await authAPI.logout(); } catch { /* ignore */ }
-    // Clear user-specific data but preserve admin settings (branding, logo, SSO, policies)
-    const preserve = ['woori_site_branding', 'woori_site_logo', 'woori_sso_config',
-      'woori_policies', 'woori_homepage_order', 'woori_data_version',
-      'woori_landing_slides', 'woori_footer_banners', 'woori_footer_speed',
-      'woori_footer_active', 'woori_home_banners', 'woori_popup_banners', 'language'];
-    const saved = {};
-    preserve.forEach((k) => { const v = localStorage.getItem(k); if (v) saved[k] = v; });
-    localStorage.clear();
-    Object.entries(saved).forEach(([k, v]) => localStorage.setItem(k, v));
+    // Only clear auth tokens — keep all app data (bookings, notes, banners, etc.)
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
   }, []);
 
