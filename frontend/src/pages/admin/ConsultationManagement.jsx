@@ -17,6 +17,7 @@ import {
   Schedule as ClockIcon,
   ChevronLeft, ChevronRight,
   ContentCopy as CopyIcon,
+  StickyNote2 as NoteIcon,
   HowToReg as AcceptIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
@@ -346,6 +347,13 @@ const ConsultationManagement = () => {
                       )}
                       {b.status === 'confirmed' && (
                         <Tooltip title="완료 처리"><IconButton size="small" color="success" onClick={() => handleComplete(b)}><DoneIcon fontSize="small" /></IconButton></Tooltip>
+                      )}
+                      {(b.status === 'confirmed' || b.status === 'completed') && (
+                        <Tooltip title={getNote(b.id) ? '상담 기록 보기' : '상담 기록 작성'}>
+                          <IconButton size="small" sx={{ color: getNote(b.id) ? '#7C3AED' : '#9CA3AF' }} onClick={() => openNote(b)}>
+                            <NoteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
                       )}
                       <Tooltip title="인테이크"><IconButton size="small" color="primary" onClick={() => openIntake(b.userId, b.userName)}><FormIcon fontSize="small" /></IconButton></Tooltip>
                       <Tooltip title="이력"><IconButton size="small" onClick={() => openHistory(b.userId, b.userName)}><HistoryIcon fontSize="small" /></IconButton></Tooltip>
