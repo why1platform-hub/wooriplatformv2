@@ -15,7 +15,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
-import { addBooking, getAvailableSlots, getBookedSlots } from '../../utils/consultationStore';
+import { addBooking, getAvailableSlots, getBookedSlots, getKSTDate, formatKSTDate } from '../../utils/consultationStore';
 
 const STEPS = ['날짜 · 시간 선택', '상담 방법 선택', '예약 확인'];
 
@@ -37,16 +37,17 @@ const ConsultationBooking = () => {
   const [booked, setBooked] = useState(false);
 
   // Generate next 14 weekdays
+  // Generate next 14 weekdays in KST
   const dates = useMemo(() => {
     const result = [];
-    const d = new Date();
+    const kstNow = getKSTDate();
+    const d = new Date(kstNow);
     d.setDate(d.getDate() + 1);
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
     while (result.length < 14) {
       const day = d.getDay();
       if (day !== 0 && day !== 6) {
-        const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '.');
-        const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-        result.push({ date: dateStr, label: `${d.getMonth() + 1}/${d.getDate()}`, day: dayNames[day] });
+        result.push({ date: formatKSTDate(d), label: `${d.getMonth() + 1}/${d.getDate()}`, day: dayNames[day] });
       }
       d.setDate(d.getDate() + 1);
     }

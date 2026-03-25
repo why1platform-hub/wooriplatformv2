@@ -9,7 +9,9 @@ const APPLICATIONS_KEY = 'woori_program_applications';
 
 // ── Default seed data (used on first load) ──
 
-const today = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
+// Use KST (UTC+9) for date calculations
+const kstNow = new Date(Date.now() + (9 * 60 * 60 * 1000) + (new Date().getTimezoneOffset() * 60 * 1000));
+const today = `${kstNow.getFullYear()}.${String(kstNow.getMonth() + 1).padStart(2, '0')}.${String(kstNow.getDate()).padStart(2, '0')}`;
 
 const autoStatus = (startDate, endDate, manualStatus) => {
   if (endDate < today) return '종료';

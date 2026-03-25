@@ -29,6 +29,7 @@ import {
   getInstructorAvailability, setInstructorAvailability,
   getInstructorSessionDuration, setInstructorSessionDuration,
   copyAvailabilityToRange, getNote, saveNote,
+  getKSTDate, formatKSTDate,
 } from '../../utils/consultationStore';
 import IntakeForm from '../consultations/IntakeForm';
 
@@ -90,13 +91,23 @@ const ConsultationManagement = () => {
   // Availability calendar state
   const [availOpen, setAvailOpen] = useState(false);
   const [availInstructor, setAvailInstructor] = useState(null);
-  const [calYear, setCalYear] = useState(new Date().getFullYear());
-  const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const kstNow = getKSTDate();
+  const [calYear, setCalYear] = useState(kstNow.getFullYear());
+  const [calMonth, setCalMonth] = useState(kstNow.getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
   const [daySlots, setDaySlots] = useState([]);
   const [sessionDur, setSessionDur] = useState(30);
 
-  useEffect(() => { setBookings(loadBookings()); }, []);
+  // Load bookings + auto-refresh every 5 seconds for real-time sync
+  const refreshBookings = useCallback(() => setBookings(loadBookings()), []);
+  useEffect(() => {
+    refreshBookings();
+    const interval = setInterval(refreshBookings, 5000);
+    // Also listen for localStorage changes from other tabs
+    const onStorage = (e) => { if (e.key === 'woori_consultation_bookings') refreshBookings(); };
+    window.addEventListener('storage', onStorage);
+    return () => { clearInterval(interval); window.removeEventListener('storage', onStorage); };
+  }, [refreshBookings]);
 
   const stats = getConsultationStats();
   const consultantStats = getConsultantStats();
@@ -153,7 +164,7 @@ const ConsultationManagement = () => {
   // ─── Availability calendar logic ───
   const openAvailCalendar = (inst) => {
     setAvailInstructor(inst);
-    const now = new Date();
+    const now = getKSTDate();
     setCalYear(now.getFullYear());
     setCalMonth(now.getMonth());
     setSelectedDay(null);
@@ -485,7 +496,7 @@ const ConsultationManagement = () => {
                   const ds = fmtDate(calYear, calMonth, day);
                   const slots = availInstructor ? getInstructorAvailability(availInstructor.id, ds) : [];
                   const isSelected = day === selectedDay;
-                  const isToday = ds === new Date().toISOString().slice(0, 10).replace(/-/g, '.');
+                  const isToday = ds === formatKSTDate();
                   const dow = new Date(calYear, calMonth, day).getDay();
                   const isWeekend = dow === 0 || dow === 6;
                   return (

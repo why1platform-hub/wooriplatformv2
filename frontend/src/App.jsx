@@ -13,7 +13,7 @@ import Layout from './components/layout/Layout';
 import AdminLayout from './components/admin/AdminLayout';
 
 // Data reset: clear old schema data on version change
-const DATA_VERSION = 'v5_approval_flow';
+const DATA_VERSION = 'v6_kst_realtime';
 if (localStorage.getItem('woori_data_version') !== DATA_VERSION) {
   ['woori_programs', 'woori_program_applications', 'woori_consultation_bookings',
    'woori_intake_forms', 'woori_instructor_availability', 'woori_consultation_notes',

@@ -8,6 +8,20 @@ const INTAKE_KEY = 'woori_intake_forms';
 const AVAILABILITY_KEY = 'woori_instructor_availability';
 const NOTES_KEY = 'woori_consultation_notes';
 
+// ── KST (UTC+9) date helpers ──
+export const getKSTDate = () => {
+  const now = new Date();
+  const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
+  return kst;
+};
+
+export const formatKSTDate = (d) => {
+  const kst = d || getKSTDate();
+  return `${kst.getFullYear()}.${String(kst.getMonth() + 1).padStart(2, '0')}.${String(kst.getDate()).padStart(2, '0')}`;
+};
+
+export const getKSTToday = () => formatKSTDate();
+
 // ── System consultants (matches AuthContext) ──
 export const CONSULTANTS = [
   { id: 2, name_ko: '박지영', email: 'instructor1@woori.com', department: '전직지원팀' },
@@ -139,7 +153,7 @@ export const addBooking = (booking) => {
     status: 'pending',
     consultantId: null,
     consultantName: null,
-    createdAt: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+    createdAt: formatKSTDate(),
   };
   bookings.push(newBooking);
   saveBookings(bookings);
@@ -282,12 +296,11 @@ const generateSeedSlots = (startH, endH) => {
 
 const buildSeedAvailability = () => {
   const result = {};
-  const now = new Date();
-  for (let offset = 1; offset <= 30; offset++) {
-    const d = new Date(now); d.setDate(d.getDate() + offset);
+  const kstNow = getKSTDate();
+  for (let offset = 0; offset <= 30; offset++) {
+    const d = new Date(kstNow); d.setDate(d.getDate() + offset);
     if (d.getDay() === 0 || d.getDay() === 6) continue;
-    const ds = d.toISOString().slice(0, 10).replace(/-/g, '.');
-    result[ds] = generateSeedSlots(9, 17);
+    result[formatKSTDate(d)] = generateSeedSlots(9, 17);
   }
   return result;
 };
