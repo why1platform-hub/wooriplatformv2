@@ -59,7 +59,6 @@ const menuItems = [
       { id: 'consultations', labelKey: 'activities.consultationRecords', path: '/activities/consultations' },
       { id: 'courses', labelKey: 'activities.courseStatus', path: '/activities/courses' },
       { id: 'booking', labelKey: '상담 예약', path: '/consultations/booking' },
-      { id: 'schedule', labelKey: '상담 일정 관리', path: '/consultations/schedule' },
     ],
   },
   {

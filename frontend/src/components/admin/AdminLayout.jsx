@@ -44,11 +44,11 @@ const SIDEBAR_WIDTH = 260;
 const SIDEBAR_COLLAPSED = 72;
 
 const allNavItems = [
-  { id: 'dashboard', label: '대시보드', icon: <DashboardIcon />, path: '/admin', roles: ['admin', 'hr_manager'] },
+  { id: 'dashboard', label: '대시보드', icon: <DashboardIcon />, path: '/admin', roles: ['admin', 'hr_manager', 'consultant'] },
   { id: 'users', label: '사용자 관리', icon: <PeopleIcon />, path: '/admin/users', roles: ['admin'] },
-  { id: 'programs', label: '프로그램 관리', icon: <ProgramIcon />, path: '/admin/programs', roles: ['admin', 'instructor'] },
-  { id: 'learning', label: '학습자료 관리', icon: <CourseIcon />, path: '/admin/learning', roles: ['admin', 'instructor'] },
-  { id: 'consultations', label: '상담 관리', icon: <InquiryIcon />, path: '/admin/consultations', roles: ['admin', 'hr_manager'] },
+  { id: 'programs', label: '프로그램 관리', icon: <ProgramIcon />, path: '/admin/programs', roles: ['admin', 'consultant'] },
+  { id: 'learning', label: '학습자료 관리', icon: <CourseIcon />, path: '/admin/learning', roles: ['admin', 'consultant'] },
+  { id: 'consultations', label: '상담 관리', icon: <InquiryIcon />, path: '/admin/consultations', roles: ['admin', 'hr_manager', 'consultant'] },
   { id: 'jobs', label: '채용 관리', icon: <JobIcon />, path: '/admin/jobs', roles: ['admin'] },
   { id: 'announcements', label: '공지사항 관리', icon: <AnnouncementIcon />, path: '/admin/announcements', roles: ['admin'] },
   { id: 'faq', label: 'FAQ 관리', icon: <FaqIcon />, path: '/admin/faq', roles: ['admin'] },

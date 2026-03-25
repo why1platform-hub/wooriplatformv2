@@ -353,6 +353,9 @@ const VideoPlayer = () => {
                   variant="contained"
                   color="success"
                   sx={{ mt: 2 }}
+                  onClick={() => {
+                    window.print();
+                  }}
                 >
                   수료증 발급
                 </Button>

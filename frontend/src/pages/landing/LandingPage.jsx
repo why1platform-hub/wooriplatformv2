@@ -174,7 +174,9 @@ const LandingPage = () => {
     setError('');
     const result = await login(data.email, data.password);
     if (result.success) {
-      navigate('/');
+      const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const role = savedUser?.role;
+      navigate(role === 'admin' || role === 'consultant' ? '/admin' : '/');
     } else {
       setError(result.error || t('auth.loginError'));
       showError(result.error || t('auth.loginError'));
@@ -375,11 +377,12 @@ const LandingPage = () => {
       {/* Demo Account Info */}
       <Alert severity="info" sx={{ mb: 2, '& .MuiAlert-message': { fontSize: '0.75rem' } }}>
         <Typography variant="caption" fontWeight={600} sx={{ mb: 0.25, display: 'block' }}>
-          데모 계정:
+          데모 계정 (비밀번호: demo1234)
         </Typography>
         <Typography variant="caption">
-          사용자: <strong>demo@woori.com</strong> / demo1234<br />
-          관리자: <strong>admin@woori.com</strong> / demo1234
+          관리자: <strong>admin@woori.com</strong><br />
+          Instructor: <strong>instructor1@woori.com</strong> / <strong>instructor2@woori.com</strong><br />
+          사용자: <strong>user1@woori.com</strong> / <strong>user2@woori.com</strong> / <strong>user3@woori.com</strong>
         </Typography>
       </Alert>
 

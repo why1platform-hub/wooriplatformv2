@@ -338,7 +338,7 @@ const Settings = () => {
                   SelectProps={{ native: true }}
                 >
                   <option value="user">일반 사용자</option>
-                  <option value="instructor">강사</option>
+                  <option value="consultant">상담사</option>
                   <option value="hr_manager">HR 매니저</option>
                 </TextField>
               </Grid>

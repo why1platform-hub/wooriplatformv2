@@ -26,14 +26,14 @@ const SEED_PROGRAMS = [
   { id: 6, title_ko: '은퇴 전문가 매칭 및 컨설팅', category: '금융컨설팅', status: '모집중', start_date: '2026.04.08', end_date: '2026.05.28', applicants: 15, capacity: 30, description: '전문가 매칭을 통한 맞춤 컨설팅 프로그램입니다.', location: '우리은행 본점', instructor: '강매칭 팀장' },
 ].map((p) => ({ ...p, status: autoStatus(p.start_date, p.end_date, p.status) }));
 
+// Applications use real system accounts (user1, user2, user3)
 const SEED_APPLICATIONS = [
-  { id: 1, user_name: '홍길동', email: 'hong@woori.com', programId: '1', program_title: '은퇴 후 자산 관리 심화 과정', applied_at: '2026.03.20', status: '승인대기' },
-  { id: 2, user_name: '김영희', email: 'kim@woori.com', programId: '2', program_title: '도심형 소규모 부동산 투자 전략', applied_at: '2026.03.19', status: '승인대기' },
-  { id: 3, user_name: '이철수', email: 'lee@woori.com', programId: '3', program_title: '제2의 인생, 창업 아이디어 워크숍', applied_at: '2026.03.18', status: '승인대기' },
-  { id: 4, user_name: '박민수', email: 'park@woori.com', programId: '1', program_title: '은퇴 후 자산 관리 심화 과정', applied_at: '2026.03.17', status: '승인대기' },
-  { id: 5, user_name: '정수연', email: 'jung@woori.com', programId: '4', program_title: '지역 사회 봉사 활동 리더 양성', applied_at: '2026.03.16', status: '승인대기' },
-  { id: 6, user_name: '강민호', email: 'kang@woori.com', programId: '6', program_title: '은퇴 전문가 매칭 및 컨설팅', applied_at: '2026.03.15', status: '승인' },
-  { id: 7, user_name: '윤서아', email: 'yoon@woori.com', programId: '1', program_title: '은퇴 후 자산 관리 심화 과정', applied_at: '2026.03.14', status: '반려' },
+  { id: 1, user_name: '홍길동', email: 'user1@woori.com', programId: '1', program_title: '은퇴 후 자산 관리 심화 과정', category: '금융컨설팅', applied_at: '2026.03.20', date: '2026.03.20', status: '승인대기' },
+  { id: 2, user_name: '김영희', email: 'user2@woori.com', programId: '2', program_title: '도심형 소규모 부동산 투자 전략', category: '부동산', applied_at: '2026.03.19', date: '2026.03.19', status: '승인대기' },
+  { id: 3, user_name: '이철수', email: 'user3@woori.com', programId: '3', program_title: '제2의 인생, 창업 아이디어 워크숍', category: '창업', applied_at: '2026.03.18', date: '2026.03.18', status: '승인대기' },
+  { id: 4, user_name: '홍길동', email: 'user1@woori.com', programId: '6', program_title: '은퇴 전문가 매칭 및 컨설팅', category: '금융컨설팅', applied_at: '2026.03.15', date: '2026.03.15', status: '승인' },
+  { id: 5, user_name: '김영희', email: 'user2@woori.com', programId: '4', program_title: '지역 사회 봉사 활동 리더 양성', category: '사회공헌', applied_at: '2026.03.16', date: '2026.03.16', status: '승인' },
+  { id: 6, user_name: '이철수', email: 'user3@woori.com', programId: '1', program_title: '은퇴 후 자산 관리 심화 과정', category: '금융컨설팅', applied_at: '2026.03.14', date: '2026.03.14', status: '반려' },
 ];
 
 // ── Programs ──

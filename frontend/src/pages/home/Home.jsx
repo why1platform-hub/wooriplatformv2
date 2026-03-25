@@ -424,7 +424,7 @@ const ProgramsSection = ({ programs, loading }) => {
       <Typography sx={{ fontSize: { xs: '0.68rem', md: '0.75rem' }, color: '#999', mb: 'auto' }}>{p.period}</Typography>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}>
         <Typography sx={{ fontWeight: 800, fontSize: { xs: '1rem', md: '1.2rem' }, color: '#0047BA' }}>D-{p.dDay}</Typography>
-        <Button variant="outlined" size="small" sx={{ borderRadius: '8px', fontSize: { xs: '0.68rem', md: '0.75rem' }, fontWeight: 600, py: 0.3, minWidth: { xs: 52, md: 64 } }}>
+        <Button variant="outlined" size="small" onClick={(e) => { e.stopPropagation(); navigate(`/programs/${p.id}`); }} sx={{ borderRadius: '8px', fontSize: { xs: '0.68rem', md: '0.75rem' }, fontWeight: 600, py: 0.3, minWidth: { xs: 52, md: 64 } }}>
           {p.status === '진행중' ? '학습하기' : '상세보기'}
         </Button>
       </Box>

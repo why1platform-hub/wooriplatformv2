@@ -46,7 +46,10 @@ const Login = () => {
     const result = await login(data.email, data.password);
 
     if (result.success) {
-      navigate('/');
+      // Redirect admin/consultant to admin dashboard, learners to home
+      const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const role = savedUser?.role;
+      navigate(role === 'admin' || role === 'consultant' ? '/admin' : '/');
     } else {
       setError(result.error || t('auth.loginError'));
       showError(result.error || t('auth.loginError'));
@@ -107,11 +110,12 @@ const Login = () => {
           {/* Demo Account Info */}
           <Alert severity="info" sx={{ mb: 3 }}>
             <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
-              데모 계정으로 로그인하세요:
+              데모 계정 (비밀번호: demo1234)
             </Typography>
-            <Typography variant="body2">
-              일반 사용자: <strong>demo@woori.com</strong> / demo1234<br />
-              관리자: <strong>admin@woori.com</strong> / demo1234
+            <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+              관리자: <strong>admin@woori.com</strong><br />
+              Instructor: <strong>instructor1@woori.com</strong> / <strong>instructor2@woori.com</strong><br />
+              사용자: <strong>user1@woori.com</strong> / <strong>user2@woori.com</strong> / <strong>user3@woori.com</strong>
             </Typography>
           </Alert>
 

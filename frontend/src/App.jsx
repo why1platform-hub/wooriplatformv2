@@ -12,6 +12,14 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import Layout from './components/layout/Layout';
 import AdminLayout from './components/admin/AdminLayout';
 
+// Data reset: clear old schema data on version change
+const DATA_VERSION = 'v4_instructor_availability';
+if (localStorage.getItem('woori_data_version') !== DATA_VERSION) {
+  ['woori_programs', 'woori_program_applications', 'woori_consultation_bookings',
+   'woori_intake_forms', 'woori_instructor_availability', 'woori_program_notifications', 'token', 'user'].forEach((k) => localStorage.removeItem(k));
+  localStorage.setItem('woori_data_version', DATA_VERSION);
+}
+
 // Lazy load pages
 const LandingPage = lazy(() => import('./pages/landing/LandingPage'));
 const Home = lazy(() => import('./pages/home/Home'));
@@ -38,7 +46,7 @@ const UserSettings = lazy(() => import('./pages/user/UserSettings'));
 
 // Consultation pages
 const ConsultationBooking = lazy(() => import('./pages/consultations/ConsultationBooking'));
-const ConsultantSchedule = lazy(() => import('./pages/consultations/ConsultantSchedule'));
+// ConsultantSchedule removed — instructor availability managed via admin/consultations
 const IntakeForm = lazy(() => import('./pages/consultations/IntakeForm'));
 
 // Policy page (public)
@@ -143,7 +151,7 @@ const AppRoutes = () => {
         <Route
           path="/admin/*"
           element={
-            <ProtectedRoute roles={['admin', 'hr_manager', 'instructor']}>
+            <ProtectedRoute roles={['admin', 'hr_manager', 'consultant']}>
               <AdminLayout>
                 <Routes>
                   <Route path="/" element={<AdminDashboard />} />
@@ -151,7 +159,7 @@ const AppRoutes = () => {
                   <Route
                     path="/programs"
                     element={
-                      <ProtectedRoute roles={['admin', 'instructor']}>
+                      <ProtectedRoute roles={['admin', 'consultant']}>
                         <ProgramManagement />
                       </ProtectedRoute>
                     }
@@ -160,7 +168,7 @@ const AppRoutes = () => {
                   <Route
                     path="/learning"
                     element={
-                      <ProtectedRoute roles={['admin', 'instructor']}>
+                      <ProtectedRoute roles={['admin', 'consultant']}>
                         <CourseManagement />
                       </ProtectedRoute>
                     }
@@ -200,7 +208,7 @@ const AppRoutes = () => {
                   <Route
                     path="/consultations"
                     element={
-                      <ProtectedRoute roles={['admin', 'hr_manager']}>
+                      <ProtectedRoute roles={['admin', 'hr_manager', 'consultant']}>
                         <ConsultationManagement />
                       </ProtectedRoute>
                     }
@@ -249,7 +257,7 @@ const AppRoutes = () => {
 
                   {/* Consultations */}
                   <Route path="/consultations/booking" element={<ConsultationBooking />} />
-                  <Route path="/consultations/schedule" element={<ConsultantSchedule />} />
+                  {/* consultations/schedule removed */}
                   <Route path="/consultations/intake" element={<IntakeForm />} />
                   <Route path="/consultations/intake/:userId" element={<IntakeForm mode="consultant" />} />
 

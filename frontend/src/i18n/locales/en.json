@@ -40,7 +40,7 @@
     "appliedPrograms": "Applied Programs",
     "scheduledConsultations": "Scheduled Consultations",
     "ongoingCourses": "Ongoing Courses",
-    "dDay": "D-{days}"
+    "dDay": "D-{{days}}"
   },
   "programs": {
     "title": "Program Application",
@@ -64,7 +64,7 @@
   },
   "activities": {
     "title": "My Activities",
-    "welcome": "Welcome, {name}!",
+    "welcome": "Welcome, {{name}}!",
     "applicationHistory": "Application History",
     "consultationRecords": "Consultation Records",
     "courseStatus": "Course Status",
@@ -177,7 +177,7 @@
   "calendar": {
   },
   "footer": {
-    "copyright": "© {year} Woori Bank. All rights reserved.",
+    "copyright": "© {{year}} Woori Bank. All rights reserved.",
     "contact": "Contact",
     "address": "Address",
     "privacyPolicy": "Privacy Policy",

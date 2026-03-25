@@ -19,32 +19,26 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 
 const INITIAL_USERS = [
-  { id: 1, name_ko: '홍길동', name_en: 'Hong Gildong', email: 'hong@woori.com', role: 'learner', status: 'active', department: '금융컨설팅팀', phone: '010-1234-5678', created_at: '2024.01.15', last_login: '2024.05.20', retirement_date: '2023.12.31', birth_date: '1965.03.15', address: '서울시 강남구', skills: '금융상담, 자산관리', bio: '우리은행 금융컨설팅팀 출신' },
-  { id: 2, name_ko: '김영희', name_en: 'Kim Younghee', email: 'kim@woori.com', role: 'learner', status: 'active', department: '자산관리팀', phone: '010-2345-6789', created_at: '2024.02.10', last_login: '2024.05.19', retirement_date: '2024.01.31', birth_date: '1968.07.22', address: '서울시 서초구', skills: '투자분석', bio: '' },
-  { id: 3, name_ko: '이철수', name_en: 'Lee Cheolsu', email: 'lee@woori.com', role: 'instructor', status: 'active', department: '교육팀', phone: '010-3456-7890', created_at: '2024.01.20', last_login: '2024.05.18', retirement_date: '', birth_date: '1970.11.05', address: '서울시 마포구', skills: 'IT교육, 데이터분석', bio: '10년차 IT 교육 전문가' },
-  { id: 4, name_ko: '박민수', name_en: 'Park Minsu', email: 'park@woori.com', role: 'learner', status: 'inactive', department: '영업팀', phone: '010-4567-8901', created_at: '2024.03.05', last_login: '2024.04.10', retirement_date: '2024.02.28', birth_date: '1963.09.10', address: '경기도 성남시', skills: '영업관리', bio: '' },
-  { id: 5, name_ko: '정수연', name_en: 'Jung Sooyeon', email: 'jung@woori.com', role: 'career_counselor', status: 'active', department: '상담팀', phone: '010-5678-9012', created_at: '2024.01.25', last_login: '2024.05.20', retirement_date: '', birth_date: '1975.04.18', address: '서울시 종로구', skills: '커리어상담, 심리상담', bio: '커리어 상담 전문가 15년 경력' },
-  { id: 6, name_ko: '최지영', name_en: 'Choi Jiyoung', email: 'choi@woori.com', role: 'hr_manager', status: 'active', department: 'HR팀', phone: '010-6789-0123', created_at: '2024.01.10', last_login: '2024.05.20', retirement_date: '', birth_date: '1972.06.30', address: '서울시 중구', skills: '인사관리, 채용', bio: 'HR 관리 담당' },
-  { id: 7, name_ko: '강민호', name_en: 'Kang Minho', email: 'kang@woori.com', role: 'learner', status: 'active', department: '마케팅팀', phone: '010-7890-1234', created_at: '2024.04.01', last_login: '2024.05.17', retirement_date: '2024.03.31', birth_date: '1966.01.25', address: '서울시 영등포구', skills: '마케팅, 브랜딩', bio: '' },
-  { id: 8, name_ko: '윤서아', name_en: 'Yoon Seoa', email: 'yoon@woori.com', role: 'learner', status: 'suspended', department: '기획팀', phone: '010-8901-2345', created_at: '2024.02.20', last_login: '2024.03.15', retirement_date: '2024.01.15', birth_date: '1969.12.08', address: '경기도 고양시', skills: '기획, 전략', bio: '' },
-  { id: 9, name_ko: '김강사', name_en: 'Kim Instructor', email: 'instructor@woori.com', role: 'instructor', status: 'active', department: '교육팀', phone: '010-1111-2222', created_at: '2024.01.05', last_login: '2024.05.21', retirement_date: '', birth_date: '1971.08.14', address: '서울시 송파구', skills: '금융교육, 투자전략', bio: '금융 교육 전문 강사' },
-  { id: 10, name_ko: '최고관리자', name_en: 'Super Admin', email: 'admin@woori.com', role: 'admin', status: 'active', department: '시스템관리팀', phone: '010-0000-0000', created_at: '2024.01.01', last_login: '2024.05.21', retirement_date: '', birth_date: '', address: '', skills: '', bio: '시스템 관리자' },
+  { id: 1, name_ko: '관리자', name_en: 'Admin', email: 'admin@woori.com', role: 'admin', status: 'active', department: '시스템관리팀', phone: '', created_at: '2024.01.01', last_login: '2026.03.25', retirement_date: '', birth_date: '', address: '', skills: '', bio: '시스템 관리자' },
+  { id: 2, name_ko: '박지영', name_en: 'Park Jiyoung', email: 'instructor1@woori.com', role: 'consultant', status: 'active', department: '전직지원팀', phone: '010-1234-5678', created_at: '2024.01.10', last_login: '2026.03.25', retirement_date: '', birth_date: '1978.05.12', address: '서울시 중구', skills: '커리어상담, 금융컨설팅', bio: '전직지원 전문 상담사 10년 경력' },
+  { id: 3, name_ko: '이민호', name_en: 'Lee Minho', email: 'instructor2@woori.com', role: 'consultant', status: 'active', department: '전직지원팀', phone: '010-2345-6789', created_at: '2024.01.10', last_login: '2026.03.25', retirement_date: '', birth_date: '1980.11.03', address: '서울시 강남구', skills: '창업상담, 진로설계', bio: '전직지원 상담사 8년 경력' },
+  { id: 4, name_ko: '홍길동', name_en: 'Hong Gildong', email: 'user1@woori.com', role: 'learner', status: 'active', department: '금융컨설팅팀', phone: '010-3456-7890', created_at: '2024.01.15', last_login: '2026.03.25', retirement_date: '2026.01.15', birth_date: '1968.03.15', address: '서울시 강남구', skills: '자산관리, 투자상담, 고객관리', bio: '우리은행 금융컨설팅팀 28년 근무' },
+  { id: 5, name_ko: '김영희', name_en: 'Kim Younghee', email: 'user2@woori.com', role: 'learner', status: 'active', department: '부동산팀', phone: '010-4567-8901', created_at: '2024.02.10', last_login: '2026.03.25', retirement_date: '2026.03.01', birth_date: '1970.07.22', address: '서울시 서초구', skills: '부동산분석, 고객상담', bio: '부동산팀 근무 경력' },
+  { id: 6, name_ko: '이철수', name_en: 'Lee Cheolsu', email: 'user3@woori.com', role: 'learner', status: 'active', department: '자산관리팀', phone: '010-5678-9012', created_at: '2024.03.05', last_login: '2026.03.25', retirement_date: '2026.06.30', birth_date: '1965.09.10', address: '경기도 성남시', skills: '자산운용, 리스크관리', bio: '자산관리팀 25년 근무' },
 ];
 
 const ROLE_OPTIONS = [
   { value: 'learner', label: '학습자' },
-  { value: 'instructor', label: '강사' },
-  { value: 'career_counselor', label: '상담사' },
-  { value: 'hr_manager', label: 'HR 관리자' },
-  { value: 'admin', label: '최고관리자' },
+  { value: 'consultant', label: '상담사' },
+  { value: 'admin', label: '관리자' },
 ];
 
 // Mock activity data generator
 const generateUserStats = (user) => {
-  const isInstructor = user.role === 'instructor';
+  const isConsultant = user.role === 'instructor';
   const isCounselor = user.role === 'career_counselor';
 
-  if (isInstructor) {
+  if (isConsultant) {
     return {
       coursesCreated: Math.floor(Math.random() * 8) + 2,
       totalStudents: Math.floor(Math.random() * 200) + 30,
@@ -116,7 +110,7 @@ const UserDetailDialog = ({ open, onClose, user }) => {
   if (!user) return null;
 
   const stats = generateUserStats(user);
-  const isInstructor = user.role === 'instructor';
+  const isConsultant = user.role === 'instructor';
   const isCounselor = user.role === 'career_counselor';
   const isLearner = user.role === 'learner';
 
@@ -156,7 +150,7 @@ const UserDetailDialog = ({ open, onClose, user }) => {
         {/* Tabs */}
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Tab label="활동 통계" sx={{ fontSize: '0.875rem' }} />
-          <Tab label={isInstructor ? '강의 현황' : isCounselor ? '상담 현황' : '학습 현황'} sx={{ fontSize: '0.875rem' }} />
+          <Tab label={isConsultant ? '강의 현황' : isCounselor ? '상담 현황' : '학습 현황'} sx={{ fontSize: '0.875rem' }} />
           <Tab label="최근 활동" sx={{ fontSize: '0.875rem' }} />
         </Tabs>
 
@@ -225,7 +219,7 @@ const UserDetailDialog = ({ open, onClose, user }) => {
                 </>
               )}
 
-              {isInstructor && (
+              {isConsultant && (
                 <>
                   <Grid item xs={6} sm={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
@@ -306,7 +300,7 @@ const UserDetailDialog = ({ open, onClose, user }) => {
               )}
 
               {/* Monthly Activity Chart (simple bar) */}
-              {(isInstructor || isCounselor) && stats.monthlyActivity && (
+              {(isConsultant || isCounselor) && stats.monthlyActivity && (
                 <Grid item xs={12}>
                   <Card variant="outlined" sx={{ p: 2 }}>
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>월별 활동 추이</Typography>
@@ -352,7 +346,7 @@ const UserDetailDialog = ({ open, onClose, user }) => {
                 </Box>
               )}
 
-              {isInstructor && stats.recentCourses && (
+              {isConsultant && stats.recentCourses && (
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>강의 현황</Typography>
                   {stats.recentCourses.map((course, i) => (
@@ -416,7 +410,7 @@ const UserDetailDialog = ({ open, onClose, user }) => {
                   <Typography variant="body2" color="text.secondary">
                     가입일: {user.created_at}
                   </Typography>
-                  {(isInstructor || isCounselor) && stats.monthlyActivity && (
+                  {(isConsultant || isCounselor) && stats.monthlyActivity && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>월별 세션 수</Typography>
                       {stats.monthlyActivity.map((m, i) => (
@@ -461,7 +455,7 @@ const UserManagement = () => {
 
   const getRoleLabel = (role) => ROLE_OPTIONS.find((r) => r.value === role)?.label || role;
   const getRoleColor = (role) => {
-    const colors = { learner: 'default', instructor: 'info', career_counselor: 'secondary', hr_manager: 'warning', admin: 'error' };
+    const colors = { learner: 'default', consultant: 'info', hr_manager: 'warning', admin: 'error' };
     return colors[role] || 'default';
   };
   const getStatusColor = (status) => {

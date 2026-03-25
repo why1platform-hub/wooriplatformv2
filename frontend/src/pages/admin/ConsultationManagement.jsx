@@ -1,541 +1,536 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Box,
-  Typography,
-  Grid,
-  Paper,
-  Avatar,
-  Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  IconButton,
-  Divider,
-  Tabs,
-  Tab,
-  alpha,
+  Box, Typography, Grid, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Button, Chip, Tabs, Tab, Avatar, IconButton,
+  Dialog, DialogTitle, DialogContent, DialogActions, Tooltip, Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import {
-  SupportAgent as ConsultIcon,
-  Close as CloseIcon,
+  CheckCircle as ApproveIcon,
   Videocam as OnlineIcon,
   LocationOn as OfflineIcon,
   Phone as PhoneIcon,
-  CheckCircle as CompleteIcon,
-  Schedule as ScheduleIcon,
-  Cancel as CancelIcon,
-  Description as FileIcon,
-  Image as ImageIcon,
-  TextSnippet as TextIcon,
-  OpenInNew as OpenIcon,
+  Description as FormIcon,
+  History as HistoryIcon,
+  PersonAdd as AssignIcon,
+  Done as DoneIcon,
+  EventAvailable as AvailIcon,
+  Schedule as ClockIcon,
 } from '@mui/icons-material';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-} from 'recharts';
-import { consultationsAPI } from '../../services/api';
-
-// ─── Mock Data ─────────────────────────────────────────────────────────────────
-
-const mockMatrix = [
-  { consultant_id: 'c1', consultant_name: '김영수', department: '금융컨설팅', total: 78, completed: 72, scheduled: 4, cancelled: 1, no_show: 1, online_count: 40, offline_count: 28, call_count: 10 },
-  { consultant_id: 'c2', consultant_name: '이미영', department: '부동산', total: 65, completed: 57, scheduled: 5, cancelled: 2, no_show: 1, online_count: 30, offline_count: 25, call_count: 10 },
-  { consultant_id: 'c3', consultant_name: '박준혁', department: '창업', total: 54, completed: 51, scheduled: 2, cancelled: 1, no_show: 0, online_count: 28, offline_count: 18, call_count: 8 },
-  { consultant_id: 'c4', consultant_name: '최수진', department: '디지털', total: 48, completed: 43, scheduled: 3, cancelled: 1, no_show: 1, online_count: 32, offline_count: 10, call_count: 6 },
-  { consultant_id: 'c5', consultant_name: '정민호', department: '건강', total: 42, completed: 36, scheduled: 4, cancelled: 1, no_show: 1, online_count: 20, offline_count: 15, call_count: 7 },
-  { consultant_id: 'c6', consultant_name: '한소영', department: '사회공헌', total: 38, completed: 35, scheduled: 2, cancelled: 1, no_show: 0, online_count: 18, offline_count: 14, call_count: 6 },
-];
-
-const mockSummary = { total: 325, completed: 294, scheduled: 20, cancelled: 7 };
-
-const mockConsultationDetails = {
-  c1: [
-    { id: 'd1', user_name: '홍길동', user_email: 'hong@email.com', scheduled_at: '2026-03-08 14:00', topic: '노후 재무 플랜', status: '완료', method: '온라인', records: [{ record_type: 'text', content: '자산 포트폴리오 재구성 권장. 채권 비중 확대 필요.' }] },
-    { id: 'd2', user_name: '김철수', user_email: 'kim@email.com', scheduled_at: '2026-03-09 10:00', topic: '연금 수령 전략', status: '예약됨', method: '오프라인', records: [] },
-    { id: 'd3', user_name: '이영희', user_email: 'lee@email.com', scheduled_at: '2026-03-07 15:00', topic: '부동산 자산 평가', status: '완료', method: '전화', records: [{ record_type: 'text', content: '현재 보유 부동산 시세 분석 완료.' }, { record_type: 'file', file_name: '자산평가보고서.pdf' }] },
-    { id: 'd4', user_name: '박민수', user_email: 'park@email.com', scheduled_at: '2026-03-06 09:30', topic: '투자 전략 상담', status: '완료', method: '온라인', records: [{ record_type: 'text', content: 'ETF 분산 투자 전략 설명.' }] },
-  ],
-  c2: [
-    { id: 'd5', user_name: '강서연', user_email: 'kang@email.com', scheduled_at: '2026-03-08 11:00', topic: '부동산 투자 상담', status: '완료', method: '오프라인', records: [{ record_type: 'text', content: '서울 강남 오피스텔 투자 분석.' }] },
-    { id: 'd6', user_name: '윤재호', user_email: 'yoon@email.com', scheduled_at: '2026-03-09 14:30', topic: '임대사업 전략', status: '예약됨', method: '온라인', records: [] },
-  ],
-  c3: [
-    { id: 'd7', user_name: '서하나', user_email: 'seo@email.com', scheduled_at: '2026-03-07 10:00', topic: '창업 아이디어 검토', status: '완료', method: '온라인', records: [{ record_type: 'text', content: '카페 창업 비즈니스 모델 분석.' }] },
-  ],
-};
+  loadBookings, assignConsultant, completeBooking,
+  getConsultationStats, getConsultantStats, getBookingsForConsultant,
+  getConsultationHistory, CONSULTANTS, getIntakeForm,
+  getAvailableInstructorsForSlot, loadAvailability, saveAvailability,
+  getAvailableSlots,
+} from '../../utils/consultationStore';
+import IntakeForm from '../consultations/IntakeForm';
 
 const statusConfig = {
-  '완료': { color: '#166534', bg: '#DCFCE7', icon: <CompleteIcon sx={{ fontSize: 14 }} /> },
-  '예약됨': { color: '#1E40AF', bg: '#DBEAFE', icon: <ScheduleIcon sx={{ fontSize: 14 }} /> },
-  '취소': { color: '#991B1B', bg: '#FEE2E2', icon: <CancelIcon sx={{ fontSize: 14 }} /> },
-  '노쇼': { color: '#92400E', bg: '#FEF3C7', icon: <CancelIcon sx={{ fontSize: 14 }} /> },
+  pending: { label: '배정 대기', color: '#92400E', bg: '#FEF3C7' },
+  confirmed: { label: '확정', color: '#1E40AF', bg: '#DBEAFE' },
+  completed: { label: '완료', color: '#166534', bg: '#DCFCE7' },
+  cancelled: { label: '취소', color: '#991B1B', bg: '#FEE2E2' },
 };
-
-const methodIcon = {
-  '온라인': <OnlineIcon sx={{ fontSize: 14 }} />,
-  '오프라인': <OfflineIcon sx={{ fontSize: 14 }} />,
-  '전화': <PhoneIcon sx={{ fontSize: 14 }} />,
-};
-
-const recordTypeIcon = {
-  text: <TextIcon sx={{ fontSize: 16, color: '#0047BA' }} />,
-  file: <FileIcon sx={{ fontSize: 16, color: '#DC2626' }} />,
-  image: <ImageIcon sx={{ fontSize: 16, color: '#059669' }} />,
-};
-
-// ─── Component ─────────────────────────────────────────────────────────────────
+const methodIcon = { '온라인': <OnlineIcon sx={{ fontSize: 16 }} />, '오프라인': <OfflineIcon sx={{ fontSize: 16 }} />, '전화': <PhoneIcon sx={{ fontSize: 16 }} /> };
 
 const ConsultationManagement = () => {
-  const [matrix, setMatrix] = useState([]);
-  const [summary, setSummary] = useState({});
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [selectedConsultant, setSelectedConsultant] = useState(null);
-  const [consultantDetails, setConsultantDetails] = useState([]);
-  const [sessionOpen, setSessionOpen] = useState(false);
-  const [selectedSession, setSelectedSession] = useState(null);
-  const [filterTab, setFilterTab] = useState(0);
+  const { user } = useAuth();
+  const { showSuccess } = useNotification();
+  const isAdmin = user?.role === 'admin';
+  const isConsultantRole = user?.role === 'consultant';
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await consultationsAPI.getAdminStats();
-        if (response.data?.matrix?.length > 0) {
-          setMatrix(response.data.matrix);
-          setSummary(response.data.summary);
-        } else {
-          setMatrix(mockMatrix);
-          setSummary(mockSummary);
-        }
-      } catch {
-        setMatrix(mockMatrix);
-        setSummary(mockSummary);
+  const [tab, setTab] = useState(isConsultantRole ? 1 : 0);
+  const [bookings, setBookings] = useState([]);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState(null);
+  const [intakeOpen, setIntakeOpen] = useState(false);
+  const [intakeUserId, setIntakeUserId] = useState(null);
+  const [intakeUserName, setIntakeUserName] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyData, setHistoryData] = useState({ name: '', items: [] });
+  const [availOpen, setAvailOpen] = useState(false);
+  const [availInstructor, setAvailInstructor] = useState(null);
+  const [availDate, setAvailDate] = useState(null);
+  const [availSlots, setAvailSlots] = useState([]);
+
+  useEffect(() => { setBookings(loadBookings()); }, []);
+
+  const stats = getConsultationStats();
+  const consultantStats = getConsultantStats();
+
+  const myBookings = isConsultantRole
+    ? bookings.filter((b) => b.consultantId === user.id && b.status !== 'cancelled')
+    : bookings.filter((b) => b.status !== 'cancelled');
+
+  const pendingBookings = bookings.filter((b) => b.status === 'pending');
+
+  // Available instructors for the assign target
+  const availableInstructors = useMemo(() => {
+    if (!assignTarget) return [];
+    return getAvailableInstructorsForSlot(assignTarget.date, assignTarget.time);
+  }, [assignTarget]);
+
+  const handleAssign = (instructor) => {
+    if (!assignTarget) return;
+    assignConsultant(assignTarget.id, instructor.id, instructor.name_ko);
+    setBookings(loadBookings());
+    setAssignOpen(false);
+    showSuccess(`${assignTarget.userName}님에게 ${instructor.name_ko} 강사가 배정되었습니다.`);
+  };
+
+  const handleComplete = (booking) => {
+    completeBooking(booking.id);
+    setBookings(loadBookings());
+    showSuccess('상담이 완료 처리되었습니다.');
+  };
+
+  const openIntake = (userId, userName) => { setIntakeUserId(userId); setIntakeUserName(userName); setIntakeOpen(true); };
+  const openHistory = (userId, userName) => {
+    const items = getConsultationHistory(userId, isConsultantRole ? user.id : null);
+    setHistoryData({ name: userName, items }); setHistoryOpen(true);
+  };
+
+  // Instructor availability editing
+  const dates14 = useMemo(() => {
+    const result = [];
+    const d = new Date(); d.setDate(d.getDate() + 1);
+    while (result.length < 14) {
+      const day = d.getDay();
+      if (day !== 0 && day !== 6) {
+        const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '.');
+        const dayNames = ['일','월','화','수','목','금','토'];
+        result.push({ date: dateStr, label: `${d.getMonth()+1}/${d.getDate()} (${dayNames[day]})` });
       }
-    };
-    fetchStats();
+      d.setDate(d.getDate() + 1);
+    }
+    return result;
   }, []);
 
-  const handleCellClick = async (consultant) => {
-    setSelectedConsultant(consultant);
-    try {
-      const response = await consultationsAPI.getByConsultant(consultant.consultant_id);
-      setConsultantDetails(response.data.length > 0 ? response.data : mockConsultationDetails[consultant.consultant_id] || []);
-    } catch {
-      setConsultantDetails(mockConsultationDetails[consultant.consultant_id] || []);
-    }
-    setDetailOpen(true);
+  const openAvailEditor = (instructor) => {
+    setAvailInstructor(instructor);
+    setAvailDate(dates14[0]?.date || null);
+    const all = loadAvailability();
+    setAvailSlots(all[instructor.id]?.[dates14[0]?.date] || []);
+    setAvailOpen(true);
   };
 
-  const handleSessionClick = (session) => {
-    setSelectedSession(session);
-    setSessionOpen(true);
+  const handleAvailDateChange = (dateStr) => {
+    setAvailDate(dateStr);
+    const all = loadAvailability();
+    setAvailSlots(all[availInstructor.id]?.[dateStr] || []);
   };
 
-  const filteredDetails = filterTab === 0
-    ? consultantDetails
-    : consultantDetails.filter((d) => {
-      const statusMap = { 1: '완료', 2: '예약됨', 3: '취소' };
-      return d.status === statusMap[filterTab];
-    });
+  const toggleSlot = (time) => {
+    setAvailSlots((prev) => prev.includes(time) ? prev.filter((t) => t !== time) : [...prev, time].sort());
+  };
 
-  // Chart data from matrix
-  const chartData = matrix.map((m) => ({
-    name: m.consultant_name,
-    완료: Number(m.completed) || 0,
-    예약: Number(m.scheduled) || 0,
-    취소: Number(m.cancelled) || 0,
-  }));
+  const saveAvail = () => {
+    if (!availInstructor || !availDate) return;
+    const all = loadAvailability();
+    if (!all[availInstructor.id]) all[availInstructor.id] = {};
+    all[availInstructor.id][availDate] = availSlots;
+    saveAvailability(all);
+    showSuccess(`${availInstructor.name_ko} 강사의 ${availDate} 가용시간이 저장되었습니다.`);
+  };
+
+  const myUsers = isConsultantRole
+    ? [...new Map(myBookings.map((b) => [b.userId, { id: b.userId, name: b.userName, email: b.userEmail }])).values()]
+    : [];
 
   return (
     <Box>
-      {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>상담 관리</Typography>
+        <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>상담 관리</Typography>
         <Typography variant="body2" color="text.secondary">
-          상담사별 상담 현황을 한눈에 확인하고, 각 셀을 클릭하여 상세 내역을 조회하세요.
+          {isConsultantRole ? '배정된 상담 및 사용자 인테이크 양식을 관리합니다' : '상담 예약 배정 및 강사 가용시간을 관리합니다'}
         </Typography>
       </Box>
 
-      {/* Summary KPIs */}
+      {/* KPI Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: '전체 상담', value: summary.total || 0, color: '#0047BA', bg: '#EBF0FA', icon: <ConsultIcon /> },
-          { label: '완료', value: summary.completed || 0, color: '#059669', bg: '#ECFDF5', icon: <CompleteIcon /> },
-          { label: '예약중', value: summary.scheduled || 0, color: '#1E40AF', bg: '#DBEAFE', icon: <ScheduleIcon /> },
-          { label: '취소', value: summary.cancelled || 0, color: '#DC2626', bg: '#FEF2F2', icon: <CancelIcon /> },
-        ].map((kpi) => (
-          <Grid item xs={6} sm={3} key={kpi.label}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2.5,
-                borderRadius: '12px',
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Avatar sx={{ width: 40, height: 40, bgcolor: kpi.bg, color: kpi.color }}>
-                  {React.cloneElement(kpi.icon, { fontSize: 'small' })}
-                </Avatar>
-                <Box>
-                  <Typography variant="h5" sx={{ fontWeight: 700 }}>{Number(kpi.value).toLocaleString()}</Typography>
-                  <Typography variant="caption" color="text.secondary">{kpi.label}</Typography>
-                </Box>
-              </Box>
+          { label: '전체', value: stats.total, color: '#0047BA', bg: '#EBF0FA' },
+          { label: '배정 대기', value: stats.pending, color: '#92400E', bg: '#FEF3C7' },
+          { label: '확정', value: stats.confirmed, color: '#1E40AF', bg: '#DBEAFE' },
+          { label: '완료', value: stats.completed, color: '#166534', bg: '#DCFCE7' },
+        ].map((k) => (
+          <Grid item xs={6} sm={3} key={k.label}>
+            <Paper elevation={0} sx={{ p: 2.5, borderRadius: '12px', border: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+              <Typography variant="caption" sx={{ color: k.color, fontWeight: 600 }}>{k.label}</Typography>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: k.color }}>{k.value}</Typography>
             </Paper>
           </Grid>
         ))}
       </Grid>
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {/* Bar Chart */}
-        <Grid item xs={12} md={5}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: '12px', border: '1px solid', borderColor: 'divider', height: '100%' }}>
-            <Typography variant="h6" sx={{ fontSize: '0.9375rem', fontWeight: 700, mb: 2 }}>
-              상담사별 상담 건수
-            </Typography>
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={chartData} layout="vertical" margin={{ left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} stroke="#9CA3AF" width={50} />
-                <RechartsTooltip />
-                <Bar dataKey="완료" stackId="a" fill="#059669" radius={[0, 0, 0, 0]} barSize={18} />
-                <Bar dataKey="예약" stackId="a" fill="#3B82F6" radius={[0, 0, 0, 0]} barSize={18} />
-                <Bar dataKey="취소" stackId="a" fill="#EF4444" radius={[0, 4, 4, 0]} barSize={18} />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
+      <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
+          {isAdmin && <Tab label={`예약 배정 (${pendingBookings.length})`} />}
+          <Tab label={isConsultantRole ? '나의 상담' : '전체 상담'} />
+          {isAdmin && <Tab label="강사 가용시간 관리" />}
+          {isConsultantRole && <Tab label="나의 사용자" />}
+        </Tabs>
 
-        {/* Matrix Table */}
-        <Grid item xs={12} md={7}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: '12px', border: '1px solid', borderColor: 'divider', height: '100%' }}>
-            <Typography variant="h6" sx={{ fontSize: '0.9375rem', fontWeight: 700, mb: 2 }}>
-              상담사 × 상담 매트릭스
-            </Typography>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem', position: 'sticky', left: 0, bgcolor: '#F8F9FA', zIndex: 1 }}>상담사</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>전체</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>완료</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>예약</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>온라인</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>오프라인</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>전화</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {matrix.map((row) => (
-                    <TableRow
-                      key={row.consultant_id}
-                      hover
-                      sx={{
-                        cursor: 'pointer',
-                        '&:hover': { bgcolor: alpha('#0047BA', 0.04) },
-                      }}
-                      onClick={() => handleCellClick(row)}
-                    >
-                      <TableCell
-                        sx={{
-                          position: 'sticky',
-                          left: 0,
-                          bgcolor: '#fff',
-                          zIndex: 1,
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Avatar sx={{ width: 28, height: 28, fontSize: '0.7rem', bgcolor: '#0047BA' }}>
-                            {row.consultant_name?.charAt(0)}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem' }}>{row.consultant_name}</Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>{row.department}</Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip
-                          size="small"
-                          label={row.total}
-                          sx={{ height: 24, minWidth: 36, fontWeight: 700, fontSize: '0.8rem', bgcolor: alpha('#0047BA', 0.08), color: '#0047BA' }}
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#059669' }}>{row.completed}</Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#1E40AF' }}>{row.scheduled}</Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="caption">{row.online_count}</Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="caption">{row.offline_count}</Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="caption">{row.call_count}</Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* ─── Consultant Detail Dialog ──────────────────────────────────────────── */}
-      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar sx={{ width: 36, height: 36, bgcolor: '#0047BA', fontSize: '0.9rem' }}>
-              {selectedConsultant?.consultant_name?.charAt(0)}
-            </Avatar>
-            <Box>
-              <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>
-                {selectedConsultant?.consultant_name} 상담사
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {selectedConsultant?.department} | 총 {selectedConsultant?.total}건
-              </Typography>
-            </Box>
-          </Box>
-          <IconButton size="small" onClick={() => setDetailOpen(false)}><CloseIcon fontSize="small" /></IconButton>
-        </DialogTitle>
-
-        <Divider />
-
-        {/* Stats Row */}
-        <Box sx={{ px: 3, py: 2, display: 'flex', gap: 2 }}>
-          {[
-            { label: '완료', value: selectedConsultant?.completed, color: '#059669' },
-            { label: '예약', value: selectedConsultant?.scheduled, color: '#1E40AF' },
-            { label: '취소', value: selectedConsultant?.cancelled, color: '#DC2626' },
-            { label: '노쇼', value: selectedConsultant?.no_show, color: '#92400E' },
-          ].map((s) => (
-            <Paper key={s.label} elevation={0} sx={{ px: 2, py: 1, borderRadius: '8px', bgcolor: '#F8F9FA', textAlign: 'center', flex: 1 }}>
-              <Typography variant="caption" color="text.secondary">{s.label}</Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: s.color }}>{s.value || 0}</Typography>
-            </Paper>
-          ))}
-        </Box>
-
-        {/* Filter Tabs */}
-        <Box sx={{ px: 3 }}>
-          <Tabs value={filterTab} onChange={(_, v) => setFilterTab(v)} sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0, fontSize: '0.8rem' } }}>
-            <Tab label={`전체 (${consultantDetails.length})`} />
-            <Tab label="완료" />
-            <Tab label="예약" />
-            <Tab label="취소" />
-          </Tabs>
-        </Box>
-
-        <DialogContent sx={{ p: 0 }}>
+        {/* Tab 0 (Admin): Pending assignments */}
+        {isAdmin && tab === 0 && (
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>사용자</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>날짜/시간</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>주제</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>방법</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>상태</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>기록</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>상세</TableCell>
+                  <TableCell>신청자</TableCell>
+                  <TableCell>이메일</TableCell>
+                  <TableCell align="center">희망 날짜</TableCell>
+                  <TableCell align="center">희망 시간</TableCell>
+                  <TableCell align="center">방법</TableCell>
+                  <TableCell align="center">가용 강사</TableCell>
+                  <TableCell align="center">처리</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredDetails.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                      <Typography color="text.secondary">해당 상태의 상담이 없습니다.</Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredDetails.map((d) => {
-                    const s = statusConfig[d.status];
-                    return (
-                      <TableRow key={d.id} hover sx={{ cursor: 'pointer' }} onClick={() => handleSessionClick(d)}>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ width: 24, height: 24, fontSize: '0.65rem', bgcolor: '#0047BA' }}>
-                              {d.user_name?.charAt(0)}
-                            </Avatar>
-                            <Box>
-                              <Typography variant="body2" sx={{ fontSize: '0.8125rem', fontWeight: 500 }}>{d.user_name}</Typography>
-                              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>{d.user_email}</Typography>
-                            </Box>
+                {pendingBookings.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <Typography color="text.secondary">배정 대기 중인 예약이 없습니다</Typography>
+                  </TableCell></TableRow>
+                ) : pendingBookings.map((b) => {
+                  const avail = getAvailableInstructorsForSlot(b.date, b.time);
+                  return (
+                    <TableRow key={b.id} hover>
+                      <TableCell><Typography variant="body2" fontWeight={500}>{b.userName}</Typography></TableCell>
+                      <TableCell><Typography variant="body2" color="text.secondary">{b.userEmail}</Typography></TableCell>
+                      <TableCell align="center"><Typography variant="body2" fontWeight={600}>{b.date}</Typography></TableCell>
+                      <TableCell align="center"><Typography variant="body2" fontWeight={600}>{b.time}</Typography></TableCell>
+                      <TableCell align="center">
+                        <Chip icon={methodIcon[b.method]} label={b.method} size="small" sx={{ height: 24 }} />
+                      </TableCell>
+                      <TableCell align="center">
+                        {avail.length > 0 ? (
+                          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                            {avail.map((inst) => (
+                              <Chip key={inst.id} label={inst.name_ko} size="small"
+                                sx={{ bgcolor: '#DCFCE7', color: '#166534', fontWeight: 600, fontSize: '0.75rem' }}
+                              />
+                            ))}
                           </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="caption">{d.scheduled_at}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontSize: '0.8125rem' }}>{d.topic}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            icon={methodIcon[d.method]}
-                            label={d.method}
-                            sx={{ height: 22, fontSize: '0.65rem' }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            icon={s?.icon}
-                            label={d.status}
-                            sx={{ height: 22, fontSize: '0.65rem', bgcolor: s?.bg, color: s?.color, fontWeight: 600, '& .MuiChip-icon': { color: `${s?.color} !important` } }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {d.records?.length > 0 ? (
-                            <Chip size="small" label={`${d.records.length}건`} sx={{ height: 20, fontSize: '0.65rem' }} />
-                          ) : (
-                            <Typography variant="caption" color="text.secondary">-</Typography>
-                          )}
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton size="small"><OpenIcon sx={{ fontSize: 14 }} /></IconButton>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
+                        ) : (
+                          <Typography variant="caption" color="error">가용 강사 없음</Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Button
+                          size="small" variant="contained" startIcon={<AssignIcon />}
+                          onClick={() => { setAssignTarget(b); setAssignOpen(true); }}
+                          sx={{ fontSize: '0.75rem' }}
+                        >
+                          배정
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>
-        </DialogContent>
+        )}
 
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button variant="outlined" onClick={() => setDetailOpen(false)}>닫기</Button>
-        </DialogActions>
-      </Dialog>
+        {/* Tab 1: All/My bookings */}
+        {((isAdmin && tab === 1) || (isConsultantRole && tab === 0)) && (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>사용자</TableCell>
+                  <TableCell align="center">날짜</TableCell>
+                  <TableCell align="center">시간</TableCell>
+                  <TableCell align="center">방법</TableCell>
+                  <TableCell align="center">강사</TableCell>
+                  <TableCell align="center">상태</TableCell>
+                  <TableCell align="center">관리</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {myBookings.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <Typography color="text.secondary">상담 내역이 없습니다</Typography>
+                  </TableCell></TableRow>
+                ) : myBookings.map((b) => {
+                  const s = statusConfig[b.status];
+                  return (
+                    <TableRow key={b.id} hover>
+                      <TableCell><Typography variant="body2" fontWeight={500}>{b.userName}</Typography></TableCell>
+                      <TableCell align="center">{b.date}</TableCell>
+                      <TableCell align="center">{b.time}</TableCell>
+                      <TableCell align="center">
+                        <Chip icon={methodIcon[b.method]} label={b.method} size="small" sx={{ height: 24 }} />
+                      </TableCell>
+                      <TableCell align="center">{b.consultantName || '-'}</TableCell>
+                      <TableCell align="center">
+                        <Chip label={s.label} size="small" sx={{ bgcolor: s.bg, color: s.color, fontWeight: 600, height: 24, fontSize: '0.75rem' }} />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                          {b.status === 'confirmed' && (
+                            <Tooltip title="완료 처리"><IconButton size="small" color="success" onClick={() => handleComplete(b)}><DoneIcon fontSize="small" /></IconButton></Tooltip>
+                          )}
+                          <Tooltip title="인테이크 양식"><IconButton size="small" color="primary" onClick={() => openIntake(b.userId, b.userName)}><FormIcon fontSize="small" /></IconButton></Tooltip>
+                          <Tooltip title="상담 이력"><IconButton size="small" onClick={() => openHistory(b.userId, b.userName)}><HistoryIcon fontSize="small" /></IconButton></Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
 
-      {/* ─── Session Detail Dialog ─────────────────────────────────────────────── */}
-      <Dialog open={sessionOpen} onClose={() => setSessionOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>상담 상세</Typography>
-          <IconButton size="small" onClick={() => setSessionOpen(false)}><CloseIcon fontSize="small" /></IconButton>
-        </DialogTitle>
-        <Divider />
-        <DialogContent>
-          {selectedSession && (
-            <Box>
-              {/* Participants */}
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>참여자</Typography>
-              <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                <Paper elevation={0} sx={{ flex: 1, p: 2, borderRadius: '8px', bgcolor: '#F8F9FA' }}>
-                  <Typography variant="caption" color="text.secondary">사용자</Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                    <Avatar sx={{ width: 28, height: 28, fontSize: '0.7rem', bgcolor: '#059669' }}>
-                      {selectedSession.user_name?.charAt(0)}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="body2" fontWeight={500}>{selectedSession.user_name}</Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>{selectedSession.user_email}</Typography>
+        {/* Tab 2 (Admin): Instructor Availability Management */}
+        {isAdmin && tab === 2 && (
+          <Box>
+            {CONSULTANTS.map((c) => {
+              const cs = consultantStats[c.id] || {};
+              return (
+                <Paper key={c.id} elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: '10px', border: '1px solid', borderColor: 'divider' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                    <Avatar sx={{ bgcolor: '#0047BA', width: 40, height: 40, fontSize: '0.9rem' }}>{c.name_ko.charAt(0)}</Avatar>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="subtitle1" fontWeight={600}>{c.name_ko}</Typography>
+                      <Typography variant="caption" color="text.secondary">{c.email} · {c.department}</Typography>
                     </Box>
-                  </Box>
-                </Paper>
-                <Paper elevation={0} sx={{ flex: 1, p: 2, borderRadius: '8px', bgcolor: '#F8F9FA' }}>
-                  <Typography variant="caption" color="text.secondary">상담사</Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                    <Avatar sx={{ width: 28, height: 28, fontSize: '0.7rem', bgcolor: '#0047BA' }}>
-                      {selectedConsultant?.consultant_name?.charAt(0)}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="body2" fontWeight={500}>{selectedConsultant?.consultant_name}</Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>{selectedConsultant?.department}</Typography>
-                    </Box>
-                  </Box>
-                </Paper>
-              </Box>
-
-              {/* Session Info */}
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>상담 정보</Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary">날짜/시간</Typography>
-                  <Typography variant="body2" fontWeight={500}>{selectedSession.scheduled_at}</Typography>
-                </Grid>
-                <Grid item xs={3}>
-                  <Typography variant="caption" color="text.secondary">방법</Typography>
-                  <Box sx={{ mt: 0.5 }}>
-                    <Chip size="small" icon={methodIcon[selectedSession.method]} label={selectedSession.method} sx={{ height: 22, fontSize: '0.7rem' }} />
-                  </Box>
-                </Grid>
-                <Grid item xs={3}>
-                  <Typography variant="caption" color="text.secondary">상태</Typography>
-                  <Box sx={{ mt: 0.5 }}>
-                    {(() => {
-                      const s = statusConfig[selectedSession.status];
-                      return <Chip size="small" label={selectedSession.status} sx={{ height: 22, fontSize: '0.7rem', bgcolor: s?.bg, color: s?.color, fontWeight: 600 }} />;
-                    })()}
-                  </Box>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="caption" color="text.secondary">주제</Typography>
-                  <Typography variant="body2" fontWeight={500}>{selectedSession.topic}</Typography>
-                </Grid>
-              </Grid>
-
-              {/* Records */}
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>상담 기록</Typography>
-              {selectedSession.records?.length > 0 ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  {selectedSession.records.map((record, i) => (
-                    <Paper key={i} elevation={0} sx={{ p: 2, borderRadius: '8px', border: '1px solid', borderColor: 'divider' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        {recordTypeIcon[record.record_type] || recordTypeIcon.text}
-                        <Typography variant="caption" fontWeight={600} sx={{ textTransform: 'uppercase' }}>
-                          {record.record_type === 'text' ? '텍스트 메모' : record.record_type === 'file' ? '첨부 파일' : '이미지'}
-                        </Typography>
+                    <Box sx={{ display: 'flex', gap: 2, mr: 2 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="body2" fontWeight={700} color="primary">{cs.total || 0}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>배정</Typography>
                       </Box>
-                      {record.content && (
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                          {record.content}
-                        </Typography>
-                      )}
-                      {record.file_name && (
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="body2" fontWeight={700} color="success.main">{cs.completed || 0}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>완료</Typography>
+                      </Box>
+                    </Box>
+                    <Button size="small" variant="outlined" startIcon={<AvailIcon />} onClick={() => openAvailEditor(c)}>
+                      가용시간 설정
+                    </Button>
+                  </Box>
+                  {/* Show upcoming availability summary */}
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+                    {dates14.slice(0, 5).map((d) => {
+                      const all = loadAvailability();
+                      const slots = all[c.id]?.[d.date] || [];
+                      return (
                         <Chip
-                          size="small"
-                          icon={<FileIcon sx={{ fontSize: '14px !important' }} />}
-                          label={record.file_name}
-                          sx={{ mt: 1, height: 26, fontSize: '0.75rem', cursor: 'pointer' }}
-                          onClick={() => {}}
+                          key={d.date} size="small"
+                          label={`${d.label}: ${slots.length > 0 ? slots.length + '슬롯' : '없음'}`}
+                          sx={{
+                            fontSize: '0.7rem', height: 24,
+                            bgcolor: slots.length > 0 ? '#DCFCE7' : '#F3F4F6',
+                            color: slots.length > 0 ? '#166534' : '#9CA3AF',
+                            fontWeight: 500,
+                          }}
                         />
-                      )}
-                    </Paper>
-                  ))}
-                </Box>
-              ) : (
-                <Paper elevation={0} sx={{ p: 3, textAlign: 'center', bgcolor: '#F8F9FA', borderRadius: '8px' }}>
-                  <Typography variant="body2" color="text.secondary">아직 기록이 없습니다.</Typography>
+                      );
+                    })}
+                  </Box>
                 </Paper>
+              );
+            })}
+          </Box>
+        )}
+
+        {/* Tab (Consultant): My users */}
+        {isConsultantRole && tab === 1 && (
+          <Box>
+            {myUsers.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}><Typography color="text.secondary">배정된 사용자가 없습니다</Typography></Box>
+            ) : myUsers.map((u) => {
+              const history = getConsultationHistory(u.id, user.id);
+              const hasForm = !!getIntakeForm(u.id);
+              return (
+                <Paper key={u.id} elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: '10px', border: '1px solid', borderColor: 'divider' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Avatar sx={{ bgcolor: '#0047BA' }}>{u.name.charAt(0)}</Avatar>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="subtitle1" fontWeight={600}>{u.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">{u.email}</Typography>
+                    </Box>
+                    <Chip label={`상담 ${history.length}회`} size="small" sx={{ fontWeight: 600, bgcolor: '#EBF0FA', color: '#0047BA' }} />
+                    <Tooltip title="상담 이력"><IconButton size="small" onClick={() => openHistory(u.id, u.name)}><HistoryIcon fontSize="small" /></IconButton></Tooltip>
+                    <Tooltip title={hasForm ? '인테이크 양식 수정' : '인테이크 양식 작성'}>
+                      <IconButton size="small" color="primary" onClick={() => openIntake(u.id, u.name)}><FormIcon fontSize="small" /></IconButton>
+                    </Tooltip>
+                  </Box>
+                </Paper>
+              );
+            })}
+          </Box>
+        )}
+      </Paper>
+
+      {/* ─── Assign Instructor Dialog ─── */}
+      <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+        <DialogTitle fontWeight={700}>강사 배정</DialogTitle>
+        <DialogContent>
+          {assignTarget && (
+            <Box>
+              {/* User's requested slot */}
+              <Paper elevation={0} sx={{ p: 2, bgcolor: '#F8F9FA', borderRadius: '10px', mb: 3 }}>
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>사용자 요청 정보</Typography>
+                <Grid container spacing={1.5}>
+                  <Grid item xs={4}>
+                    <Typography variant="caption" color="text.secondary">신청자</Typography>
+                    <Typography variant="body2" fontWeight={600}>{assignTarget.userName}</Typography>
+                  </Grid>
+                  <Grid item xs={4}>
+                    <Typography variant="caption" color="text.secondary">희망 날짜</Typography>
+                    <Typography variant="body2" fontWeight={700} color="primary">{assignTarget.date}</Typography>
+                  </Grid>
+                  <Grid item xs={4}>
+                    <Typography variant="caption" color="text.secondary">희망 시간</Typography>
+                    <Typography variant="body2" fontWeight={700} color="primary">{assignTarget.time}</Typography>
+                  </Grid>
+                </Grid>
+              </Paper>
+
+              {/* Available instructors */}
+              <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                해당 시간 가용 강사 ({availableInstructors.length}명)
+              </Typography>
+
+              {availableInstructors.length === 0 ? (
+                <Paper elevation={0} sx={{ p: 3, textAlign: 'center', bgcolor: '#FEF2F2', borderRadius: '10px' }}>
+                  <Typography variant="body2" color="error" fontWeight={500}>
+                    해당 시간에 가용한 강사가 없습니다.
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    "강사 가용시간 관리" 탭에서 강사 가용시간을 먼저 설정해주세요.
+                  </Typography>
+                </Paper>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {availableInstructors.map((inst) => {
+                    const cs = consultantStats[inst.id] || {};
+                    return (
+                      <Paper key={inst.id} elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Avatar sx={{ bgcolor: '#0047BA', width: 40, height: 40 }}>{inst.name_ko.charAt(0)}</Avatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body1" fontWeight={600}>{inst.name_ko}</Typography>
+                          <Typography variant="caption" color="text.secondary">{inst.department} · 상담 {cs.total || 0}건 완료</Typography>
+                        </Box>
+                        <Button variant="contained" size="small" startIcon={<ApproveIcon />} onClick={() => handleAssign(inst)}>
+                          배정하기
+                        </Button>
+                      </Paper>
+                    );
+                  })}
+                </Box>
+              )}
+
+              {/* Also show all instructors (unavailable ones greyed out) */}
+              {availableInstructors.length < CONSULTANTS.length && availableInstructors.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="caption" color="text.secondary">해당 시간 비가용 강사:</Typography>
+                  <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                    {CONSULTANTS.filter((c) => !availableInstructors.find((a) => a.id === c.id)).map((c) => (
+                      <Chip key={c.id} label={c.name_ko} size="small" sx={{ bgcolor: '#F3F4F6', color: '#9CA3AF' }} />
+                    ))}
+                  </Box>
+                </Box>
               )}
             </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button variant="outlined" onClick={() => setSessionOpen(false)}>닫기</Button>
+          <Button onClick={() => setAssignOpen(false)}>닫기</Button>
         </DialogActions>
+      </Dialog>
+
+      {/* ─── Availability Editor Dialog ─── */}
+      <Dialog open={availOpen} onClose={() => setAvailOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+        <DialogTitle fontWeight={700}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ClockIcon color="primary" />
+            {availInstructor?.name_ko} 강사 - 가용시간 설정
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {/* Date selector */}
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>날짜 선택</Typography>
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 2.5 }}>
+            {dates14.map((d) => (
+              <Chip
+                key={d.date} label={d.label} size="small"
+                onClick={() => handleAvailDateChange(d.date)}
+                sx={{
+                  fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer',
+                  border: '2px solid',
+                  borderColor: availDate === d.date ? '#0047BA' : 'transparent',
+                  bgcolor: availDate === d.date ? '#EBF0FA' : '#F8F9FA',
+                }}
+              />
+            ))}
+          </Box>
+
+          {/* Time slot checkboxes */}
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>가용 시간 선택 (체크한 시간에 상담 배정 가능)</Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {getAvailableSlots(availDate || '2026.04.01').map((time) => (
+              <Chip
+                key={time} label={time} size="small"
+                onClick={() => toggleSlot(time)}
+                sx={{
+                  fontWeight: 600, fontSize: '0.8rem', height: 34, minWidth: 68, cursor: 'pointer',
+                  border: '2px solid',
+                  borderColor: availSlots.includes(time) ? '#059669' : '#E5E7EB',
+                  bgcolor: availSlots.includes(time) ? '#DCFCE7' : '#fff',
+                  color: availSlots.includes(time) ? '#166534' : '#6B7280',
+                  '&:hover': { borderColor: '#059669' },
+                }}
+              />
+            ))}
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            선택됨: {availSlots.length}개 슬롯
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setAvailOpen(false)}>취소</Button>
+          <Button variant="contained" onClick={() => { saveAvail(); setAvailOpen(false); }}>저장</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ─── Intake Form Dialog ─── */}
+      <Dialog open={intakeOpen} onClose={() => setIntakeOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: '12px', maxHeight: '90vh' } }}>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6" fontWeight={700}>{intakeUserName} - 인테이크 상담양식</Typography>
+          <Button onClick={() => setIntakeOpen(false)}>닫기</Button>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 0 }}>
+          {intakeUserId && <IntakeForm userId={intakeUserId} onClose={() => setIntakeOpen(false)} embedded />}
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── History Dialog ─── */}
+      <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} PaperProps={{ sx: { borderRadius: '12px', minWidth: 400 } }}>
+        <DialogTitle fontWeight={700}>{historyData.name} - 상담 이력</DialogTitle>
+        <DialogContent>
+          {historyData.items.length === 0 ? (
+            <Typography color="text.secondary" sx={{ py: 2 }}>상담 이력이 없습니다.</Typography>
+          ) : (
+            <Box>
+              <Chip label={`총 ${historyData.items.length}회 상담`} size="small" sx={{ mb: 2, fontWeight: 600, bgcolor: '#EBF0FA', color: '#0047BA' }} />
+              {historyData.items.map((h, i) => (
+                <Box key={h.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1, borderBottom: i < historyData.items.length - 1 ? '1px solid #F3F4F6' : 'none' }}>
+                  <Typography variant="body2" fontWeight={500} sx={{ minWidth: 90 }}>{h.date}</Typography>
+                  <Typography variant="body2" color="text.secondary">{h.time}</Typography>
+                  <Chip icon={methodIcon[h.method]} label={h.method} size="small" sx={{ height: 22 }} />
+                  {h.consultantName && <Typography variant="caption" color="text.secondary">{h.consultantName}</Typography>}
+                </Box>
+              ))}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions><Button onClick={() => setHistoryOpen(false)}>닫기</Button></DialogActions>
       </Dialog>
     </Box>
   );

@@ -58,7 +58,6 @@ const navItems = [
       { label: '상담 기록', path: '/activities/consultations' },
       { label: '수강 현황', path: '/activities/courses' },
       { label: '상담 예약', path: '/consultations/booking' },
-      { label: '상담 일정 관리', path: '/consultations/schedule' },
     ],
   },
   {
@@ -89,7 +88,7 @@ const navItems = [
 
 const Header = ({ onMenuToggle }) => {
   const { t } = useTranslation();
-  const { user, logout, isAdmin, isHRManager } = useAuth();
+  const { user, logout, isAdmin, isHRManager, isConsultant } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -277,8 +276,8 @@ const Header = ({ onMenuToggle }) => {
               </Avatar>
             </IconButton>
 
-            {/* Admin shortcut */}
-            {!isMobile && (isAdmin() || isHRManager()) && (
+            {/* Admin/Instructor dashboard shortcut */}
+            {!isMobile && (isAdmin() || isHRManager() || isConsultant()) && (
               <Button
                 size="small"
                 startIcon={<AdminIcon sx={{ fontSize: 18 }} />}
@@ -289,7 +288,7 @@ const Header = ({ onMenuToggle }) => {
                   '&:hover': { borderColor: '#0047BA', color: '#0047BA' },
                 }}
               >
-                관리자
+                {isAdmin() ? '관리자' : '강사 대시보드'}
               </Button>
             )}
           </Box>
@@ -341,9 +340,9 @@ const Header = ({ onMenuToggle }) => {
         <MenuItem onClick={() => { setAnchorEl(null); navigate('/settings'); }}>
           <SettingsIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> 설정
         </MenuItem>
-        {(isAdmin() || isHRManager()) && isMobile && (
+        {(isAdmin() || isHRManager() || isConsultant()) && isMobile && (
           <MenuItem onClick={() => { setAnchorEl(null); navigate('/admin'); }}>
-            <AdminIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> 관리자 패널
+            <AdminIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> {isAdmin() ? '관리자 패널' : '강사 대시보드'}
           </MenuItem>
         )}
         <Divider />
@@ -449,7 +448,7 @@ const Header = ({ onMenuToggle }) => {
             </React.Fragment>
           ))}
 
-          {(isAdmin() || isHRManager()) && (
+          {(isAdmin() || isHRManager() || isConsultant()) && (
             <>
               <Divider sx={{ my: 1 }} />
               <ListItem disablePadding>
@@ -457,7 +456,7 @@ const Header = ({ onMenuToggle }) => {
                   <ListItemIcon sx={{ minWidth: 36, color: '#888' }}>
                     <AdminIcon sx={{ fontSize: 22 }} />
                   </ListItemIcon>
-                  <ListItemText primary="관리자 패널" primaryTypographyProps={{ fontWeight: 500, fontSize: '0.9rem' }} />
+                  <ListItemText primary={isAdmin() ? '관리자 패널' : '강사 대시보드'} primaryTypographyProps={{ fontWeight: 500, fontSize: '0.9rem' }} />
                 </ListItemButton>
               </ListItem>
             </>

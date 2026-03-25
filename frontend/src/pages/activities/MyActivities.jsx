@@ -42,7 +42,9 @@ import {
   TextSnippet as TextIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
-import { programsAPI, consultationsAPI, coursesAPI } from '../../services/api';
+import { consultationsAPI, coursesAPI } from '../../services/api';
+import { loadApplications } from '../../utils/programStore';
+import { getBookingsForUser } from '../../utils/consultationStore';
 import StatusBadge from '../../components/common/StatusBadge';
 import CategoryBadge from '../../components/common/CategoryBadge';
 
@@ -53,6 +55,7 @@ const methodIcon = {
 };
 
 const statusColors = {
+  '배정대기': { color: '#92400E', bg: '#FEF3C7' },
   '예약됨': { color: '#1E40AF', bg: '#DBEAFE' },
   '완료': { color: '#166534', bg: '#DCFCE7' },
   '취소': { color: '#991B1B', bg: '#FEE2E2' },
@@ -60,7 +63,7 @@ const statusColors = {
 };
 
 const MyActivities = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -89,11 +92,24 @@ const MyActivities = () => {
       setLoading(true);
       try {
         if (tab === 0) {
-          const response = await programsAPI.getAll({ mine: true });
-          setApplications(response.data.applications || []);
+          // Read from shared localStorage store (same store ProgramDetail writes to)
+          const allApps = loadApplications();
+          setApplications(allApps);
         } else if (tab === 1) {
-          const response = await consultationsAPI.getMine();
-          setConsultations(response.data.consultations || []);
+          // Read from shared localStorage store
+          const myBookings = user ? getBookingsForUser(user.id) : [];
+          const mapped = myBookings.map((b) => ({
+            id: b.id,
+            date: `${b.date} ${b.time}`,
+            scheduled_at: `${b.date} ${b.time}`,
+            consultant: b.consultantName || '배정 대기',
+            consultant_name: b.consultantName || '배정 대기',
+            topic: b.method,
+            method: b.method,
+            status: b.status === 'pending' ? '배정대기' : b.status === 'confirmed' ? '예약됨' : b.status === 'completed' ? '완료' : '취소',
+            records: [],
+          }));
+          setConsultations(mapped);
         } else {
           const response = await coursesAPI.getEnrollments();
           setCourses(response.data.enrollments || []);
@@ -179,7 +195,7 @@ const MyActivities = () => {
           {t('activities.title')}
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          {t('activities.welcome', { name: user?.name_ko || user?.name_en || '회원' })}
+          {t('activities.welcome', { name: (i18n.language === 'en' ? user?.name_en : user?.name_ko) || user?.name_ko || '회원' })}
         </Typography>
       </Box>
 
@@ -228,7 +244,7 @@ const MyActivities = () => {
                           {displayApplications.map((app) => (
                             <TableRow key={app.id} hover>
                               <TableCell>{app.date || app.applied_at}</TableCell>
-                              <TableCell>{app.title || app.program?.title_ko}</TableCell>
+                              <TableCell>{app.program_title || app.title || app.program?.title_ko}</TableCell>
                               <TableCell align="center">
                                 <CategoryBadge category={app.category || app.program?.category} />
                               </TableCell>
@@ -236,7 +252,7 @@ const MyActivities = () => {
                                 <StatusBadge status={app.status} />
                               </TableCell>
                               <TableCell align="center">
-                                <Button size="small" variant="outlined">
+                                <Button size="small" variant="outlined" onClick={() => navigate(`/programs/${app.programId}`)}>
                                   {t('common.viewDetail')}
                                 </Button>
                               </TableCell>

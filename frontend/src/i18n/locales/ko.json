@@ -40,7 +40,7 @@
     "appliedPrograms": "신청 프로그램",
     "scheduledConsultations": "상담 예정",
     "ongoingCourses": "진행중 교육",
-    "dDay": "D-{days}"
+    "dDay": "D-{{days}}"
   },
   "programs": {
     "title": "프로그램 신청",
@@ -64,7 +64,7 @@
   },
   "activities": {
     "title": "나의 활동",
-    "welcome": "{name} 님, 환영합니다!",
+    "welcome": "{{name}} 님, 환영합니다!",
     "applicationHistory": "신청 내역",
     "consultationRecords": "상담 기록",
     "courseStatus": "수강 현황",
@@ -176,7 +176,7 @@
   },
   "calendar": {},
   "footer": {
-    "copyright": "© {year} 우리은행. All rights reserved.",
+    "copyright": "© {{year}} 우리은행. All rights reserved.",
     "contact": "대표번호",
     "address": "주소",
     "privacyPolicy": "개인정보처리방침",

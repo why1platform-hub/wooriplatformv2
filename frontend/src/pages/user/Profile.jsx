@@ -87,7 +87,7 @@ const Profile = () => {
               <Box sx={{ textAlign: 'left' }}>
                 <Typography variant="caption" color="text.secondary">역할</Typography>
                 <Typography variant="body2" fontWeight={500} sx={{ mb: 1.5 }}>
-                  {user?.role === 'admin' ? '관리자' : user?.role === 'instructor' ? '강사' : '일반 사용자'}
+                  {user?.role === 'admin' ? '관리자' : user?.role === 'consultant' ? '상담사' : '일반 사용자'}
                 </Typography>
                 {user?.retirement_date && (
                   <>
