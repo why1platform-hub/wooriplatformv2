@@ -19,26 +19,11 @@ import {
   DragIndicator as DragIcon,
 } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
+import { loadBranding, saveBranding } from '../../utils/siteConfig';
 
 const API_BASE = '/api';
 const POLICIES_STORAGE_KEY = 'woori_policies';
 const HOMEPAGE_ORDER_KEY = 'woori_homepage_order';
-const BRANDING_KEY = 'woori_site_branding';
-
-const DEFAULT_BRANDING = {
-  title_ko: '우리은행 퇴직자 통합지원 플랫폼',
-  title_en: 'Woori Bank Retirement Support Platform',
-  title_short_ko: '퇴직지원 플랫폼',
-  title_short_en: 'Retirement Platform',
-};
-
-export const loadBranding = () => {
-  try {
-    const saved = localStorage.getItem(BRANDING_KEY);
-    if (saved) return { ...DEFAULT_BRANDING, ...JSON.parse(saved) };
-  } catch { /* ignore */ }
-  return DEFAULT_BRANDING;
-};
 
 const DEFAULT_SECTION_ORDER = ['announcements', 'status', 'programs', 'jobs'];
 
@@ -265,7 +250,7 @@ const Settings = () => {
               <Button
                 variant="contained" startIcon={<SaveIcon />}
                 onClick={() => {
-                  localStorage.setItem(BRANDING_KEY, JSON.stringify(branding));
+                  saveBranding(branding);
                   showSuccess('사이트 브랜딩이 저장되었습니다. 페이지를 새로고침하면 반영됩니다.');
                 }}
               >

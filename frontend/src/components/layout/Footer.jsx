@@ -7,8 +7,8 @@ const Footer = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const currentYear = new Date().getFullYear();
-  const branding = (() => { try { const s = localStorage.getItem('woori_site_branding'); if (s) return JSON.parse(s); } catch {} return null; })();
-  const siteTitle = i18n.language === 'en' ? branding?.title_en || 'Woori Bank Retirement Support Platform' : branding?.title_ko || '우리은행 퇴직자 통합지원 플랫폼';
+  const { getSiteTitle } = require('../../utils/siteConfig');
+  const siteTitle = getSiteTitle(i18n.language, false);
 
   return (
     <Box

@@ -118,9 +118,7 @@ const FooterMarquee = React.memo(() => (
 
 const LandingPage = () => {
   const { t, i18n } = useTranslation();
-  const branding = useMemo(() => {
-    try { const s = localStorage.getItem('woori_site_branding'); if (s) return JSON.parse(s); } catch {} return null;
-  }, []);
+  const { getSiteTitle } = require('../../utils/siteConfig');
   const isEn = i18n.language === 'en';
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -223,7 +221,7 @@ const LandingPage = () => {
           variant={isMobile ? 'body1' : 'h6'}
           sx={{ fontWeight: 700, color: '#fff', letterSpacing: '-0.02em' }}
         >
-          {isEn ? branding?.title_en || 'Woori Bank Retirement Support Platform' : branding?.title_ko || '우리은행 퇴직자 통합지원 플랫폼'}
+          {getSiteTitle(isEn ? 'en' : 'ko')}
         </Typography>
       </Box>
       <Button
