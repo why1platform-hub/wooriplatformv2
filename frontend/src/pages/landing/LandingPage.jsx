@@ -128,6 +128,7 @@ const LandingPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [paused, setPaused] = useState(false);
 
   // Load banner slides from admin settings
   const bannerSlides = useMemo(() => loadBannerSlides(), []);
@@ -165,9 +166,10 @@ const LandingPage = () => {
   }, [bannerSlides.length]);
 
   useEffect(() => {
+    if (paused) return;
     const timer = setInterval(nextSlide, 5000);
     return () => clearInterval(timer);
-  }, [nextSlide]);
+  }, [nextSlide, paused]);
 
   const onSubmit = async (data) => {
     setLoading(true);
@@ -188,9 +190,11 @@ const LandingPage = () => {
     window.location.href = '/api/auth/google';
   };
 
-  // --- Subcomponents ---
+  // --- Subcomponents (rendered as plain JSX via variables, NOT function components) ---
+  // Using plain JSX variables prevents React from unmounting/remounting on re-render,
+  // which was causing input fields to lose focus every 5 seconds.
 
-  const Header = () => (
+  const header = (
     <Box
       sx={{
         display: 'flex',
@@ -240,7 +244,7 @@ const LandingPage = () => {
     </Box>
   );
 
-  const BannerCarousel = () => (
+  const bannerCarousel = (
     <Box
       sx={{
         position: 'relative',
@@ -347,8 +351,10 @@ const LandingPage = () => {
     </Box>
   );
 
-  const LoginForm = () => (
+  const loginForm = (
     <Box
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
       sx={{
         width: isMobile ? '100%' : 380,
         flexShrink: 0,
@@ -529,7 +535,7 @@ const LandingPage = () => {
         backgroundColor: '#F8F9FA',
       }}
     >
-      <Header />
+      {header}
 
       {/* Main content area */}
       {isMobile ? (
@@ -543,9 +549,9 @@ const LandingPage = () => {
             minHeight: 0,
           }}
         >
-          <BannerCarousel />
+          {bannerCarousel}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <LoginForm />
+            {loginForm}
           </Box>
         </Box>
       ) : (
@@ -561,8 +567,8 @@ const LandingPage = () => {
             alignItems: 'stretch',
           }}
         >
-          <BannerCarousel />
-          <LoginForm />
+          {bannerCarousel}
+          {loginForm}
         </Box>
       )}
 
