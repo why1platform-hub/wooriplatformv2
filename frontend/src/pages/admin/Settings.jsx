@@ -23,6 +23,22 @@ import { useNotification } from '../../contexts/NotificationContext';
 const API_BASE = '/api';
 const POLICIES_STORAGE_KEY = 'woori_policies';
 const HOMEPAGE_ORDER_KEY = 'woori_homepage_order';
+const BRANDING_KEY = 'woori_site_branding';
+
+const DEFAULT_BRANDING = {
+  title_ko: '우리은행 퇴직자 통합지원 플랫폼',
+  title_en: 'Woori Bank Retirement Support Platform',
+  title_short_ko: '퇴직지원 플랫폼',
+  title_short_en: 'Retirement Platform',
+};
+
+export const loadBranding = () => {
+  try {
+    const saved = localStorage.getItem(BRANDING_KEY);
+    if (saved) return { ...DEFAULT_BRANDING, ...JSON.parse(saved) };
+  } catch { /* ignore */ }
+  return DEFAULT_BRANDING;
+};
 
 const DEFAULT_SECTION_ORDER = ['announcements', 'status', 'programs', 'jobs'];
 
@@ -75,6 +91,9 @@ const Settings = () => {
 
   // Homepage section order
   const [sectionOrder, setSectionOrder] = useState(loadSectionOrder);
+
+  // Site branding
+  const [branding, setBranding] = useState(loadBranding);
 
   // Microsoft SSO settings
   const [ssoConfig, setSsoConfig] = useState(() => {
@@ -179,14 +198,99 @@ const Settings = () => {
       </Box>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: '1px solid', borderColor: 'divider' }} variant="scrollable" scrollButtons="auto">
+        <Tab icon={<BusinessIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="사이트 브랜딩" />
         <Tab icon={<MicrosoftIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Microsoft SSO" />
         <Tab icon={<SecurityIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="보안 설정" />
         <Tab icon={<PolicyIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="약관 관리" />
         <Tab icon={<HomeIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="홈페이지 관리" />
       </Tabs>
 
-      {/* Tab 0: Microsoft SSO */}
+      {/* Tab 0: Site Branding */}
       {tab === 0 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+              <BusinessIcon color="primary" />
+              <Box>
+                <Typography variant="subtitle1" fontWeight={600}>사이트 헤더 타이틀</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  사이트 전체에 표시되는 헤더 타이틀을 한국어/영어로 설정합니다.
+                </Typography>
+              </Box>
+            </Box>
+
+            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>한국어 (Korean)</Typography>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={8}>
+                <TextField
+                  fullWidth size="small" label="사이트 타이틀 (전체)"
+                  value={branding.title_ko}
+                  onChange={(e) => setBranding((p) => ({ ...p, title_ko: e.target.value }))}
+                  helperText="헤더, 랜딩 페이지, 푸터에 표시됩니다"
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth size="small" label="모바일용 축약 타이틀"
+                  value={branding.title_short_ko}
+                  onChange={(e) => setBranding((p) => ({ ...p, title_short_ko: e.target.value }))}
+                  helperText="모바일 헤더에 표시됩니다"
+                />
+              </Grid>
+            </Grid>
+
+            <Divider sx={{ mb: 2 }} />
+
+            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>영어 (English)</Typography>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={8}>
+                <TextField
+                  fullWidth size="small" label="Site Title (Full)"
+                  value={branding.title_en}
+                  onChange={(e) => setBranding((p) => ({ ...p, title_en: e.target.value }))}
+                  helperText="Displayed in header, landing page, and footer (English mode)"
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth size="small" label="Short Title (Mobile)"
+                  value={branding.title_short_en}
+                  onChange={(e) => setBranding((p) => ({ ...p, title_short_en: e.target.value }))}
+                  helperText="Displayed in mobile header"
+                />
+              </Grid>
+            </Grid>
+
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained" startIcon={<SaveIcon />}
+                onClick={() => {
+                  localStorage.setItem(BRANDING_KEY, JSON.stringify(branding));
+                  showSuccess('사이트 브랜딩이 저장되었습니다. 페이지를 새로고침하면 반영됩니다.');
+                }}
+              >
+                브랜딩 저장
+              </Button>
+            </Box>
+          </Paper>
+
+          {/* Preview */}
+          <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
+            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>미리보기</Typography>
+            <Box sx={{ bgcolor: '#0047BA', color: '#fff', p: 2, borderRadius: '8px', mb: 1 }}>
+              <Typography variant="body1" fontWeight={700}>{branding.title_ko}</Typography>
+              <Typography variant="caption" sx={{ opacity: 0.7 }}>모바일: {branding.title_short_ko}</Typography>
+            </Box>
+            <Box sx={{ bgcolor: '#F8F9FA', p: 2, borderRadius: '8px' }}>
+              <Typography variant="body1" fontWeight={700}>{branding.title_en}</Typography>
+              <Typography variant="caption" color="text.secondary">Mobile: {branding.title_short_en}</Typography>
+            </Box>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Tab 1: Microsoft SSO */}
+      {tab === 1 && (
         <Box>
           {/* Google SSO Toggle */}
           <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px', mb: 3 }}>
@@ -423,8 +527,8 @@ const Settings = () => {
         </Box>
       )}
 
-      {/* Tab 1: Security Settings */}
-      {tab === 1 && (
+      {/* Tab 2: Security Settings */}
+      {tab === 2 && (
         <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
           <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>보안 설정</Typography>
           <Typography variant="body2" color="text.secondary">
@@ -433,8 +537,8 @@ const Settings = () => {
         </Paper>
       )}
 
-      {/* Tab 3: Homepage Management */}
-      {tab === 3 && (
+      {/* Tab 4: Homepage Management */}
+      {tab === 4 && (
         <Box>
           <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
@@ -501,8 +605,8 @@ const Settings = () => {
         </Box>
       )}
 
-      {/* Tab 2: Policy Management */}
-      {tab === 2 && (
+      {/* Tab 3: Policy Management */}
+      {tab === 3 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {/* Privacy Policy */}
           <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>

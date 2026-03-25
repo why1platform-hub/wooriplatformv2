@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Typography, Link } from '@mui/material';
 
 const Footer = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const currentYear = new Date().getFullYear();
+  const branding = (() => { try { const s = localStorage.getItem('woori_site_branding'); if (s) return JSON.parse(s); } catch {} return null; })();
+  const siteTitle = i18n.language === 'en' ? branding?.title_en || 'Woori Bank Retirement Support Platform' : branding?.title_ko || '우리은행 퇴직자 통합지원 플랫폼';
 
   return (
     <Box
@@ -31,7 +33,7 @@ const Footer = () => {
           {/* Left - Logo & Info */}
           <Box>
             <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: '1rem', mb: 1.5, letterSpacing: '-0.3px' }}>
-              우리은행 퇴직자 통합지원 플랫폼
+              {siteTitle}
             </Typography>
             <Typography variant="caption" sx={{ display: 'block', lineHeight: 1.8, color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem' }}>
               {t('footer.address')}: 서울시 중구 소공로 51

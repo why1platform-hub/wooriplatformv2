@@ -86,9 +86,19 @@ const navItems = [
   },
 ];
 
+const loadBranding = () => {
+  try {
+    const saved = localStorage.getItem('woori_site_branding');
+    if (saved) return JSON.parse(saved);
+  } catch { /* ignore */ }
+  return null;
+};
+
 const Header = ({ onMenuToggle }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, logout, isAdmin, isHRManager, isConsultant } = useAuth();
+  const branding = loadBranding();
+  const isEn = i18n.language === 'en';
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -188,7 +198,10 @@ const Header = ({ onMenuToggle }) => {
                 letterSpacing: '-0.3px', whiteSpace: 'nowrap',
               }}
             >
-              {isMobile ? '퇴직지원 플랫폼' : '우리은행 퇴직자 통합지원 플랫폼'}
+              {isMobile
+                ? (isEn ? branding?.title_short_en || 'Retirement Platform' : branding?.title_short_ko || '퇴직지원 플랫폼')
+                : (isEn ? branding?.title_en || 'Woori Bank Retirement Support Platform' : branding?.title_ko || '우리은행 퇴직자 통합지원 플랫폼')
+              }
             </Typography>
           </Box>
 
