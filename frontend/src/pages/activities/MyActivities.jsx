@@ -121,7 +121,7 @@ const MyActivities = () => {
       }
     };
     fetchData();
-  }, [tab]);
+  }, [tab, user]);
 
   const displayApplications = applications;
   const displayConsultations = consultations;

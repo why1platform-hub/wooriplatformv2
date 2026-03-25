@@ -2,8 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box, Typography, Grid, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Chip, Tabs, Tab, Avatar, IconButton,
-  Dialog, DialogTitle, DialogContent, DialogActions, Tooltip, Checkbox,
-  FormControlLabel,
+  Dialog, DialogTitle, DialogContent, DialogActions, Tooltip,
 } from '@mui/material';
 import {
   CheckCircle as ApproveIcon,
@@ -21,7 +20,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import {
   loadBookings, assignConsultant, completeBooking,
-  getConsultationStats, getConsultantStats, getBookingsForConsultant,
+  getConsultationStats, getConsultantStats,
   getConsultationHistory, CONSULTANTS, getIntakeForm,
   getAvailableInstructorsForSlot, loadAvailability, saveAvailability,
   getAvailableSlots,

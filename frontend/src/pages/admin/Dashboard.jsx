@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Grid, Paper, Avatar, Chip, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Divider, alpha,
+  TableContainer, TableHead, TableRow, alpha,
 } from '@mui/material';
 import {
   People as PeopleIcon,

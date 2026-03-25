@@ -14,7 +14,6 @@ import { useNotification } from '../../contexts/NotificationContext';
 import {
   loadPrograms, savePrograms,
   loadApplications, saveApplications,
-  getApplicationsForProgram,
 } from '../../utils/programStore';
 
 const CATEGORIES = ['금융컨설팅', '부동산', '창업', '사회공헌', '교육', '기타'];

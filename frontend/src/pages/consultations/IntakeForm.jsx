@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, Button, Grid, Paper, Radio, RadioGroup,
-  FormControlLabel, Checkbox, Rating, Divider, Alert, Chip,
+  FormControlLabel, Checkbox, Rating, Divider, Alert,
 } from '@mui/material';
 import {
   Person as PersonIcon,

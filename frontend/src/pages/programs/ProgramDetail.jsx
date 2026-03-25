@@ -15,7 +15,6 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  Chip,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -168,7 +167,6 @@ const ProgramDetail = () => {
     );
   }
 
-  const statusLabel = applicationStatus === '승인' ? '승인 완료' : applicationStatus === '반려' ? '반려됨' : '승인 대기 중';
   const statusSeverity = applicationStatus === '승인' ? 'success' : applicationStatus === '반려' ? 'error' : 'info';
 
   return (
