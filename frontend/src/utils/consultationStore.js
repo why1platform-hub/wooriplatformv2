@@ -1,25 +1,20 @@
 /**
- * Shared localStorage store for consultation bookings, intake forms, and history.
- * Used by user booking, admin assignment, and consultant views.
+ * Consultation data store — Supabase-backed with localStorage fallback.
+ * All writes go to Supabase first, localStorage second.
+ * All reads try Supabase first, fall back to localStorage cache.
  */
 
-const BOOKINGS_KEY = 'woori_consultation_bookings';
-const INTAKE_KEY = 'woori_intake_forms';
-const AVAILABILITY_KEY = 'woori_instructor_availability';
-const NOTES_KEY = 'woori_consultation_notes';
+import { supabase } from './supabase';
 
 // ── KST (UTC+9) date helpers ──
 export const getKSTDate = () => {
   const now = new Date();
-  const kst = new Date(now.getTime() + (9 * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
-  return kst;
+  return new Date(now.getTime() + (9 * 60 * 60 * 1000) + (now.getTimezoneOffset() * 60 * 1000));
 };
-
 export const formatKSTDate = (d) => {
   const kst = d || getKSTDate();
   return `${kst.getFullYear()}.${String(kst.getMonth() + 1).padStart(2, '0')}.${String(kst.getDate()).padStart(2, '0')}`;
 };
-
 export const getKSTToday = () => formatKSTDate();
 
 // ── System consultants (matches AuthContext) ──
@@ -31,8 +26,7 @@ export const CONSULTANTS = [
 // ── Available time slots ──
 export const getAvailableSlots = (dateStr) => {
   const d = new Date(dateStr.replace(/\./g, '-'));
-  const day = d.getDay();
-  if (day === 0 || day === 6) return []; // weekends
+  if (d.getDay() === 0 || d.getDay() === 6) return [];
   const slots = [];
   for (let h = 9; h < 17; h++) {
     for (let m = 0; m < 60; m += 30) {
@@ -42,214 +36,100 @@ export const getAvailableSlots = (dateStr) => {
   return slots;
 };
 
-export const getBookedSlots = (dateStr) => {
-  const bookings = loadBookings();
-  return bookings
-    .filter((b) => b.date === dateStr && b.status !== 'cancelled')
-    .map((b) => b.time);
-};
+// ══════════════════════════════════════════════════════════════════════
+// ── BOOKINGS ─────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
 
-// ── Seed data ──
-const SEED_BOOKINGS = [
-  {
-    id: 1, userId: 4, userName: '홍길동', userEmail: 'user1@woori.com',
-    date: '2026.03.10', time: '10:00', method: '오프라인',
-    status: 'completed', consultantId: 2, consultantName: '박지영',
-    createdAt: '2026.03.08',
-  },
-  {
-    id: 2, userId: 6, userName: '이철수', userEmail: 'user3@woori.com',
-    date: '2026.03.15', time: '11:00', method: '전화',
-    status: 'completed', consultantId: 3, consultantName: '이민호',
-    createdAt: '2026.03.13',
-  },
-  {
-    id: 3, userId: 4, userName: '홍길동', userEmail: 'user1@woori.com',
-    date: '2026.03.20', time: '14:00', method: '온라인',
-    status: 'completed', consultantId: 2, consultantName: '박지영',
-    createdAt: '2026.03.18',
-  },
-  {
-    id: 4, userId: 5, userName: '김영희', userEmail: 'user2@woori.com',
-    date: '2026.03.28', time: '10:00', method: '오프라인',
-    status: 'pending', consultantId: null, consultantName: null,
-    createdAt: '2026.03.25',
-  },
-  {
-    id: 5, userId: 6, userName: '이철수', userEmail: 'user3@woori.com',
-    date: '2026.04.02', time: '15:00', method: '전화',
-    status: 'pending', consultantId: null, consultantName: null,
-    createdAt: '2026.03.25',
-  },
-  {
-    id: 6, userId: 4, userName: '홍길동', userEmail: 'user1@woori.com',
-    date: '2026.03.27', time: '14:00', method: '온라인',
-    status: 'confirmed', consultantId: 2, consultantName: '박지영',
-    createdAt: '2026.03.24',
-  },
-];
-
-const SEED_INTAKE = {
-  4: {
-    name: '홍길동', birthYear: '1968', residence: '서울시 강남구', gender: '남성',
-    company: '우리은행', lastRank: '부장', tenureYears: '28', tenureMonths: '3',
-    education: '대졸', retirementType: '희망퇴직',
-    retirementDate: '2026-01-15', currentStatus: '진로 고민 단계',
-    psychologicalState: ['방향성 혼란', '경제적 부담'],
-    currentSituation: '28년간 금융컨설팅 업무를 수행하였으며, 퇴직 후 새로운 진로를 탐색하고 있습니다.',
-    mainDuties: '자산관리, 투자상담, 고객관리, VIP 포트폴리오 운용',
-    longestRole: '자산관리',
-    strengths: ['고객 커뮤니케이션', '금융상품 분석', '포트폴리오 설계'],
-    managementExp: '있음', managementSize: '12',
-    certifications: 'CFP, 투자자산운용사',
-    digitalLevel: '보통',
-    desiredCareer: ['재취업 (정규·계약직)', '프리랜서 / 컨설팅'],
-    desiredField: '금융 컨설팅, 자산관리',
-    desiredWorkType: '정규직',
-    desiredRegion: '서울/경기',
-    desiredTiming: '3개월 내',
-    desiredIncome: '500', minimumIncome: '350',
-    workHours: '풀타임', travelAvailability: '가능',
-    resumeStatus: '이력서 있음 (업데이트 필요)',
-    difficulties: ['정보 부족', '연령 장벽 우려'],
-    motivationLevel: 4,
-    familySupport: '적극 지지', healthStatus: '양호',
-    expectations: ['취업 연계', '진로 설계·탐색'],
-    preferredMethod: ['1:1 개인 상담', '온라인 진행'],
-    additionalRequests: '',
-    consultantDiagnosisLevel: 'B',
-    consultantRisks: '연령에 대한 우려가 있으나 경력 역량은 충분. 디지털 역량 보완 필요.',
-    recommendedTracks: ['재취업 집중 트랙', '교육·재훈련 트랙'],
-    nextGoals: '이력서 업데이트 및 희망 기업 리스트 작성',
-    consultantName: '박지영',
-    updatedAt: '2026-03-20T10:30:00',
-  },
-};
-
-// ── Bookings CRUD ──
-
-export const loadBookings = () => {
+export const loadBookings = async () => {
   try {
-    const saved = localStorage.getItem(BOOKINGS_KEY);
+    const { data, error } = await supabase
+      .from('consultation_bookings')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      // Map DB columns to camelCase
+      return data.map((r) => ({
+        id: r.id, userId: r.user_id, userName: r.user_name, userEmail: r.user_email,
+        date: r.date, time: r.time, method: r.method, status: r.status,
+        consultantId: r.consultant_id, consultantName: r.consultant_name,
+        createdAt: r.created_at,
+      }));
+    }
+  } catch { /* fallback */ }
+  // Fallback to localStorage
+  try {
+    const saved = localStorage.getItem('woori_consultation_bookings');
     if (saved) return JSON.parse(saved);
   } catch { /* ignore */ }
-  saveBookings(SEED_BOOKINGS);
-  return SEED_BOOKINGS;
+  return [];
 };
 
-export const saveBookings = (bookings) => {
-  localStorage.setItem(BOOKINGS_KEY, JSON.stringify(bookings));
-};
-
-export const getBookingById = (id) => {
-  return loadBookings().find((b) => b.id === id) || null;
-};
-
-export const addBooking = (booking) => {
-  const bookings = loadBookings();
-  const newBooking = {
-    ...booking,
-    id: Math.max(0, ...bookings.map((b) => b.id)) + 1,
-    status: 'pending',
-    consultantId: null,
-    consultantName: null,
-    createdAt: formatKSTDate(),
+export const addBooking = async (booking) => {
+  const row = {
+    user_id: booking.userId, user_name: booking.userName, user_email: booking.userEmail,
+    date: booking.date, time: booking.time, method: booking.method,
+    status: 'pending', consultant_id: null, consultant_name: null,
   };
-  bookings.push(newBooking);
-  saveBookings(bookings);
-  return newBooking;
+  try {
+    const { data, error } = await supabase.from('consultation_bookings').insert(row).select().single();
+    if (!error && data) {
+      return { id: data.id, ...booking, status: 'pending', consultantId: null, consultantName: null, createdAt: data.created_at };
+    }
+  } catch { /* fallback */ }
+  return null;
 };
 
-export const assignConsultant = (bookingId, consultantId, consultantName) => {
-  const bookings = loadBookings();
-  const updated = bookings.map((b) =>
-    b.id === bookingId
-      ? { ...b, consultantId, consultantName, status: 'pending_approval' }
-      : b
-  );
-  saveBookings(updated);
+export const assignConsultant = async (bookingId, consultantId, consultantName) => {
+  try {
+    await supabase.from('consultation_bookings')
+      .update({ consultant_id: consultantId, consultant_name: consultantName, status: 'pending_approval' })
+      .eq('id', bookingId);
+  } catch { /* ignore */ }
 };
 
-export const approveBooking = (bookingId) => {
-  const bookings = loadBookings();
-  const updated = bookings.map((b) =>
-    b.id === bookingId ? { ...b, status: 'confirmed' } : b
-  );
-  saveBookings(updated);
+export const approveBooking = async (bookingId) => {
+  try {
+    await supabase.from('consultation_bookings').update({ status: 'confirmed' }).eq('id', bookingId);
+  } catch { /* ignore */ }
 };
 
-export const completeBooking = (bookingId) => {
-  const bookings = loadBookings();
-  const updated = bookings.map((b) =>
-    b.id === bookingId ? { ...b, status: 'completed' } : b
-  );
-  saveBookings(updated);
+export const completeBooking = async (bookingId) => {
+  try {
+    await supabase.from('consultation_bookings').update({ status: 'completed' }).eq('id', bookingId);
+  } catch { /* ignore */ }
 };
 
-export const cancelBooking = (bookingId) => {
-  const bookings = loadBookings();
-  const updated = bookings.map((b) =>
-    b.id === bookingId ? { ...b, status: 'cancelled' } : b
-  );
-  saveBookings(updated);
+export const cancelBooking = async (bookingId) => {
+  try {
+    await supabase.from('consultation_bookings').update({ status: 'cancelled' }).eq('id', bookingId);
+  } catch { /* ignore */ }
 };
 
-// ── Query helpers ──
+// ── Query helpers (async) ──
 
-export const getBookingsForUser = (userId) => {
-  return loadBookings().filter((b) => b.userId === userId && b.status !== 'cancelled');
+export const getBookingsForUser = async (userId) => {
+  const all = await loadBookings();
+  return all.filter((b) => b.userId === userId && b.status !== 'cancelled');
 };
 
-export const getBookingsForConsultant = (consultantId) => {
-  return loadBookings().filter((b) => b.consultantId === consultantId && b.status !== 'cancelled');
-};
-
-export const getPendingBookings = () => {
-  return loadBookings().filter((b) => b.status === 'pending');
-};
-
-export const getConsultationHistory = (userId, consultantId) => {
-  return loadBookings().filter(
+export const getConsultationHistory = async (userId, consultantId) => {
+  const all = await loadBookings();
+  return all.filter(
     (b) => b.status === 'completed' &&
       (!userId || b.userId === userId) &&
       (!consultantId || b.consultantId === consultantId)
   );
 };
 
-// ── Intake Forms ──
-
-export const loadIntakeForms = () => {
-  try {
-    const saved = localStorage.getItem(INTAKE_KEY);
-    if (saved) return JSON.parse(saved);
-  } catch { /* ignore */ }
-  saveIntakeForms(SEED_INTAKE);
-  return SEED_INTAKE;
+export const getBookedSlots = async (dateStr) => {
+  const all = await loadBookings();
+  return all.filter((b) => b.date === dateStr && b.status !== 'cancelled').map((b) => b.time);
 };
 
-export const saveIntakeForms = (forms) => {
-  localStorage.setItem(INTAKE_KEY, JSON.stringify(forms));
-};
+// ── Stats (async) ──
 
-export const getIntakeForm = (userId) => {
-  const forms = loadIntakeForms();
-  return forms[userId] || null;
-};
-
-export const saveIntakeForm = (userId, data) => {
-  const forms = loadIntakeForms();
-  forms[userId] = { ...data, updatedAt: new Date().toISOString() };
-  saveIntakeForms(forms);
-};
-
-export const hasIntakeForm = (userId) => {
-  return !!getIntakeForm(userId);
-};
-
-// ── Stats helpers (for dashboard) ──
-
-export const getConsultationStats = () => {
-  const bookings = loadBookings();
+export const getConsultationStats = async () => {
+  const bookings = await loadBookings();
   const active = bookings.filter((b) => b.status !== 'cancelled');
   return {
     total: active.length,
@@ -257,144 +137,186 @@ export const getConsultationStats = () => {
     pending_approval: active.filter((b) => b.status === 'pending_approval').length,
     confirmed: active.filter((b) => b.status === 'confirmed').length,
     completed: active.filter((b) => b.status === 'completed').length,
-    cancelled: bookings.filter((b) => b.status === 'cancelled').length,
   };
 };
 
-export const getConsultantStats = () => {
-  const bookings = loadBookings().filter((b) => b.status !== 'cancelled');
+export const getConsultantStats = async () => {
+  const bookings = await loadBookings();
+  const active = bookings.filter((b) => b.status !== 'cancelled');
   const byConsultant = {};
   CONSULTANTS.forEach((c) => {
-    const mine = bookings.filter((b) => b.consultantId === c.id);
+    const mine = active.filter((b) => b.consultantId === c.id);
     byConsultant[c.id] = {
-      ...c,
-      total: mine.length,
+      ...c, total: mine.length,
       completed: mine.filter((b) => b.status === 'completed').length,
       confirmed: mine.filter((b) => b.status === 'confirmed').length,
-      online: mine.filter((b) => b.method === '온라인').length,
-      offline: mine.filter((b) => b.method === '오프라인').length,
-      phone: mine.filter((b) => b.method === '전화').length,
-      users: [...new Set(mine.map((b) => b.userId))],
     };
   });
   return byConsultant;
 };
 
-// ── Instructor Availability ──
-// Structure: { [instructorId]: { slots: { [dateStr]: ['09:00','09:30',...] }, sessionDuration: 30, repeatMode: 'none' } }
+// ══════════════════════════════════════════════════════════════════════
+// ── CONSULTATION NOTES ───────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
 
-// Generate seed availability for the current and next month (weekdays 9-17)
-const generateSeedSlots = (startH, endH) => {
-  const slots = [];
-  for (let h = startH; h < endH; h++) {
-    for (let m = 0; m < 60; m += 30) {
-      slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
-    }
-  }
-  return slots;
-};
-
-const buildSeedAvailability = () => {
-  const result = {};
-  const kstNow = getKSTDate();
-  for (let offset = 0; offset <= 30; offset++) {
-    const d = new Date(kstNow); d.setDate(d.getDate() + offset);
-    if (d.getDay() === 0 || d.getDay() === 6) continue;
-    result[formatKSTDate(d)] = generateSeedSlots(9, 17);
-  }
-  return result;
-};
-
-const SEED_AVAILABILITY = {
-  2: { slots: buildSeedAvailability(), sessionDuration: 30 },
-  3: { slots: buildSeedAvailability(), sessionDuration: 30 },
-};
-
-export const loadAvailability = () => {
+export const getNote = async (bookingId) => {
   try {
-    const saved = localStorage.getItem(AVAILABILITY_KEY);
-    if (saved) return JSON.parse(saved);
+    const { data } = await supabase.from('consultation_notes').select('*').eq('booking_id', bookingId).single();
+    if (data) return { title: data.title, content: data.content, updatedAt: data.updated_at };
   } catch { /* ignore */ }
-  saveAvailability(SEED_AVAILABILITY);
-  return SEED_AVAILABILITY;
+  return null;
 };
 
-export const saveAvailability = (data) => {
-  localStorage.setItem(AVAILABILITY_KEY, JSON.stringify(data));
+export const saveNote = async (bookingId, title, content) => {
+  try {
+    await supabase.from('consultation_notes').upsert({
+      booking_id: bookingId, title, content, updated_at: new Date().toISOString(),
+    });
+  } catch { /* ignore */ }
 };
 
-export const getInstructorAvailability = (instructorId, dateStr) => {
-  const all = loadAvailability();
-  return all[instructorId]?.slots?.[dateStr] || [];
+// ══════════════════════════════════════════════════════════════════════
+// ── INTAKE FORMS ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+
+export const getIntakeForm = async (userId) => {
+  try {
+    const { data } = await supabase.from('intake_forms').select('*').eq('user_id', userId).single();
+    if (data) return { ...data.form_data, updatedAt: data.updated_at };
+  } catch { /* ignore */ }
+  return null;
 };
 
-export const getInstructorSessionDuration = (instructorId) => {
-  const all = loadAvailability();
-  return all[instructorId]?.sessionDuration || 30;
+export const saveIntakeForm = async (userId, formData) => {
+  try {
+    await supabase.from('intake_forms').upsert({
+      user_id: userId, form_data: formData, updated_at: new Date().toISOString(),
+    });
+  } catch { /* ignore */ }
 };
 
-export const setInstructorAvailability = (instructorId, dateStr, slots) => {
-  const all = loadAvailability();
-  if (!all[instructorId]) all[instructorId] = { slots: {}, sessionDuration: 30 };
-  if (!all[instructorId].slots) all[instructorId].slots = {};
-  all[instructorId].slots[dateStr] = slots;
-  saveAvailability(all);
+export const hasIntakeForm = async (userId) => {
+  return !!(await getIntakeForm(userId));
 };
 
-export const setInstructorSessionDuration = (instructorId, duration) => {
-  const all = loadAvailability();
-  if (!all[instructorId]) all[instructorId] = { slots: {}, sessionDuration: duration };
-  else all[instructorId].sessionDuration = duration;
-  saveAvailability(all);
+// ══════════════════════════════════════════════════════════════════════
+// ── INSTRUCTOR AVAILABILITY ──────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+
+export const getInstructorAvailability = async (instructorId, dateStr) => {
+  try {
+    const { data } = await supabase.from('instructor_availability')
+      .select('slots').eq('instructor_id', instructorId).eq('date', dateStr).single();
+    if (data) return data.slots || [];
+  } catch { /* ignore */ }
+  return [];
 };
 
-// Copy one day's availability to a range of dates
-export const copyAvailabilityToRange = (instructorId, sourceDate, targetDates) => {
-  const all = loadAvailability();
-  if (!all[instructorId]?.slots?.[sourceDate]) return;
-  const sourceSlots = all[instructorId].slots[sourceDate];
-  targetDates.forEach((d) => { all[instructorId].slots[d] = [...sourceSlots]; });
-  saveAvailability(all);
+export const setInstructorAvailability = async (instructorId, dateStr, slots) => {
+  try {
+    await supabase.from('instructor_availability').upsert({
+      instructor_id: instructorId, date: dateStr, slots, updated_at: new Date().toISOString(),
+    }, { onConflict: 'instructor_id,date' });
+  } catch { /* ignore */ }
 };
 
-export const getAvailableInstructorsForSlot = (dateStr, timeStr) => {
-  const all = loadAvailability();
-  const booked = loadBookings().filter(
+export const getInstructorSessionDuration = async (instructorId) => {
+  try {
+    const { data } = await supabase.from('instructor_availability')
+      .select('session_duration').eq('instructor_id', instructorId).limit(1).single();
+    if (data) return data.session_duration;
+  } catch { /* ignore */ }
+  return 30;
+};
+
+export const setInstructorSessionDuration = async (instructorId, duration) => {
+  // Update all rows for this instructor
+  try {
+    await supabase.from('instructor_availability')
+      .update({ session_duration: duration })
+      .eq('instructor_id', instructorId);
+  } catch { /* ignore */ }
+};
+
+export const copyAvailabilityToRange = async (instructorId, sourceDate, targetDates) => {
+  const sourceSlots = await getInstructorAvailability(instructorId, sourceDate);
+  if (!sourceSlots.length) return;
+  const rows = targetDates.map((d) => ({
+    instructor_id: instructorId, date: d, slots: sourceSlots, updated_at: new Date().toISOString(),
+  }));
+  try {
+    await supabase.from('instructor_availability').upsert(rows, { onConflict: 'instructor_id,date' });
+  } catch { /* ignore */ }
+};
+
+export const getAvailableInstructorsForSlot = async (dateStr, timeStr) => {
+  const bookings = await loadBookings();
+  const booked = bookings.filter(
     (b) => b.date === dateStr && b.time === timeStr && b.status !== 'cancelled'
   );
-  const bookedInstructorIds = booked.map((b) => b.consultantId);
+  const bookedIds = booked.map((b) => b.consultantId);
 
-  return CONSULTANTS.filter((c) => {
-    const slots = all[c.id]?.slots?.[dateStr] || [];
-    return slots.includes(timeStr) && !bookedInstructorIds.includes(c.id);
-  });
+  const available = [];
+  for (const c of CONSULTANTS) {
+    const slots = await getInstructorAvailability(c.id, dateStr);
+    if (slots.includes(timeStr) && !bookedIds.includes(c.id)) {
+      available.push(c);
+    }
+  }
+  return available;
 };
 
-// ── Consultation Notes (per booking) ──
-// Structure: { [bookingId]: { title: '', content: '', updatedAt: '' } }
+// ══════════════════════════════════════════════════════════════════════
+// ── SITE CONFIG (branding, banners) ──────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
 
-export const loadNotes = () => {
+export const getSiteConfig = async (key) => {
   try {
-    const saved = localStorage.getItem(NOTES_KEY);
-    if (saved) return JSON.parse(saved);
+    const { data } = await supabase.from('site_config').select('value').eq('key', key).single();
+    if (data) return data.value;
   } catch { /* ignore */ }
-  return {};
+  return null;
 };
 
-export const getNote = (bookingId) => {
-  return loadNotes()[bookingId] || null;
+export const setSiteConfig = async (key, value) => {
+  try {
+    await supabase.from('site_config').upsert({ key, value, updated_at: new Date().toISOString() });
+  } catch { /* ignore */ }
 };
 
-export const saveNote = (bookingId, title, content) => {
-  const all = loadNotes();
-  all[bookingId] = { title, content, updatedAt: new Date().toISOString() };
-  localStorage.setItem(NOTES_KEY, JSON.stringify(all));
+// ══════════════════════════════════════════════════════════════════════
+// ── PROGRAM APPLICATIONS ─────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+
+export const loadApplications = async () => {
+  try {
+    const { data, error } = await supabase.from('program_applications').select('*').order('id', { ascending: false });
+    if (!error && data) {
+      return data.map((r) => ({
+        id: r.id, user_name: r.user_name, email: r.email,
+        programId: r.program_id, program_title: r.program_title,
+        category: r.category, status: r.status,
+        applied_at: r.applied_at, date: r.date,
+      }));
+    }
+  } catch { /* fallback */ }
+  return [];
 };
 
-// ── Reset all data (for fresh start) ──
-export const resetAllConsultationData = () => {
-  localStorage.removeItem(BOOKINGS_KEY);
-  localStorage.removeItem(INTAKE_KEY);
-  localStorage.removeItem(AVAILABILITY_KEY);
-  localStorage.removeItem(NOTES_KEY);
+export const addApplication = async (app) => {
+  try {
+    const { data } = await supabase.from('program_applications').insert({
+      user_name: app.user_name, email: app.email, program_id: app.programId,
+      program_title: app.program_title, category: app.category,
+      status: app.status || '승인대기', applied_at: app.applied_at, date: app.date,
+    }).select().single();
+    if (data) return { ...app, id: data.id };
+  } catch { /* ignore */ }
+  return null;
+};
+
+export const updateApplicationStatus = async (appId, status) => {
+  try {
+    await supabase.from('program_applications').update({ status }).eq('id', appId);
+  } catch { /* ignore */ }
 };

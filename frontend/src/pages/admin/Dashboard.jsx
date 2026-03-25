@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Grid, Paper, Avatar, Chip, Table, TableBody, TableCell,
@@ -49,9 +49,24 @@ const AdminDashboard = () => {
 
   const programs = useMemo(() => loadPrograms(), []);
   const applications = useMemo(() => loadApplications(), []);
-  const consultStats = useMemo(() => getConsultationStats(), []);
-  const consultantStats = useMemo(() => getConsultantStats(), []);
-  const bookings = useMemo(() => loadBookings(), []);
+
+  const [consultStats, setConsultStats] = useState({});
+  const [consultantStats, setConsultantStats] = useState({});
+  const [bookings, setBookings] = useState([]);
+
+  useEffect(() => {
+    const loadAsync = async () => {
+      const [cs, cas, bk] = await Promise.all([
+        getConsultationStats(),
+        getConsultantStats(),
+        loadBookings(),
+      ]);
+      setConsultStats(cs);
+      setConsultantStats(cas);
+      setBookings(bk);
+    };
+    loadAsync();
+  }, []);
   const userCount = Object.values(ALL_USERS).filter((u) => u.role === 'learner').length;
 
   // Instructor-specific data

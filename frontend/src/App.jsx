@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline, CircularProgress, Box } from '@mui/material';
@@ -11,15 +11,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import Layout from './components/layout/Layout';
 import AdminLayout from './components/admin/AdminLayout';
-
-// Data reset: clear old schema data on version change
-const DATA_VERSION = 'v6_kst_realtime';
-if (localStorage.getItem('woori_data_version') !== DATA_VERSION) {
-  ['woori_programs', 'woori_program_applications', 'woori_consultation_bookings',
-   'woori_intake_forms', 'woori_instructor_availability', 'woori_consultation_notes',
-   'woori_program_notifications', 'token', 'user'].forEach((k) => localStorage.removeItem(k));
-  localStorage.setItem('woori_data_version', DATA_VERSION);
-}
+import { initBranding } from './utils/siteConfig';
 
 // Lazy load pages
 const LandingPage = lazy(() => import('./pages/landing/LandingPage'));
@@ -294,6 +286,11 @@ const AppRoutes = () => {
 };
 
 const App = () => {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { initBranding().then(() => setReady(true)); }, []);
+
+  if (!ready) return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><CircularProgress /></Box>;
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

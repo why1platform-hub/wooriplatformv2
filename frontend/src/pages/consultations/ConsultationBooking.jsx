@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Card, CardContent, Button, Grid, Stepper, Step, StepLabel,
@@ -54,11 +54,22 @@ const ConsultationBooking = () => {
     return result;
   }, []);
 
-  const timeSlots = useMemo(() => {
-    if (!selectedDate) return [];
-    const all = getAvailableSlots(selectedDate);
-    const booked = getBookedSlots(selectedDate);
-    return all.map((t) => ({ time: t, available: !booked.includes(t) }));
+  const [timeSlots, setTimeSlots] = useState([]);
+
+  useEffect(() => {
+    if (!selectedDate) {
+      setTimeSlots([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const all = getAvailableSlots(selectedDate);
+      const booked = await getBookedSlots(selectedDate);
+      if (!cancelled) {
+        setTimeSlots(all.map((t) => ({ time: t, available: !booked.includes(t) })));
+      }
+    })();
+    return () => { cancelled = true; };
   }, [selectedDate]);
 
   const canNext = () => {
@@ -67,8 +78,8 @@ const ConsultationBooking = () => {
     return true;
   };
 
-  const handleBook = () => {
-    addBooking({
+  const handleBook = async () => {
+    await addBooking({
       userId: user.id,
       userName: user.name_ko,
       userEmail: user.email,

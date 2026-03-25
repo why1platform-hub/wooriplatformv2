@@ -98,7 +98,7 @@ const MyActivities = () => {
           setApplications(allApps);
         } else if (tab === 1) {
           // Read from shared localStorage store
-          const myBookings = user ? getBookingsForUser(user.id) : [];
+          const myBookings = user ? await getBookingsForUser(user.id) : [];
           const mapped = myBookings.map((b) => ({
             id: b.id,
             date: `${b.date} ${b.time}`,

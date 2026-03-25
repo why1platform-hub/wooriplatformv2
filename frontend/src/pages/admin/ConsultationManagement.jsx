@@ -91,6 +91,25 @@ const ConsultationManagement = () => {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
 
+  // Async-loaded stats
+  const [stats, setStats] = useState({ total: 0, pending: 0, confirmed: 0, completed: 0 });
+  const [consultantStats, setConsultantStats] = useState({});
+
+  // Async-loaded available instructors for assign dialog
+  const [availableInstructors, setAvailableInstructors] = useState([]);
+
+  // Async-loaded notes map for inline display (bookingId -> note|null)
+  const [notesMap, setNotesMap] = useState({});
+
+  // Async-loaded availability counts for calendar cells
+  const [calAvailMap, setCalAvailMap] = useState({});
+
+  // Async-loaded consultation history for instructor tab 1
+  const [userHistoryMap, setUserHistoryMap] = useState({});
+
+  // Async-loaded pending-row available instructors
+  const [pendingAvailMap, setPendingAvailMap] = useState({});
+
   // Availability calendar state
   const [availOpen, setAvailOpen] = useState(false);
   const [availInstructor, setAvailInstructor] = useState(null);
@@ -102,18 +121,30 @@ const ConsultationManagement = () => {
   const [sessionDur, setSessionDur] = useState(30);
 
   // Load bookings + auto-refresh every 5 seconds for real-time sync
-  const refreshBookings = useCallback(() => setBookings(loadBookings()), []);
+  const refreshBookings = useCallback(async () => {
+    setBookings(await loadBookings());
+  }, []);
+
   useEffect(() => {
     refreshBookings();
     const interval = setInterval(refreshBookings, 5000);
-    // Also listen for localStorage changes from other tabs
     const onStorage = (e) => { if (e.key === 'woori_consultation_bookings') refreshBookings(); };
     window.addEventListener('storage', onStorage);
     return () => { clearInterval(interval); window.removeEventListener('storage', onStorage); };
   }, [refreshBookings]);
 
-  const stats = getConsultationStats();
-  const consultantStats = getConsultantStats();
+  // Load stats whenever bookings change
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [s, cs] = await Promise.all([getConsultationStats(), getConsultantStats()]);
+      if (!cancelled) {
+        setStats(s);
+        setConsultantStats(cs);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [bookings]);
 
   const allMyBookings = isConsultantRole
     ? bookings.filter((b) => b.consultantId === user.id && b.status !== 'cancelled')
@@ -133,58 +164,130 @@ const ConsultationManagement = () => {
   const myBookings = allMyBookings.filter(filterBooking);
   const PAGE_SIZE = 8;
 
-  const availableInstructors = useMemo(() => {
-    if (!assignTarget) return [];
-    return getAvailableInstructorsForSlot(assignTarget.date, assignTarget.time);
+  // Load available instructors when assignTarget changes
+  useEffect(() => {
+    let cancelled = false;
+    if (!assignTarget) {
+      setAvailableInstructors([]);
+      return;
+    }
+    (async () => {
+      const result = await getAvailableInstructorsForSlot(assignTarget.date, assignTarget.time);
+      if (!cancelled) setAvailableInstructors(result);
+    })();
+    return () => { cancelled = true; };
   }, [assignTarget]);
 
-  const handleAssign = (inst) => {
+  // Load available instructors for each pending booking (admin tab 0)
+  useEffect(() => {
+    let cancelled = false;
+    if (!isAdmin) return;
+    (async () => {
+      const map = {};
+      await Promise.all(pendingBookings.map(async (b) => {
+        map[b.id] = await getAvailableInstructorsForSlot(b.date, b.time);
+      }));
+      if (!cancelled) setPendingAvailMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [isAdmin, pendingBookings.length, bookings]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load notes for inline display (booking list with note indicators)
+  useEffect(() => {
+    let cancelled = false;
+    const relevantBookings = myBookings.filter((b) => b.status === 'confirmed' || b.status === 'completed');
+    if (relevantBookings.length === 0) return;
+    (async () => {
+      const map = {};
+      await Promise.all(relevantBookings.map(async (b) => {
+        map[b.id] = await getNote(b.id);
+      }));
+      if (!cancelled) setNotesMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [bookings, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load consultation history for instructor tab 1
+  useEffect(() => {
+    let cancelled = false;
+    if (!isConsultantRole || tab !== 1) return;
+    const userIds = [...new Set(myBookings.map((b) => b.userId))];
+    if (userIds.length === 0) return;
+    (async () => {
+      const map = {};
+      await Promise.all(userIds.map(async (uid) => {
+        map[uid] = await getConsultationHistory(uid, user.id);
+      }));
+      if (!cancelled) setUserHistoryMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [isConsultantRole, tab, bookings]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load availability data for calendar cells when calendar is open
+  useEffect(() => {
+    let cancelled = false;
+    if (!availOpen || !availInstructor) return;
+    const days = getMonthDays(calYear, calMonth);
+    (async () => {
+      const map = {};
+      await Promise.all(days.filter(Boolean).map(async (day) => {
+        const ds = fmtDate(calYear, calMonth, day);
+        map[ds] = await getInstructorAvailability(availInstructor.id, ds);
+      }));
+      if (!cancelled) setCalAvailMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [availOpen, availInstructor, calYear, calMonth, daySlots]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleAssign = async (inst) => {
     if (!assignTarget) return;
-    assignConsultant(assignTarget.id, inst.id, inst.name_ko);
-    setBookings(loadBookings());
+    await assignConsultant(assignTarget.id, inst.id, inst.name_ko);
+    setBookings(await loadBookings());
     setAssignOpen(false);
     showSuccess(`${assignTarget.userName}님에게 ${inst.name_ko} 강사 배정 → 강사 승인 대기`);
   };
 
-  const handleApprove = (booking) => {
-    approveBooking(booking.id);
-    setBookings(loadBookings());
+  const handleApprove = async (booking) => {
+    await approveBooking(booking.id);
+    setBookings(await loadBookings());
     showSuccess(`${booking.userName}님 상담이 확정되었습니다.`);
   };
 
-  const handleComplete = (booking) => {
-    completeBooking(booking.id);
-    setBookings(loadBookings());
+  const handleComplete = async (booking) => {
+    await completeBooking(booking.id);
+    setBookings(await loadBookings());
     showSuccess('상담이 완료 처리되었습니다.');
   };
 
   const openIntake = (uid, name) => { setIntakeUserId(uid); setIntakeUserName(name); setIntakeOpen(true); };
-  const openNote = (booking) => {
-    const existing = getNote(booking.id);
+  const openNote = async (booking) => {
+    const existing = await getNote(booking.id);
     setNoteBooking(booking);
     setNoteTitle(existing?.title || '');
     setNoteContent(existing?.content || '');
     setNoteOpen(true);
   };
-  const handleSaveNote = () => {
+  const handleSaveNote = async () => {
     if (!noteBooking) return;
-    saveNote(noteBooking.id, noteTitle, noteContent);
+    await saveNote(noteBooking.id, noteTitle, noteContent);
     setNoteOpen(false);
     showSuccess('상담 기록이 저장되었습니다.');
   };
-  const openHistory = (uid, name) => {
-    setHistoryData({ name, items: getConsultationHistory(uid, isConsultantRole ? user.id : null) });
+  const openHistory = async (uid, name) => {
+    const items = await getConsultationHistory(uid, isConsultantRole ? user.id : null);
+    setHistoryData({ name, items });
     setHistoryOpen(true);
   };
 
   // ─── Availability calendar logic ───
-  const openAvailCalendar = (inst) => {
+  const openAvailCalendar = async (inst) => {
     setAvailInstructor(inst);
     const now = getKSTDate();
     setCalYear(now.getFullYear());
     setCalMonth(now.getMonth());
     setSelectedDay(null);
-    setSessionDur(getInstructorSessionDuration(inst.id));
+    const dur = await getInstructorSessionDuration(inst.id);
+    setSessionDur(dur);
     setAvailOpen(true);
   };
 
@@ -197,28 +300,29 @@ const ConsultationManagement = () => {
   const calDays = useMemo(() => getMonthDays(calYear, calMonth), [calYear, calMonth]);
   const timeSlots = useMemo(() => generateTimeSlots(sessionDur), [sessionDur]);
 
-  const selectDay = useCallback((day) => {
+  const selectDay = useCallback(async (day) => {
     if (!day || !availInstructor) return;
     setSelectedDay(day);
     const ds = fmtDate(calYear, calMonth, day);
-    setDaySlots(getInstructorAvailability(availInstructor.id, ds));
+    const slots = await getInstructorAvailability(availInstructor.id, ds);
+    setDaySlots(slots);
   }, [availInstructor, calYear, calMonth]);
 
   const toggleSlot = (time) => {
     setDaySlots((prev) => prev.includes(time) ? prev.filter((t) => t !== time) : [...prev, time].sort());
   };
 
-  const saveDaySlots = () => {
+  const saveDaySlots = async () => {
     if (!availInstructor || !selectedDay) return;
     const ds = fmtDate(calYear, calMonth, selectedDay);
-    setInstructorAvailability(availInstructor.id, ds, daySlots);
+    await setInstructorAvailability(availInstructor.id, ds, daySlots);
     showSuccess(`${ds} 가용시간 저장 (${daySlots.length}슬롯)`);
   };
 
-  const handleDurationChange = (_, val) => {
+  const handleDurationChange = async (_, val) => {
     if (!val || !availInstructor) return;
     setSessionDur(val);
-    setInstructorSessionDuration(availInstructor.id, val);
+    await setInstructorSessionDuration(availInstructor.id, val);
     setSelectedDay(null);
     setDaySlots([]);
   };
@@ -234,7 +338,7 @@ const ConsultationManagement = () => {
     setSelectedDay(null);
   };
 
-  const copyToWeek = () => {
+  const copyToWeek = async () => {
     if (!availInstructor || !selectedDay) return;
     const src = fmtDate(calYear, calMonth, selectedDay);
     const srcDow = new Date(calYear, calMonth, selectedDay).getDay();
@@ -243,11 +347,11 @@ const ConsultationManagement = () => {
     for (let d = selectedDay + 7; d <= daysInMonth; d += 7) {
       targets.push(fmtDate(calYear, calMonth, d));
     }
-    copyAvailabilityToRange(availInstructor.id, src, targets);
+    await copyAvailabilityToRange(availInstructor.id, src, targets);
     showSuccess(`매주 ${DAY_NAMES[srcDow]}요일에 복사 (${targets.length}일)`);
   };
 
-  const copyToMonth = () => {
+  const copyToMonth = async () => {
     if (!availInstructor || !selectedDay) return;
     const src = fmtDate(calYear, calMonth, selectedDay);
     const srcDow = new Date(calYear, calMonth, selectedDay).getDay();
@@ -258,7 +362,7 @@ const ConsultationManagement = () => {
       const dow = new Date(calYear, calMonth, d).getDay();
       if (dow === srcDow) targets.push(fmtDate(calYear, calMonth, d));
     }
-    copyAvailabilityToRange(availInstructor.id, src, targets);
+    await copyAvailabilityToRange(availInstructor.id, src, targets);
     showSuccess(`이번 달 모든 ${DAY_NAMES[srcDow]}요일에 복사 (${targets.length}일)`);
   };
 
@@ -322,7 +426,7 @@ const ConsultationManagement = () => {
             {pendingBookings.length === 0 ? (
               <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4 }}><Typography color="text.secondary">배정 대기 중인 예약이 없습니다</Typography></TableCell></TableRow>
             ) : pendingBookings.map((b) => {
-              const avail = getAvailableInstructorsForSlot(b.date, b.time);
+              const avail = pendingAvailMap[b.id] || [];
               return (
                 <TableRow key={b.id} hover>
                   <TableCell><Typography variant="body2" fontWeight={500}>{b.userName}</Typography></TableCell>
@@ -361,6 +465,7 @@ const ConsultationManagement = () => {
               <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}><Typography color="text.secondary">상담 내역이 없습니다</Typography></TableCell></TableRow>
             ) : myBookings.map((b) => {
               const s = statusConfig[b.status];
+              const noteForBooking = notesMap[b.id];
               return (
                 <TableRow key={b.id} hover>
                   <TableCell><Typography variant="body2" fontWeight={500}>{b.userName}</Typography></TableCell>
@@ -380,8 +485,8 @@ const ConsultationManagement = () => {
                         <Tooltip title="완료 처리"><IconButton size="small" color="success" onClick={() => handleComplete(b)}><DoneIcon fontSize="small" /></IconButton></Tooltip>
                       )}
                       {(b.status === 'confirmed' || b.status === 'completed') && (
-                        <Tooltip title={getNote(b.id) ? '상담 기록 보기' : '상담 기록 작성'}>
-                          <IconButton size="small" sx={{ color: getNote(b.id) ? '#7C3AED' : '#9CA3AF' }} onClick={() => openNote(b)}>
+                        <Tooltip title={noteForBooking ? '상담 기록 보기' : '상담 기록 작성'}>
+                          <IconButton size="small" sx={{ color: noteForBooking ? '#7C3AED' : '#9CA3AF' }} onClick={() => openNote(b)}>
                             <NoteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -429,7 +534,7 @@ const ConsultationManagement = () => {
             {myUsers.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}><Typography color="text.secondary">상담 이력이 없습니다</Typography></Box>
             ) : myUsers.map((u) => {
-              const hist = getConsultationHistory(u.id, user.id);
+              const hist = userHistoryMap[u.id] || [];
               const allUserBookings = myBookings.filter((b) => b.userId === u.id);
               return (
                 <Paper key={u.id} elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: '10px', border: '1px solid', borderColor: 'divider' }}>
@@ -444,7 +549,7 @@ const ConsultationManagement = () => {
                     <Box sx={{ ml: 6 }}>
                       {allUserBookings.map((b) => {
                         const s = statusConfig[b.status];
-                        const note = getNote(b.id);
+                        const note = notesMap[b.id];
                         return (
                           <Box key={b.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1, borderBottom: '1px solid #F3F4F6' }}>
                             <Typography variant="body2" fontWeight={500} sx={{ minWidth: 85 }}>{b.date}</Typography>
@@ -534,7 +639,7 @@ const ConsultationManagement = () => {
                 {calDays.map((day, i) => {
                   if (!day) return <Box key={`e${i}`} />;
                   const ds = fmtDate(calYear, calMonth, day);
-                  const slots = availInstructor ? getInstructorAvailability(availInstructor.id, ds) : [];
+                  const slots = calAvailMap[ds] || [];
                   const isSelected = day === selectedDay;
                   const isToday = ds === formatKSTDate();
                   const dow = new Date(calYear, calMonth, day).getDay();

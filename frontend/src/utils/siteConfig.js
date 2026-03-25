@@ -1,15 +1,10 @@
 /**
- * Shared site configuration (branding, logo).
- * Admin can override via Settings page → saved to localStorage.
- * Default values here serve as fallback for new devices.
- *
- * To update defaults (reflected on all devices): edit DEFAULT_BRANDING below.
+ * Site configuration — reads from Supabase, falls back to defaults.
+ * Caches in memory for synchronous access after first load.
  */
 
-const BRANDING_KEY = 'woori_site_branding';
-const LOGO_KEY = 'woori_site_logo';
+import { supabase } from './supabase';
 
-// ── Edit these defaults to change what all devices see ──
 export const DEFAULT_BRANDING = {
   title_ko: '우리은행 퇴직 컨시어지 서비스',
   title_en: 'Woori Bank Retirement Concierge Service',
@@ -17,28 +12,47 @@ export const DEFAULT_BRANDING = {
   title_short_en: 'Retirement Concierge',
 };
 
-export const loadBranding = () => {
+// In-memory cache for synchronous access
+let _brandingCache = { ...DEFAULT_BRANDING };
+let _loaded = false;
+
+// Load branding from Supabase (call once on app init)
+export const initBranding = async () => {
   try {
-    const saved = localStorage.getItem(BRANDING_KEY);
-    if (saved) return { ...DEFAULT_BRANDING, ...JSON.parse(saved) };
-  } catch { /* ignore */ }
-  return DEFAULT_BRANDING;
+    const { data } = await supabase.from('site_config').select('value').eq('key', 'branding').single();
+    if (data?.value) {
+      _brandingCache = { ...DEFAULT_BRANDING, ...data.value };
+      _loaded = true;
+    }
+  } catch { /* use defaults */ }
+  return _brandingCache;
 };
 
-export const saveBranding = (data) => {
-  localStorage.setItem(BRANDING_KEY, JSON.stringify(data));
-};
+// Synchronous getter (uses cache)
+export const loadBranding = () => _brandingCache;
 
 export const getSiteTitle = (lang = 'ko', mobile = false) => {
-  const b = loadBranding();
+  const b = _brandingCache;
   if (lang === 'en') return mobile ? b.title_short_en : b.title_en;
   return mobile ? b.title_short_ko : b.title_ko;
 };
 
+// Save branding to Supabase + update cache
+export const saveBranding = async (data) => {
+  _brandingCache = { ...DEFAULT_BRANDING, ...data };
+  try {
+    await supabase.from('site_config').upsert({
+      key: 'branding', value: data, updated_at: new Date().toISOString(),
+    });
+  } catch { /* ignore */ }
+};
+
 export const loadLogo = () => {
   try {
-    const saved = localStorage.getItem(LOGO_KEY);
+    const saved = localStorage.getItem('woori_site_logo');
     if (saved) return JSON.parse(saved);
   } catch { /* ignore */ }
   return null;
 };
+
+export const isBrandingLoaded = () => _loaded;

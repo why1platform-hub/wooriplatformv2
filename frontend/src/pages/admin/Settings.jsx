@@ -249,8 +249,8 @@ const Settings = () => {
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button
                 variant="contained" startIcon={<SaveIcon />}
-                onClick={() => {
-                  saveBranding(branding);
+                onClick={async () => {
+                  await saveBranding(branding);
                   showSuccess('사이트 브랜딩이 저장되었습니다. 페이지를 새로고침하면 반영됩니다.');
                 }}
               >
