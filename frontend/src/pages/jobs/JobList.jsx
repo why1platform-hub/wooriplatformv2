@@ -3,8 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   TextField,
   Button,
@@ -13,6 +11,8 @@ import {
   IconButton,
   InputAdornment,
   Skeleton,
+  Card,
+  CardContent,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -23,7 +23,7 @@ import {
 } from '@mui/icons-material';
 import { jobsAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
-import { MOCK_JOBS, isBookmarked as checkBookmark, toggleBookmark, getBookmarkedJobs } from '../../utils/jobStore';
+import { MOCK_JOBS, isBookmarked as checkBookmark, toggleBookmark } from '../../utils/jobStore';
 
 const JobCard = ({ job, onBookmark }) => {
   const navigate = useNavigate();
@@ -138,13 +138,9 @@ const JobList = () => {
     fetchJobs();
   }, []);
 
-  const [sidebarFavorites, setSidebarFavorites] = useState(getBookmarkedJobs);
-
   const displayJobs = jobs.length > 0 ? jobs : MOCK_JOBS;
 
-  const handleBookmarkChange = () => {
-    setSidebarFavorites(getBookmarkedJobs());
-  };
+  const handleBookmarkChange = () => {};
 
   const toggleFilter = (type, value) => {
     setFilters((prev) => ({
@@ -226,76 +222,23 @@ const JobList = () => {
         </Box>
       </Box>
 
-      <Grid container spacing={3}>
-        {/* Job Cards */}
-        <Grid item xs={12} lg={9}>
-          {loading ? (
-            <Grid container spacing={2}>
-              {[1, 2, 3, 4].map((i) => (
-                <Grid item xs={12} sm={6} key={i}>
-                  <Skeleton variant="rectangular" height={250} sx={{ borderRadius: 1 }} />
-                </Grid>
-              ))}
+      {loading ? (
+        <Grid container spacing={2}>
+          {[1, 2, 3, 4].map((i) => (
+            <Grid item xs={12} sm={6} md={4} key={i}>
+              <Skeleton variant="rectangular" height={250} sx={{ borderRadius: 1 }} />
             </Grid>
-          ) : (
-            <Grid container spacing={2}>
-              {displayJobs.map((job) => (
-                <Grid item xs={12} sm={6} key={job.id}>
-                  <JobCard job={job} onBookmark={handleBookmarkChange} />
-                </Grid>
-              ))}
+          ))}
+        </Grid>
+      ) : (
+        <Grid container spacing={2}>
+          {displayJobs.map((job) => (
+            <Grid item xs={12} sm={6} md={4} key={job.id}>
+              <JobCard job={job} onBookmark={handleBookmarkChange} />
             </Grid>
-          )}
+          ))}
         </Grid>
-
-        {/* Sidebar */}
-        <Grid item xs={12} lg={3}>
-          {/* My Favorites */}
-          <Card sx={{ mb: 2 }}>
-            <CardContent>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                {t('jobs.myFavorites')}
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {sidebarFavorites.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    관심 채용이 없습니다
-                  </Typography>
-                ) : sidebarFavorites.slice(0, 5).map((fav) => (
-                  <Box key={fav.id} sx={{ p: 1.5, backgroundColor: '#F8F9FA', borderRadius: 1, cursor: 'pointer', '&:hover': { bgcolor: '#EEF2F6' } }} onClick={() => navigate(`/jobs/${fav.id}`)}>
-                    <Typography variant="body2" fontWeight={500}>
-                      {fav.title_ko || fav.position}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      ({fav.company})
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-            </CardContent>
-          </Card>
-
-          {/* Resume Management */}
-          <Button
-            fullWidth
-            variant="contained"
-            startIcon={<WorkIcon />}
-            onClick={() => navigate('/jobs/resume')}
-            sx={{ mb: 2 }}
-          >
-            {t('jobs.manageResume')}
-          </Button>
-
-          {/* Custom Alerts */}
-          <Button
-            fullWidth
-            variant="outlined"
-            onClick={() => showSuccess('알림 설정이 저장되었습니다')}
-          >
-            {t('jobs.customAlerts')}
-          </Button>
-        </Grid>
-      </Grid>
+      )}
     </Box>
   );
 };
