@@ -246,7 +246,7 @@ const MyActivities = () => {
                 <Tab label={t('activities.applicationHistory')} />
                 <Tab label={t('activities.consultationRecords')} />
                 <Tab label={t('activities.courseStatus')} />
-                <Tab label="북마크" icon={<BookmarkIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+                <Tab label={t('activities.bookmarks')} icon={<BookmarkIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
               </Tabs>
 
               {loading ? (
@@ -261,7 +261,7 @@ const MyActivities = () => {
                   {tab === 0 && (
                     displayApplications.length === 0 ? (
                       <Box sx={{ textAlign: 'center', py: 8 }}>
-                        <Typography color="text.secondary">신청 내역이 없습니다.</Typography>
+                        <Typography color="text.secondary">{t('activities.noApplications')}</Typography>
                       </Box>
                     ) : (
                     <TableContainer>
@@ -304,9 +304,9 @@ const MyActivities = () => {
                     <Box>
                       {displayConsultations.length === 0 ? (
                         <Box sx={{ textAlign: 'center', py: 8 }}>
-                          <Typography color="text.secondary" sx={{ mb: 2 }}>상담 내역이 없습니다.</Typography>
+                          <Typography color="text.secondary" sx={{ mb: 2 }}>{t('activities.noConsultations')}</Typography>
                           <Button variant="outlined" onClick={() => navigate('/consultations/booking')}>
-                            첫 상담 예약하기
+                            {t('activities.firstBooking')}
                           </Button>
                         </Box>
                       ) : (
@@ -314,12 +314,12 @@ const MyActivities = () => {
                         <Table>
                           <TableHead>
                             <TableRow>
-                              <TableCell>날짜/시간</TableCell>
-                              <TableCell>상담사</TableCell>
-                              <TableCell>주제</TableCell>
-                              <TableCell align="center">방법</TableCell>
-                              <TableCell align="center">기록</TableCell>
-                              <TableCell align="center">상태</TableCell>
+                              <TableCell>{t('activities.dateTime')}</TableCell>
+                              <TableCell>{t('activities.consultant')}</TableCell>
+                              <TableCell>{t('activities.topic')}</TableCell>
+                              <TableCell align="center">{t('activities.method')}</TableCell>
+                              <TableCell align="center">{t('activities.records')}</TableCell>
+                              <TableCell align="center">{t('programs.status')}</TableCell>
                               <TableCell align="center"></TableCell>
                             </TableRow>
                           </TableHead>
@@ -365,7 +365,7 @@ const MyActivities = () => {
                                   <TableCell align="center">
                                     <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
                                       <Button size="small" variant="outlined" onClick={() => handleViewDetail(c)}>
-                                        상세보기
+                                        {t('common.viewDetail')}
                                       </Button>
                                       {c.status === '예약됨' && (
                                         <Button
@@ -374,12 +374,12 @@ const MyActivities = () => {
                                           color="error"
                                           onClick={() => { setCancelTarget(c); setCancelConfirmOpen(true); }}
                                         >
-                                          취소
+                                          {t('common.cancel')}
                                         </Button>
                                       )}
                                       {c.status === '거절' && (
                                         <Button size="small" variant="contained" onClick={() => navigate('/consultations/booking')}>
-                                          다시 예약
+                                          {t('activities.rebook')}
                                         </Button>
                                       )}
                                     </Box>
@@ -389,7 +389,7 @@ const MyActivities = () => {
                                   <TableRow>
                                     <TableCell colSpan={7} sx={{ py: 1, bgcolor: '#FFEBEE', borderBottom: '1px solid #FFCDD2' }}>
                                       <Typography variant="body2" sx={{ color: '#C62828', whiteSpace: 'pre-line' }}>
-                                        <strong>거절 사유:</strong> {c.rejectReason}
+                                        <strong>{t('activities.rejectReason')}:</strong> {c.rejectReason}
                                       </Typography>
                                     </TableCell>
                                   </TableRow>
@@ -409,7 +409,7 @@ const MyActivities = () => {
                     <Box>
                       {displayCourses.length === 0 ? (
                         <Box sx={{ textAlign: 'center', py: 8 }}>
-                          <Typography color="text.secondary">수강 중인 강의가 없습니다.</Typography>
+                          <Typography color="text.secondary">{t('activities.noCourses')}</Typography>
                         </Box>
                       ) : displayCourses.map((course) => {
                         const progress = course.progress || course.progress_percent || 0;
@@ -438,7 +438,7 @@ const MyActivities = () => {
                                 {course.title || course.course?.title_ko}
                               </Typography>
                               <Chip
-                                label={isComplete ? '참여완료' : '진행중'}
+                                label={isComplete ? t('activities.participationComplete') : t('activities.statusInProgress')}
                                 size="small"
                                 sx={{
                                   fontWeight: 600, fontSize: '0.75rem',
@@ -478,12 +478,12 @@ const MyActivities = () => {
                       {bookmarkedJobs.length === 0 ? (
                         <Box sx={{ textAlign: 'center', py: 8 }}>
                           <BookmarkBorderIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
-                          <Typography color="text.secondary" sx={{ mb: 1 }}>북마크한 항목이 없습니다.</Typography>
+                          <Typography color="text.secondary" sx={{ mb: 1 }}>{t('activities.noBookmarks')}</Typography>
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                            채용정보에서 관심 있는 공고를 북마크해보세요.
+                            {t('activities.bookmarkHint')}
                           </Typography>
                           <Button variant="outlined" onClick={() => navigate('/jobs')}>
-                            채용정보 보기
+                            {t('activities.viewJobs')}
                           </Button>
                         </Box>
                       ) : (
@@ -491,10 +491,10 @@ const MyActivities = () => {
                           <Table>
                             <TableHead>
                               <TableRow>
-                                <TableCell>회사</TableCell>
-                                <TableCell>포지션</TableCell>
-                                <TableCell align="center">근무지</TableCell>
-                                <TableCell align="center">고용형태</TableCell>
+                                <TableCell>{t('activities.company')}</TableCell>
+                                <TableCell>{t('activities.position')}</TableCell>
+                                <TableCell align="center">{t('activities.workplace')}</TableCell>
+                                <TableCell align="center">{t('activities.employmentType')}</TableCell>
                                 <TableCell align="center"></TableCell>
                               </TableRow>
                             </TableHead>
@@ -605,10 +605,10 @@ const MyActivities = () => {
               ) : (
                 <Box sx={{ p: 2, backgroundColor: '#F8F9FA', borderRadius: 1, textAlign: 'center' }}>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    예정된 상담이 없습니다
+                    {t('activities.noScheduled')}
                   </Typography>
                   <Button size="small" variant="contained" onClick={() => navigate('/consultations/booking')}>
-                    상담 예약하기
+                    {t('activities.bookConsultation')}
                   </Button>
                 </Box>
               )}
@@ -626,7 +626,7 @@ const MyActivities = () => {
         PaperProps={{ sx: { borderRadius: '12px' } }}
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>상담 상세</Typography>
+          <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 700 }}>{t('activities.consultationDetail')}</Typography>
           <IconButton size="small" onClick={() => setDetailOpen(false)}><CloseIcon fontSize="small" /></IconButton>
         </DialogTitle>
         <Divider />
@@ -636,7 +636,7 @@ const MyActivities = () => {
               {/* Info Grid */}
               <Grid container spacing={2} sx={{ mb: 3 }}>
                 <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary">상담사</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('activities.consultant')}</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                     <Avatar sx={{ width: 28, height: 28, fontSize: '0.7rem', bgcolor: '#0047BA' }}>
                       {(selectedConsultation.consultant || selectedConsultation.consultant_name || '')?.charAt(0)}
@@ -654,13 +654,13 @@ const MyActivities = () => {
                   </Box>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary">날짜/시간</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('activities.dateTime')}</Typography>
                   <Typography variant="body2" fontWeight={500} sx={{ mt: 0.5 }}>
                     {selectedConsultation.date || selectedConsultation.scheduled_at}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary">상담 방법</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('activities.consultationMethod')}</Typography>
                   <Box sx={{ mt: 0.5 }}>
                     <Chip
                       size="small"
@@ -671,7 +671,7 @@ const MyActivities = () => {
                   </Box>
                 </Grid>
                 <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary">상태</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('programs.status')}</Typography>
                   <Box sx={{ mt: 0.5 }}>
                     {(() => {
                       const sc = statusColors[selectedConsultation.status];
@@ -686,7 +686,7 @@ const MyActivities = () => {
                   </Box>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="caption" color="text.secondary">주제</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('activities.topic')}</Typography>
                   <Typography variant="body2" fontWeight={500} sx={{ mt: 0.5 }}>
                     {selectedConsultation.topic}
                   </Typography>
@@ -697,7 +697,7 @@ const MyActivities = () => {
 
               {/* Records */}
               <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
-                상담 기록 ({selectedConsultation.records?.length || 0}건)
+                {t('activities.consultationRecordCount', { count: selectedConsultation.records?.length || 0 })}
               </Typography>
 
               {selectedConsultation.records?.length > 0 ? (
@@ -733,19 +733,19 @@ const MyActivities = () => {
                 </Box>
               ) : (
                 <Paper elevation={0} sx={{ p: 3, textAlign: 'center', bgcolor: '#F8F9FA', borderRadius: '8px', mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">아직 기록이 없습니다.</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('activities.noRecords')}</Typography>
                 </Paper>
               )}
 
               {/* Add Note */}
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>메모 추가</Typography>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>{t('activities.addNote')}</Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <TextField
                   fullWidth
                   size="small"
                   multiline
                   rows={2}
-                  placeholder="상담 메모를 입력하세요..."
+                  placeholder={t('activities.notePlaceholder')}
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
                 />
@@ -756,29 +756,29 @@ const MyActivities = () => {
                   disabled={!newNote.trim()}
                   sx={{ alignSelf: 'flex-end', minWidth: 72 }}
                 >
-                  추가
+                  {t('activities.add')}
                 </Button>
               </Box>
             </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button variant="outlined" onClick={() => setDetailOpen(false)}>닫기</Button>
+          <Button variant="outlined" onClick={() => setDetailOpen(false)}>{t('common.close')}</Button>
         </DialogActions>
       </Dialog>
 
       {/* ─── Cancel Confirmation Dialog ──────────────────────────────────── */}
       <Dialog open={cancelConfirmOpen} onClose={() => setCancelConfirmOpen(false)}>
-        <DialogTitle>상담 취소</DialogTitle>
+        <DialogTitle>{t('activities.cancelConsultation')}</DialogTitle>
         <DialogContent>
           <Typography>
-            {cancelTarget?.date || cancelTarget?.scheduled_at} - "{cancelTarget?.topic}" 상담을 취소하시겠습니까?
+            {cancelTarget?.date || cancelTarget?.scheduled_at} - "{cancelTarget?.topic}" {t('activities.cancelConfirm')}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCancelConfirmOpen(false)}>아니오</Button>
+          <Button onClick={() => setCancelConfirmOpen(false)}>{t('activities.no')}</Button>
           <Button variant="contained" color="error" onClick={() => handleCancel(cancelTarget)}>
-            취소하기
+            {t('activities.confirmCancel')}
           </Button>
         </DialogActions>
       </Dialog>

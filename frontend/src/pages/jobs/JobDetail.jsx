@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -25,6 +26,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { getJobById, isBookmarked as checkBookmark, toggleBookmark } from '../../utils/jobStore';
 
 const JobDetail = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { showSuccess } = useNotification();
@@ -59,11 +61,11 @@ const JobDetail = () => {
   const handleBookmark = () => {
     const newState = toggleBookmark(id);
     setBookmarked(newState);
-    showSuccess(newState ? '관심 채용에 추가되었습니다' : '관심 채용에서 삭제되었습니다');
+    showSuccess(newState ? t('jobs.bookmarkAdded') : t('jobs.bookmarkRemoved'));
   };
 
   const handleApply = () => {
-    showSuccess('지원이 완료되었습니다. 결과는 이메일로 안내드리겠습니다.');
+    showSuccess(t('jobs.applySuccess'));
   };
 
   if (loading) {
@@ -79,10 +81,10 @@ const JobDetail = () => {
     return (
       <Box sx={{ textAlign: 'center', py: 8 }}>
         <Typography variant="h6" color="text.secondary">
-          채용 정보를 찾을 수 없습니다
+          {t('jobs.jobNotFound')}
         </Typography>
         <Button onClick={() => navigate('/jobs')} sx={{ mt: 2 }}>
-          목록으로 돌아가기
+          {t('common.backToList')}
         </Button>
       </Box>
     );
@@ -96,7 +98,7 @@ const JobDetail = () => {
         onClick={() => navigate('/jobs')}
         sx={{ mb: 2 }}
       >
-        목록으로
+        {t('common.backToList')}
       </Button>
 
       <Grid container spacing={3}>
@@ -126,7 +128,7 @@ const JobDetail = () => {
                     <LocationIcon color="action" fontSize="small" />
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        근무지
+                        {t('jobs.workplace')}
                       </Typography>
                       <Typography variant="body2">{job.location}</Typography>
                     </Box>
@@ -137,7 +139,7 @@ const JobDetail = () => {
                     <WorkIcon color="action" fontSize="small" />
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        고용형태
+                        {t('jobs.employmentType')}
                       </Typography>
                       <Typography variant="body2">{job.employment_type}</Typography>
                     </Box>
@@ -148,7 +150,7 @@ const JobDetail = () => {
                     <MoneyIcon color="action" fontSize="small" />
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        급여
+                        {t('jobs.salary')}
                       </Typography>
                       <Typography variant="body2">{job.salary_range}</Typography>
                     </Box>
@@ -159,7 +161,7 @@ const JobDetail = () => {
                     <CalendarIcon color="action" fontSize="small" />
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        마감일
+                        {t('jobs.deadline')}
                       </Typography>
                       <Typography variant="body2">{job.deadline}</Typography>
                     </Box>
@@ -171,7 +173,7 @@ const JobDetail = () => {
 
               {/* Description */}
               <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-                상세 내용
+                {t('jobs.details')}
               </Typography>
               <Typography
                 variant="body2"
@@ -184,7 +186,7 @@ const JobDetail = () => {
               {job.requirements && (
                 <>
                   <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-                    자격요건
+                    {t('jobs.requirements')}
                   </Typography>
                   <Box sx={{ mb: 3 }}>
                     {job.requirements.map((req, index) => (
@@ -200,7 +202,7 @@ const JobDetail = () => {
               {job.benefits && (
                 <>
                   <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-                    복리후생
+                    {t('jobs.benefits')}
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {job.benefits.map((benefit, index) => (
@@ -218,15 +220,15 @@ const JobDetail = () => {
           <Card sx={{ position: 'sticky', top: 80 }}>
             <CardContent>
               <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-                지원하기
+                {t('jobs.applyJob')}
               </Typography>
 
               <Box sx={{ mb: 3 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  등록일: {job.posted_date}
+                  {t('jobs.postedDate')}: {job.posted_date}
                 </Typography>
                 <Typography variant="body2" color="error">
-                  마감일: {job.deadline}
+                  {t('jobs.deadline')}: {job.deadline}
                 </Typography>
               </Box>
 
@@ -237,7 +239,7 @@ const JobDetail = () => {
                 onClick={handleApply}
                 sx={{ mb: 2 }}
               >
-                지원하기
+                {t('jobs.applyJob')}
               </Button>
 
               <Button
@@ -246,13 +248,13 @@ const JobDetail = () => {
                 startIcon={bookmarked ? <BookmarkIcon /> : <BookmarkBorderIcon />}
                 onClick={handleBookmark}
               >
-                {bookmarked ? '관심 해제' : '관심 등록'}
+                {bookmarked ? t('jobs.removeBookmark') : t('jobs.bookmark')}
               </Button>
 
               {job.contact && (
                 <Box sx={{ mt: 3, pt: 3, borderTop: '1px solid #E5E5E5' }}>
                   <Typography variant="body2" color="text.secondary">
-                    문의: {job.contact}
+                    {t('jobs.contact')}: {job.contact}
                   </Typography>
                 </Box>
               )}

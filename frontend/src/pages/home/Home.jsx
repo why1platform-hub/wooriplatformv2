@@ -229,13 +229,14 @@ const HomeBannerCarousel = () => {
 // ─── Quick Menu ─────────────────────────────────
 const QuickMenu = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const items = [
-    { icon: <CampaignIcon />, label: '공지사항', path: '/announcements', color: '#0047BA', bg: '#EBF0FA' },
-    { icon: <AssignmentIcon />, label: '프로그램 신청', path: '/programs', color: '#059669', bg: '#ECFDF5' },
-    { icon: <ChatIcon />, label: '상담 예약', path: '/consultations/booking', color: '#D97706', bg: '#FFFBEB' },
-    { icon: <WorkIcon />, label: '채용정보', path: '/jobs', color: '#DC2626', bg: '#FEF2F2' },
-    { icon: <SchoolIcon />, label: '온라인 학습', path: '/learning', color: '#7C3AED', bg: '#F5F3FF' },
-    { icon: <SupportIcon />, label: '고객지원', path: '/support', color: '#0891B2', bg: '#ECFEFF' },
+    { icon: <CampaignIcon />, label: t('home.quickNotices'), path: '/announcements', color: '#0047BA', bg: '#EBF0FA' },
+    { icon: <AssignmentIcon />, label: t('home.quickPrograms'), path: '/programs', color: '#059669', bg: '#ECFDF5' },
+    { icon: <ChatIcon />, label: t('home.quickConsultation'), path: '/consultations/booking', color: '#D97706', bg: '#FFFBEB' },
+    { icon: <WorkIcon />, label: t('home.quickJobs'), path: '/jobs', color: '#DC2626', bg: '#FEF2F2' },
+    { icon: <SchoolIcon />, label: t('home.quickLearning'), path: '/learning', color: '#7C3AED', bg: '#F5F3FF' },
+    { icon: <SupportIcon />, label: t('home.quickSupport'), path: '/support', color: '#0891B2', bg: '#ECFEFF' },
   ];
 
   return (
@@ -274,19 +275,22 @@ const QuickMenu = () => {
 };
 
 // ─── Section Header ─────────────────────────────────
-const SectionHeader = ({ title, onMore }) => (
-  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-    <Typography sx={{ fontWeight: 700, fontSize: { xs: '1rem', md: '1.1rem' }, color: '#1a1a1a' }}>
-      {title}
-    </Typography>
-    {onMore && (
-      <Button size="small" endIcon={<ArrowForwardIcon sx={{ fontSize: '14px !important' }} />}
-        onClick={onMore} sx={{ fontSize: '0.78rem', color: '#888', fontWeight: 500, minWidth: 'auto', '&:hover': { color: '#0047BA' } }}>
-        더보기
-      </Button>
-    )}
-  </Box>
-);
+const SectionHeader = ({ title, onMore }) => {
+  const { t } = useTranslation();
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Typography sx={{ fontWeight: 700, fontSize: { xs: '1rem', md: '1.1rem' }, color: '#1a1a1a' }}>
+        {title}
+      </Typography>
+      {onMore && (
+        <Button size="small" endIcon={<ArrowForwardIcon sx={{ fontSize: '14px !important' }} />}
+          onClick={onMore} sx={{ fontSize: '0.78rem', color: '#888', fontWeight: 500, minWidth: 'auto', '&:hover': { color: '#0047BA' } }}>
+          {t('common.viewMore')}
+        </Button>
+      )}
+    </Box>
+  );
+};
 
 // ─── Uniform Card Wrapper ─────────────────────────────────
 const SectionCard = ({ children, minHeight }) => (
@@ -304,6 +308,7 @@ const SectionCard = ({ children, minHeight }) => (
 // ─── Announcements ─────────────────────────────────
 const AnnouncementSection = ({ announcements, loading }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const items = announcements?.length > 0 ? announcements : [
     { id: 1, title: '2026년 상반기 퇴직자 교육 일정 안내', type: '긴급', date: '2026.03.20' },
     { id: 2, title: '3월 퇴직자 네트워킹 프로그램 참여 신청 마감', type: '안내', date: '2026.03.18' },
@@ -322,7 +327,7 @@ const AnnouncementSection = ({ announcements, loading }) => {
 
   return (
     <SectionCard>
-      <SectionHeader title="중요 공지사항" onMore={() => navigate('/announcements')} />
+      <SectionHeader title={t('home.announcements')} onMore={() => navigate('/announcements')} />
       <Box sx={{ flex: 1 }}>
         {items.slice(0, 4).map((item, index) => (
           <Box key={item.id} onClick={() => navigate('/announcements')}
@@ -360,7 +365,7 @@ const MyStatusCard = ({ stats, loading }) => {
 
   return (
     <SectionCard minHeight="auto">
-      <SectionHeader title="나의 현황" />
+      <SectionHeader title={t('home.myStatus')} />
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: { xs: 'repeat(3, 1fr)', md: 'repeat(3, 1fr)' },
@@ -383,7 +388,7 @@ const MyStatusCard = ({ stats, loading }) => {
             </Box>
             <Box>
               <Typography sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' }, color: '#999', lineHeight: 1.2 }}>{item.label}</Typography>
-              <Typography sx={{ fontWeight: 800, fontSize: { xs: '1.1rem', md: '1.4rem' }, lineHeight: 1.2, color: item.color }}>{item.value}건</Typography>
+              <Typography sx={{ fontWeight: 800, fontSize: { xs: '1.1rem', md: '1.4rem' }, lineHeight: 1.2, color: item.color }}>{t('common.count', { count: item.value })}</Typography>
             </Box>
           </Paper>
         ))}
@@ -395,6 +400,7 @@ const MyStatusCard = ({ stats, loading }) => {
 // ─── Programs ─────────────────────────────────
 const ProgramsSection = ({ programs, loading }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const items = programs?.length > 0 ? programs : [
     { id: 1, title: '은퇴 후 자산관리 심화 과정', category: '금융컨설팅', period: '2026.03.01 ~ 2026.03.31', dDay: 7, status: '진행중' },
     { id: 2, title: '퇴직 임원 리더십 코칭', category: '창업', period: '2026.04.01 ~ 2026.04.30', dDay: 21, status: '접수중' },
@@ -404,7 +410,7 @@ const ProgramsSection = ({ programs, loading }) => {
 
   if (loading) return (
     <SectionCard minHeight="auto">
-      <SectionHeader title="진행 중인 프로그램" />
+      <SectionHeader title={t('home.ongoingPrograms')} />
       <Grid container spacing={1.5}>{[1,2,3,4].map(i => <Grid item xs={12} sm={6} md={3} key={i}><Skeleton height={160} sx={{ borderRadius: '10px' }} /></Grid>)}</Grid>
     </SectionCard>
   );
@@ -429,7 +435,7 @@ const ProgramsSection = ({ programs, loading }) => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.5 }}>
         <Typography sx={{ fontWeight: 800, fontSize: { xs: '1rem', md: '1.2rem' }, color: '#0047BA' }}>D-{p.dDay}</Typography>
         <Button variant="outlined" size="small" onClick={(e) => { e.stopPropagation(); navigate(`/programs/${p.id}`); }} sx={{ borderRadius: '8px', fontSize: { xs: '0.68rem', md: '0.75rem' }, fontWeight: 600, py: 0.3, minWidth: { xs: 52, md: 64 } }}>
-          {p.status === '진행중' ? '학습하기' : '상세보기'}
+          {p.status === '진행중' ? t('home.learnMore') : t('common.viewDetail')}
         </Button>
       </Box>
     </Paper>
@@ -437,7 +443,7 @@ const ProgramsSection = ({ programs, loading }) => {
 
   return (
     <SectionCard minHeight="auto">
-      <SectionHeader title="진행 중인 프로그램" onMore={() => navigate('/programs')} />
+      <SectionHeader title={t('home.ongoingPrograms')} onMore={() => navigate('/programs')} />
       <Grid container spacing={1.5} sx={{ flex: 1 }}>
         {items.slice(0, 6).map((p) => (
           <Grid item xs={6} sm={6} md={3} key={p.id}>
@@ -496,13 +502,14 @@ const HomeJobCard = ({ job }) => {
 
 const JobSection = ({ jobs, loading }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const items = jobs?.length > 0 ? jobs : SHARED_JOBS;
 
   if (loading) return <SectionCard><Box>{[1,2,3].map(i => <Skeleton key={i} height={72} sx={{ borderRadius: '10px', mb: 1 }} />)}</Box></SectionCard>;
 
   return (
     <SectionCard minHeight="auto">
-      <SectionHeader title="추천 채용정보" onMore={() => navigate('/jobs')} />
+      <SectionHeader title={t('home.jobRecommendations')} onMore={() => navigate('/jobs')} />
       <Grid container spacing={1.5}>
         {items.slice(0, 6).map((job) => (
           <Grid item xs={6} sm={6} md={4} key={job.id}>

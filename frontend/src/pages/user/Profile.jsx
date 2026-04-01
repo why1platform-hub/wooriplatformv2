@@ -7,10 +7,12 @@ import {
   Save as SaveIcon,
   PhotoCamera as CameraIcon,
 } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 
 const Profile = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { showSuccess } = useNotification();
 
@@ -47,15 +49,15 @@ const Profile = () => {
     localStorage.setItem('user', JSON.stringify(updatedUser));
     setSaving(false);
     setSaved(true);
-    showSuccess('프로필이 저장되었습니다.');
+    showSuccess(t('profile.saved'));
   };
 
   return (
     <Box>
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>내 프로필</Typography>
+        <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>{t('profile.title')}</Typography>
         <Typography variant="body2" color="text.secondary">
-          {user?.name_ko || user?.name_en || '회원'}님, 환영합니다! 개인정보를 확인하고 수정할 수 있습니다.
+          {t('profile.welcomeMessage', { name: user?.name_ko || user?.name_en || '회원' })}
         </Typography>
       </Box>
 
@@ -135,7 +137,7 @@ const Profile = () => {
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 3 }}>프로필 수정</Typography>
 
-              {saved && <Alert severity="success" sx={{ mb: 2 }}>프로필이 저장되었습니다.</Alert>}
+              {saved && <Alert severity="success" sx={{ mb: 2 }}>{t('profile.saved')}</Alert>}
 
               <Grid container spacing={2.5}>
                 <Grid item xs={12} sm={6}>

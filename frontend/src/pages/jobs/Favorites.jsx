@@ -57,7 +57,7 @@ const Favorites = () => {
       // No backend — localStorage already updated
     }
     setFavorites(favorites.filter((f) => f.id !== id));
-    showSuccess('관심 채용에서 삭제되었습니다');
+    showSuccess(t('jobs.bookmarkRemoved'));
   };
 
   return (
@@ -69,7 +69,7 @@ const Favorites = () => {
           onClick={() => navigate('/jobs')}
           sx={{ mb: 2 }}
         >
-          채용정보로 돌아가기
+          {t('jobs.backToJobs')}
         </Button>
         <Typography variant="h5" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <BookmarkIcon color="primary" />
@@ -90,10 +90,10 @@ const Favorites = () => {
           <CardContent sx={{ textAlign: 'center', py: 8 }}>
             <BookmarkIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
             <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-              저장된 관심 채용이 없습니다
+              {t('jobs.noFavorites')}
             </Typography>
             <Button variant="contained" onClick={() => navigate('/jobs')}>
-              채용정보 둘러보기
+              {t('jobs.browseJobs')}
             </Button>
           </CardContent>
         </Card>
@@ -118,7 +118,7 @@ const Favorites = () => {
                         {job.location} · {job.employment_type}
                       </Typography>
                       <Typography variant="caption" color="error">
-                        마감: {job.deadline}
+                        {t('jobs.deadline')}: {job.deadline}
                       </Typography>
                     </Box>
                     <IconButton
@@ -136,7 +136,7 @@ const Favorites = () => {
                     sx={{ mt: 2 }}
                     onClick={() => navigate(`/jobs/${job.id}`)}
                   >
-                    상세보기
+                    {t('common.viewDetail')}
                   </Button>
                 </CardContent>
               </Card>

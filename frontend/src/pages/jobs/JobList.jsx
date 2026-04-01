@@ -25,6 +25,7 @@ import { MOCK_JOBS, isBookmarked as checkBookmark, toggleBookmark } from '../../
 
 const JobCard = ({ job, onBookmark }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [bookmarked, setBookmarked] = useState(() => checkBookmark(job.id));
 
   // Re-sync bookmark state from localStorage on every mount/navigation
@@ -80,7 +81,7 @@ const JobCard = ({ job, onBookmark }) => {
               </Box>
             )}
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              등록일: {job.posted_date || job.created_at}
+              {t('jobs.postedDate')}: {job.posted_date || job.created_at}
             </Typography>
           </Box>
           <IconButton onClick={handleBookmark}>
@@ -96,7 +97,7 @@ const JobCard = ({ job, onBookmark }) => {
             navigate(`/jobs/${job.id}`);
           }}
         >
-          지원하기
+          {t('jobs.applyJob')}
         </Button>
       </CardContent>
     </Card>

@@ -42,53 +42,53 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import LanguageToggle from './LanguageToggle';
 
-const navItems = [
-  { id: 'home', label: '홈', path: '/', icon: <HomeIcon /> },
-  {
-    id: 'programs', label: '프로그램 신청', path: '/programs', icon: <AssignmentIcon />,
-    children: [
-      { label: '모집 공고', path: '/programs' },
-      { label: '신청 안내', path: '/programs/guide' },
-    ],
-  },
-  {
-    id: 'activities', label: '나의 활동', path: '/activities', icon: <PersonIcon />,
-    children: [
-      { label: '신청 내역', path: '/activities/applications' },
-      { label: '상담 기록', path: '/activities/consultations' },
-      { label: '수강 현황', path: '/activities/courses' },
-      { label: '북마크', path: '/activities/bookmarks' },
-      { label: '상담 예약', path: '/consultations/booking' },
-    ],
-  },
-  {
-    id: 'jobs', label: '채용정보', path: '/jobs', icon: <WorkIcon />,
-    children: [
-      { label: '채용 공고', path: '/jobs' },
-      { label: '맞춤 추천', path: '/jobs/recommendations' },
-      { label: '관심 채용', path: '/jobs/favorites' },
-      { label: '이력서 관리', path: '/jobs/resume' },
-    ],
-  },
-  {
-    id: 'learning', label: '학습자료', path: '/learning', icon: <SchoolIcon />,
-    children: [
-      { label: '온라인 강의', path: '/learning' },
-      { label: '자료 다운로드', path: '/learning/downloads' },
-    ],
-  },
-  {
-    id: 'support', label: '고객지원', path: '/support', icon: <SupportIcon />,
-    children: [
-      { label: '공지사항', path: '/support/notices' },
-      { label: 'FAQ', path: '/support/faq' },
-      { label: '1:1 문의', path: '/support/inquiry' },
-    ],
-  },
-];
-
 const Header = ({ onMenuToggle }) => {
   const { t, i18n } = useTranslation();
+
+  const navItems = [
+    { id: 'home', label: t('nav.home'), path: '/', icon: <HomeIcon /> },
+    {
+      id: 'programs', label: t('nav.programs'), path: '/programs', icon: <AssignmentIcon />,
+      children: [
+        { label: t('nav.recruitmentList'), path: '/programs' },
+        { label: t('nav.applicationGuide'), path: '/programs/guide' },
+      ],
+    },
+    {
+      id: 'activities', label: t('nav.activities'), path: '/activities', icon: <PersonIcon />,
+      children: [
+        { label: t('nav.applicationHistory'), path: '/activities/applications' },
+        { label: t('nav.consultationRecords'), path: '/activities/consultations' },
+        { label: t('nav.courseStatus'), path: '/activities/courses' },
+        { label: t('nav.bookmarks'), path: '/activities/bookmarks' },
+        { label: t('nav.consultationBooking'), path: '/consultations/booking' },
+      ],
+    },
+    {
+      id: 'jobs', label: t('nav.jobs'), path: '/jobs', icon: <WorkIcon />,
+      children: [
+        { label: t('nav.jobPostings'), path: '/jobs' },
+        { label: t('nav.recommendations'), path: '/jobs/recommendations' },
+        { label: t('nav.favorites'), path: '/jobs/favorites' },
+        { label: t('nav.resumeManagement'), path: '/jobs/resume' },
+      ],
+    },
+    {
+      id: 'learning', label: t('nav.learning'), path: '/learning', icon: <SchoolIcon />,
+      children: [
+        { label: t('nav.onlineLectures'), path: '/learning' },
+        { label: t('nav.downloadMaterials'), path: '/learning/downloads' },
+      ],
+    },
+    {
+      id: 'support', label: t('nav.support'), path: '/support', icon: <SupportIcon />,
+      children: [
+        { label: t('nav.notices'), path: '/support/notices' },
+        { label: t('nav.faq'), path: '/support/faq' },
+        { label: t('nav.inquiry'), path: '/support/inquiry' },
+      ],
+    },
+  ];
   const { user, logout, isAdmin, isHRManager, isConsultant } = useAuth();
   const { getSiteTitle } = require('../../utils/siteConfig');
   const isEn = i18n.language === 'en';
@@ -295,7 +295,7 @@ const Header = ({ onMenuToggle }) => {
                   '&:hover': { borderColor: '#0047BA', color: '#0047BA' },
                 }}
               >
-                {isAdmin() ? '관리자' : '강사 대시보드'}
+                {isAdmin() ? t('nav.admin') : t('nav.instructorDashboard')}
               </Button>
             )}
           </Box>
@@ -313,23 +313,23 @@ const Header = ({ onMenuToggle }) => {
         PaperProps={{ sx: { width: 320, maxHeight: 400, borderRadius: '12px', mt: 0.5 } }}
       >
         <Box sx={{ p: 2, borderBottom: '1px solid #F0F0F0' }}>
-          <Typography variant="subtitle1" fontWeight={700}>알림</Typography>
+          <Typography variant="subtitle1" fontWeight={700}>{t('notifications.title')}</Typography>
         </Box>
         <MenuItem onClick={() => setNotificationAnchor(null)}>
           <Box>
-            <Typography variant="body2" fontWeight={500}>새로운 프로그램이 등록되었습니다</Typography>
-            <Typography variant="caption" color="text.secondary">5분 전</Typography>
+            <Typography variant="body2" fontWeight={500}>{t('notifications.newProgram')}</Typography>
+            <Typography variant="caption" color="text.secondary">{t('notifications.timeAgo5min')}</Typography>
           </Box>
         </MenuItem>
         <MenuItem onClick={() => setNotificationAnchor(null)}>
           <Box>
-            <Typography variant="body2" fontWeight={500}>신청이 승인되었습니다</Typography>
-            <Typography variant="caption" color="text.secondary">1시간 전</Typography>
+            <Typography variant="body2" fontWeight={500}>{t('notifications.applicationApproved')}</Typography>
+            <Typography variant="caption" color="text.secondary">{t('notifications.timeAgo1hour')}</Typography>
           </Box>
         </MenuItem>
         <Divider />
         <MenuItem onClick={() => { setNotificationAnchor(null); navigate('/activities'); }} sx={{ justifyContent: 'center' }}>
-          <Typography variant="body2" color="primary" fontWeight={600}>모든 알림 보기</Typography>
+          <Typography variant="body2" color="primary" fontWeight={600}>{t('notifications.viewAll')}</Typography>
         </MenuItem>
       </Menu>
 
@@ -359,14 +359,14 @@ const Header = ({ onMenuToggle }) => {
           <Typography variant="caption" color="text.secondary">{user?.email}</Typography>
         </Box>
         <MenuItem onClick={() => { setAnchorEl(null); navigate('/profile'); }}>
-          <PersonIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> 내 프로필
+          <PersonIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> {t('profile.title')}
         </MenuItem>
         <MenuItem onClick={() => { setAnchorEl(null); navigate('/settings'); }}>
-          <SettingsIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> 설정
+          <SettingsIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> {t('profile.settings')}
         </MenuItem>
         {(isAdmin() || isHRManager() || isConsultant()) && isMobile && (
           <MenuItem onClick={() => { setAnchorEl(null); navigate('/admin'); }}>
-            <AdminIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> {isAdmin() ? '관리자 패널' : '강사 대시보드'}
+            <AdminIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> {isAdmin() ? t('nav.adminPanel') : t('nav.instructorDashboard')}
           </MenuItem>
         )}
         <Divider />
@@ -392,7 +392,7 @@ const Header = ({ onMenuToggle }) => {
               </Box>
             )}
             <Typography variant="h6" fontWeight={800} color="primary" sx={{ fontSize: '1rem' }}>
-              퇴직지원 플랫폼
+              {t('common.appName')}
             </Typography>
           </Box>
           <IconButton onClick={() => setMobileOpen(false)} size="small">
@@ -480,7 +480,7 @@ const Header = ({ onMenuToggle }) => {
                   <ListItemIcon sx={{ minWidth: 36, color: '#888' }}>
                     <AdminIcon sx={{ fontSize: 22 }} />
                   </ListItemIcon>
-                  <ListItemText primary={isAdmin() ? '관리자 패널' : '강사 대시보드'} primaryTypographyProps={{ fontWeight: 500, fontSize: '0.9rem' }} />
+                  <ListItemText primary={isAdmin() ? t('nav.adminPanel') : t('nav.instructorDashboard')} primaryTypographyProps={{ fontWeight: 500, fontSize: '0.9rem' }} />
                 </ListItemButton>
               </ListItem>
             </>
