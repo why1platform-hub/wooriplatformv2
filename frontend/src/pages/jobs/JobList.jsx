@@ -19,10 +19,8 @@ import {
   Bookmark as BookmarkIcon,
   BookmarkBorder as BookmarkBorderIcon,
   LocationOn as LocationIcon,
-  Work as WorkIcon,
 } from '@mui/icons-material';
 import { jobsAPI } from '../../services/api';
-import { useNotification } from '../../contexts/NotificationContext';
 import { MOCK_JOBS, isBookmarked as checkBookmark, toggleBookmark } from '../../utils/jobStore';
 
 const JobCard = ({ job, onBookmark }) => {
@@ -107,8 +105,6 @@ const JobCard = ({ job, onBookmark }) => {
 
 const JobList = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { showSuccess } = useNotification();
 
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState([]);
