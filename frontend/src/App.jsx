@@ -11,7 +11,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import Layout from './components/layout/Layout';
 import AdminLayout from './components/admin/AdminLayout';
-import { initBranding } from './utils/siteConfig';
+import { initBranding, syncConfigFromSupabase } from './utils/siteConfig';
 
 // Lazy load pages
 const LandingPage = lazy(() => import('./pages/landing/LandingPage'));
@@ -247,6 +247,7 @@ const AppRoutes = () => {
                   <Route path="/activities/applications" element={<MyActivities />} />
                   <Route path="/activities/consultations" element={<MyActivities />} />
                   <Route path="/activities/courses" element={<MyActivities />} />
+                  <Route path="/activities/bookmarks" element={<MyActivities />} />
 
                   {/* Consultations */}
                   <Route path="/consultations/booking" element={<ConsultationBooking />} />
@@ -267,7 +268,7 @@ const AppRoutes = () => {
                   <Route path="/learning/:id" element={<VideoPlayer />} />
 
                   {/* Support */}
-                  <Route path="/support" element={<Notices />} />
+                  <Route path="/support" element={<FAQ />} />
                   <Route path="/support/notices" element={<Notices />} />
                   <Route path="/support/faq" element={<FAQ />} />
                   <Route path="/support/inquiry" element={<Inquiry />} />
@@ -287,7 +288,9 @@ const AppRoutes = () => {
 
 const App = () => {
   const [ready, setReady] = useState(false);
-  useEffect(() => { initBranding().then(() => setReady(true)); }, []);
+  useEffect(() => {
+    Promise.all([initBranding(), syncConfigFromSupabase()]).then(() => setReady(true));
+  }, []);
 
   if (!ready) return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><CircularProgress /></Box>;
 

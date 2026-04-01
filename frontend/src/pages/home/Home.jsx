@@ -22,13 +22,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Bookmark as BookmarkIcon,
+  BookmarkBorder as BookmarkBorderIcon,
   Campaign as CampaignIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
-import { dashboardAPI } from '../../services/api';
+import { supabase } from '../../utils/supabase';
+import { loadApplications } from '../../utils/programStore';
+import { loadBookings } from '../../utils/consultationStore';
 import StatusBadge from '../../components/common/StatusBadge';
 import CategoryBadge from '../../components/common/CategoryBadge';
+import { MOCK_JOBS as SHARED_JOBS, isBookmarked as checkBookmark, toggleBookmark } from '../../utils/jobStore';
 
 // ─── Constants ─────────────────────────────────
 const CARD_RADIUS = '12px';
@@ -349,9 +353,9 @@ const MyStatusCard = ({ stats, loading }) => {
   if (loading) return <SectionCard minHeight="auto"><Skeleton height={100} sx={{ borderRadius: '8px' }} /></SectionCard>;
 
   const items = [
-    { icon: <AssignmentIcon />, label: t('home.appliedPrograms'), value: stats?.appliedPrograms || 2, color: '#0047BA', bg: '#EBF0FA' },
-    { icon: <ChatIcon />, label: t('home.scheduledConsultations'), value: stats?.scheduledConsultations || 1, color: '#D97706', bg: '#FFFBEB' },
-    { icon: <SchoolIcon />, label: t('home.ongoingCourses'), value: stats?.ongoingCourses || 1, color: '#059669', bg: '#ECFDF5' },
+    { icon: <AssignmentIcon />, label: t('home.appliedPrograms'), value: stats?.appliedPrograms ?? 0, color: '#0047BA', bg: '#EBF0FA' },
+    { icon: <ChatIcon />, label: t('home.scheduledConsultations'), value: stats?.scheduledConsultations ?? 0, color: '#D97706', bg: '#FFFBEB' },
+    { icon: <SchoolIcon />, label: t('home.ongoingCourses'), value: stats?.ongoingCourses ?? 0, color: '#059669', bg: '#ECFDF5' },
   ];
 
   return (
@@ -446,20 +450,22 @@ const ProgramsSection = ({ programs, loading }) => {
 };
 
 // ─── Jobs ─────────────────────────────────
-const JobSection = ({ jobs, loading }) => {
+const HomeJobCard = ({ job }) => {
   const navigate = useNavigate();
-  const items = jobs?.length > 0 ? jobs : [
-    { id: 1, company: '(주)한화생명', position: '시니어 금융 전문 컨설턴트', location: '서울 중구', type: '계약직' },
-    { id: 2, company: 'KB국민은행', position: '디지털 금융 플랫폼 기획자', location: '서울 여의도', type: '정규직' },
-    { id: 3, company: '삼성생명', position: '퇴직연금 전문 상담역', location: '서울 강남구', type: '정규직' },
-    { id: 4, company: '현대건설', position: '부동산 자문위원', location: '경기 성남시', type: '프리랜서' },
-    { id: 5, company: '신한은행', position: '자산관리 시니어 컨설턴트', location: '서울 강남구', type: '정규직' },
-    { id: 6, company: 'NH농협', position: '농촌 금융 전문 상담역', location: '전국', type: '계약직' },
-  ];
+  const [bookmarked, setBookmarked] = React.useState(() => checkBookmark(job.id));
 
-  if (loading) return <SectionCard><Box>{[1,2,3].map(i => <Skeleton key={i} height={72} sx={{ borderRadius: '10px', mb: 1 }} />)}</Box></SectionCard>;
+  // Re-sync bookmark state from localStorage on every mount/navigation
+  React.useEffect(() => {
+    setBookmarked(checkBookmark(job.id));
+  }, [job.id]);
 
-  const JobCard = ({ job }) => (
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    const newState = toggleBookmark(job.id);
+    setBookmarked(newState);
+  };
+
+  return (
     <Paper elevation={0} onClick={() => navigate(`/jobs/${job.id}`)}
       sx={{
         p: { xs: 1.5, md: 2 }, borderRadius: '10px', cursor: 'pointer', border: CARD_BORDER,
@@ -474,16 +480,25 @@ const JobSection = ({ jobs, loading }) => {
             fontWeight: 600, fontSize: { xs: '0.78rem', md: '0.88rem' }, mb: 0.5, lineHeight: 1.3,
             overflow: 'hidden', textOverflow: 'ellipsis',
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          }}>{job.position}</Typography>
+          }}>{job.position || job.title_ko}</Typography>
           <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
             <Typography sx={{ fontSize: { xs: '0.62rem', md: '0.72rem' }, color: '#aaa' }}>{job.location}</Typography>
-            {job.type && <Chip label={job.type} size="small" sx={{ height: 18, fontSize: { xs: '0.58rem', md: '0.62rem' }, fontWeight: 600 }} />}
+            {(job.type || job.employment_type) && <Chip label={job.type || job.employment_type} size="small" sx={{ height: 18, fontSize: { xs: '0.58rem', md: '0.62rem' }, fontWeight: 600 }} />}
           </Box>
         </Box>
-        <IconButton size="small" sx={{ color: '#ddd', mt: -0.5, display: { xs: 'none', sm: 'flex' } }}><BookmarkIcon sx={{ fontSize: 18 }} /></IconButton>
+        <IconButton size="small" onClick={handleToggle} sx={{ color: bookmarked ? '#0047BA' : '#ddd', mt: -0.5, display: { xs: 'none', sm: 'flex' } }}>
+          {bookmarked ? <BookmarkIcon sx={{ fontSize: 18 }} /> : <BookmarkBorderIcon sx={{ fontSize: 18 }} />}
+        </IconButton>
       </Box>
     </Paper>
   );
+};
+
+const JobSection = ({ jobs, loading }) => {
+  const navigate = useNavigate();
+  const items = jobs?.length > 0 ? jobs : SHARED_JOBS;
+
+  if (loading) return <SectionCard><Box>{[1,2,3].map(i => <Skeleton key={i} height={72} sx={{ borderRadius: '10px', mb: 1 }} />)}</Box></SectionCard>;
 
   return (
     <SectionCard minHeight="auto">
@@ -491,7 +506,7 @@ const JobSection = ({ jobs, loading }) => {
       <Grid container spacing={1.5}>
         {items.slice(0, 6).map((job) => (
           <Grid item xs={6} sm={6} md={4} key={job.id}>
-            <JobCard job={job} />
+            <HomeJobCard job={job} />
           </Grid>
         ))}
       </Grid>
@@ -501,7 +516,7 @@ const JobSection = ({ jobs, loading }) => {
 
 // ─── Main Home ─────────────────────────────────
 const Home = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [sectionOrder] = useState(loadSectionOrder);
@@ -509,8 +524,39 @@ const Home = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await dashboardAPI.getHome();
-        setDashboardData(response.data);
+        // Load real data from Supabase
+        const { data: programs } = await supabase.from('programs').select('*').order('id');
+        const formattedPrograms = (programs || []).map((p) => ({
+          id: p.id,
+          title: p.title_ko || p.title,
+          category: p.category,
+          period: `${p.start_date || ''} ~ ${p.end_date || ''}`,
+          dDay: p.end_date ? Math.max(0, Math.ceil((new Date(p.end_date) - new Date()) / 86400000)) : 0,
+          status: p.status || '모집중',
+        }));
+
+        // Load real application count for current user
+        const allApps = await loadApplications();
+        const myApps = user ? allApps.filter((a) => a.email === user.email && a.status !== '취소') : [];
+        const myBookings = user ? await loadBookings() : [];
+        const myPendingBookings = myBookings.filter((b) => b.userId === user?.id && (b.status === 'confirmed' || b.status === 'pending' || b.status === 'pending_approval'));
+
+        // Load announcements from localStorage (managed by admin CMS)
+        let announcements = [];
+        try {
+          const saved = localStorage.getItem('woori_announcements');
+          if (saved) announcements = JSON.parse(saved);
+        } catch { /* ignore */ }
+
+        setDashboardData({
+          programs: formattedPrograms,
+          announcements: announcements.length > 0 ? announcements : null,
+          stats: {
+            appliedPrograms: myApps.length,
+            scheduledConsultations: myPendingBookings.length,
+            ongoingCourses: 0,
+          },
+        });
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
       } finally {
@@ -518,7 +564,7 @@ const Home = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [user]);
 
   const sectionComponents = {
     announcements: isAuthenticated ? (

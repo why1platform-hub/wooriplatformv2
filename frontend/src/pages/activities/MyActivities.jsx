@@ -40,11 +40,16 @@ import {
   Phone as PhoneIcon,
   Description as FileIcon,
   TextSnippet as TextIcon,
+  Bookmark as BookmarkIcon,
+  BookmarkBorder as BookmarkBorderIcon,
+  Work as WorkIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { consultationsAPI, coursesAPI } from '../../services/api';
 import { loadApplications } from '../../utils/programStore';
 import { getBookingsForUser } from '../../utils/consultationStore';
+import { getBookmarkedJobs, toggleBookmark } from '../../utils/jobStore';
 import StatusBadge from '../../components/common/StatusBadge';
 import CategoryBadge from '../../components/common/CategoryBadge';
 
@@ -60,6 +65,7 @@ const statusColors = {
   '예약됨': { color: '#1E40AF', bg: '#DBEAFE' },
   '완료': { color: '#166534', bg: '#DCFCE7' },
   '취소': { color: '#991B1B', bg: '#FEE2E2' },
+  '거절': { color: '#C62828', bg: '#FFEBEE' },
   '노쇼': { color: '#92400E', bg: '#FEF3C7' },
 };
 
@@ -72,14 +78,21 @@ const MyActivities = () => {
   const getInitialTab = () => {
     if (location.pathname.includes('consultations')) return 1;
     if (location.pathname.includes('courses')) return 2;
+    if (location.pathname.includes('bookmarks')) return 3;
     return 0;
   };
 
   const [tab, setTab] = useState(getInitialTab());
   const [loading, setLoading] = useState(true);
+
+  // Sync tab when URL changes (e.g. from sidebar navigation)
+  useEffect(() => {
+    setTab(getInitialTab());
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   const [applications, setApplications] = useState([]);
   const [consultations, setConsultations] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [bookmarkedJobs, setBookmarkedJobs] = useState([]);
 
   // Detail dialog state
   const [detailOpen, setDetailOpen] = useState(false);
@@ -93,9 +106,10 @@ const MyActivities = () => {
       setLoading(true);
       try {
         if (tab === 0) {
-          // Read from shared localStorage store (same store ProgramDetail writes to)
-          const allApps = loadApplications();
-          setApplications(allApps);
+          // Read from Supabase store, filtered by current user
+          const allApps = await loadApplications();
+          const myApps = user ? allApps.filter((a) => a.email === user.email) : allApps;
+          setApplications(myApps);
         } else if (tab === 1) {
           // Read from shared localStorage store
           const myBookings = user ? await getBookingsForUser(user.id) : [];
@@ -107,13 +121,22 @@ const MyActivities = () => {
             consultant_name: b.consultantName || '배정 대기',
             topic: b.method,
             method: b.method,
-            status: b.status === 'pending' ? '배정대기' : b.status === 'pending_approval' ? '승인대기' : b.status === 'confirmed' ? '예약됨' : b.status === 'completed' ? '완료' : '취소',
+            status: b.status === 'pending' ? '배정대기' : b.status === 'pending_approval' ? '승인대기' : b.status === 'confirmed' ? '예약됨' : b.status === 'completed' ? '완료' : b.status === 'rejected' ? '거절' : '취소',
+            rejectReason: b.rejectReason || '',
             records: [],
           }));
           setConsultations(mapped);
-        } else {
-          const response = await coursesAPI.getEnrollments();
-          setCourses(response.data.enrollments || []);
+        } else if (tab === 2) {
+          try {
+            const response = await coursesAPI.getEnrollments();
+            setCourses(response.data.enrollments || []);
+          } catch {
+            // No backend - show empty state
+            setCourses([]);
+          }
+        } else if (tab === 3) {
+          // Load bookmarked jobs from shared store
+          setBookmarkedJobs(getBookmarkedJobs());
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -128,15 +151,16 @@ const MyActivities = () => {
   const displayConsultations = consultations;
   const displayCourses = courses;
 
+  const activeApplications = displayApplications.filter((a) => a.status !== '취소');
   const stats = {
-    totalApplications: displayApplications.length,
-    inProgress: displayApplications.filter((a) => a.status === '진행중').length,
-    completed: displayApplications.filter((a) => a.status === '승인완료' || a.status === '완료').length,
+    totalApplications: activeApplications.length,
+    inProgress: activeApplications.filter((a) => a.status === '진행중').length,
+    completed: activeApplications.filter((a) => a.status === '승인완료' || a.status === '완료').length,
   };
 
   const handleTabChange = (event, newValue) => {
     setTab(newValue);
-    const paths = ['/activities/applications', '/activities/consultations', '/activities/courses'];
+    const paths = ['/activities/applications', '/activities/consultations', '/activities/courses', '/activities/bookmarks'];
     navigate(paths[newValue]);
   };
 
@@ -213,6 +237,7 @@ const MyActivities = () => {
                 <Tab label={t('activities.applicationHistory')} />
                 <Tab label={t('activities.consultationRecords')} />
                 <Tab label={t('activities.courseStatus')} />
+                <Tab label="북마크" icon={<BookmarkIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
               </Tabs>
 
               {loading ? (
@@ -253,7 +278,7 @@ const MyActivities = () => {
                                 <StatusBadge status={app.status} />
                               </TableCell>
                               <TableCell align="center">
-                                <Button size="small" variant="outlined" onClick={() => navigate(`/programs/${app.programId}`)}>
+                                <Button size="small" variant="outlined" onClick={() => navigate(`/programs/${app.program_id || app.programId}`)}>
                                   {t('common.viewDetail')}
                                 </Button>
                               </TableCell>
@@ -268,15 +293,6 @@ const MyActivities = () => {
                   {/* Consultation Records */}
                   {tab === 1 && (
                     <Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                        <Button
-                          variant="contained"
-                          size="small"
-                          onClick={() => navigate('/consultations/booking')}
-                        >
-                          상담 예약하기
-                        </Button>
-                      </Box>
                       {displayConsultations.length === 0 ? (
                         <Box sx={{ textAlign: 'center', py: 8 }}>
                           <Typography color="text.secondary" sx={{ mb: 2 }}>상담 내역이 없습니다.</Typography>
@@ -302,7 +318,8 @@ const MyActivities = () => {
                             {displayConsultations.map((c) => {
                               const sc = statusColors[c.status];
                               return (
-                                <TableRow key={c.id} hover>
+                                <React.Fragment key={c.id}>
+                                <TableRow hover>
                                   <TableCell sx={{ fontSize: '0.875rem' }}>{c.date || c.scheduled_at}</TableCell>
                                   <TableCell sx={{ fontSize: '0.875rem' }}>{c.consultant || c.consultant_name}</TableCell>
                                   <TableCell sx={{ fontSize: '0.875rem' }}>{c.topic}</TableCell>
@@ -351,9 +368,24 @@ const MyActivities = () => {
                                           취소
                                         </Button>
                                       )}
+                                      {c.status === '거절' && (
+                                        <Button size="small" variant="contained" onClick={() => navigate('/consultations/booking')}>
+                                          다시 예약
+                                        </Button>
+                                      )}
                                     </Box>
                                   </TableCell>
                                 </TableRow>
+                                {c.status === '거절' && c.rejectReason && (
+                                  <TableRow>
+                                    <TableCell colSpan={7} sx={{ py: 1, bgcolor: '#FFEBEE', borderBottom: '1px solid #FFCDD2' }}>
+                                      <Typography variant="body2" sx={{ color: '#C62828', whiteSpace: 'pre-line' }}>
+                                        <strong>거절 사유:</strong> {c.rejectReason}
+                                      </Typography>
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                                </React.Fragment>
                               );
                             })}
                           </TableBody>
@@ -428,6 +460,69 @@ const MyActivities = () => {
                           </Box>
                         );
                       })}
+                    </Box>
+                  )}
+
+                  {/* Bookmarks */}
+                  {tab === 3 && (
+                    <Box>
+                      {bookmarkedJobs.length === 0 ? (
+                        <Box sx={{ textAlign: 'center', py: 8 }}>
+                          <BookmarkBorderIcon sx={{ fontSize: 48, color: '#D1D5DB', mb: 2 }} />
+                          <Typography color="text.secondary" sx={{ mb: 1 }}>북마크한 항목이 없습니다.</Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            채용정보에서 관심 있는 공고를 북마크해보세요.
+                          </Typography>
+                          <Button variant="outlined" onClick={() => navigate('/jobs')}>
+                            채용정보 보기
+                          </Button>
+                        </Box>
+                      ) : (
+                        <TableContainer>
+                          <Table>
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>회사</TableCell>
+                                <TableCell>포지션</TableCell>
+                                <TableCell align="center">근무지</TableCell>
+                                <TableCell align="center">고용형태</TableCell>
+                                <TableCell align="center"></TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {bookmarkedJobs.map((job) => (
+                                <TableRow key={job.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/jobs/${job.id}`)}>
+                                  <TableCell>
+                                    <Typography variant="body2" fontWeight={500}>{job.company}</Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2">{job.title_ko || job.position}</Typography>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Typography variant="body2" color="text.secondary">{job.location}</Typography>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Chip label={job.type || job.employment_type} size="small" sx={{ height: 24, fontSize: '0.75rem' }} />
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleBookmark(job.id);
+                                        setBookmarkedJobs((prev) => prev.filter((j) => j.id !== job.id));
+                                      }}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      )}
                     </Box>
                   )}
                 </>

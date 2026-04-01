@@ -57,6 +57,7 @@ const navItems = [
       { label: '신청 내역', path: '/activities/applications' },
       { label: '상담 기록', path: '/activities/consultations' },
       { label: '수강 현황', path: '/activities/courses' },
+      { label: '북마크', path: '/activities/bookmarks' },
       { label: '상담 예약', path: '/consultations/booking' },
     ],
   },
@@ -101,6 +102,10 @@ const Header = ({ onMenuToggle }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
   const [hoveredNav, setHoveredNav] = useState(null);
+  const [notifCount, setNotifCount] = useState(() => {
+    const read = localStorage.getItem('woori_notif_read');
+    return read ? 0 : 3;
+  });
 
   // Load custom logo
   const [customLogo, setCustomLogo] = useState(null);
@@ -263,13 +268,13 @@ const Header = ({ onMenuToggle }) => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
             <LanguageToggle />
 
-            <IconButton onClick={(e) => setNotificationAnchor(e.currentTarget)} sx={{ color: '#555' }}>
-              <Badge badgeContent={3} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem', minWidth: 16, height: 16 } }}>
+            <IconButton onClick={(e) => { setNotificationAnchor(e.currentTarget); setNotifCount(0); localStorage.setItem('woori_notif_read', '1'); }} sx={{ color: '#555' }}>
+              <Badge badgeContent={notifCount} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem', minWidth: 16, height: 16 } }}>
                 <NotificationsIcon sx={{ fontSize: 22 }} />
               </Badge>
             </IconButton>
 
-            <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ ml: 0.5 }}>
+            <IconButton onClick={(e) => { setNotificationAnchor(null); setAnchorEl(e.currentTarget); }} sx={{ ml: 0.5 }}>
               <Avatar
                 sx={{ width: 34, height: 34, bgcolor: '#0047BA', fontSize: '0.8rem' }}
                 src={user?.profile_image}
@@ -302,7 +307,10 @@ const Header = ({ onMenuToggle }) => {
         anchorEl={notificationAnchor}
         open={Boolean(notificationAnchor)}
         onClose={() => setNotificationAnchor(null)}
-        PaperProps={{ sx: { width: 320, maxHeight: 400, borderRadius: '12px', mt: 1 } }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        disableScrollLock
+        PaperProps={{ sx: { width: 320, maxHeight: 400, borderRadius: '12px', mt: 0.5 } }}
       >
         <Box sx={{ p: 2, borderBottom: '1px solid #F0F0F0' }}>
           <Typography variant="subtitle1" fontWeight={700}>알림</Typography>
@@ -330,7 +338,21 @@ const Header = ({ onMenuToggle }) => {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
-        PaperProps={{ sx: { width: 200, borderRadius: '12px', mt: 1 } }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        disableScrollLock
+        PaperProps={{
+          sx: {
+            width: 200,
+            borderRadius: '12px',
+            mt: 0.5,
+            overflow: 'visible',
+            filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.1))',
+          },
+        }}
+        sx={{
+          '& .MuiMenu-list': { py: 0 },
+        }}
       >
         <Box sx={{ p: 2, borderBottom: '1px solid #F0F0F0' }}>
           <Typography variant="subtitle2" fontWeight={700}>{user?.name_ko || 'User'}</Typography>

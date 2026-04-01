@@ -123,7 +123,8 @@
     "views": "조회수",
     "play": "재생",
     "fileSize": "파일 크기",
-    "downloadCount": "다운로드 수"
+    "downloadCount": "다운로드 수",
+    "searchPlaceholder": "검색하세요"
   },
   "support": {
     "title": "고객지원",

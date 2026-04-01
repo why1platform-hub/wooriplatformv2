@@ -23,24 +23,22 @@ import {
 } from '@mui/icons-material';
 import { jobsAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import { MOCK_JOBS, isBookmarked as checkBookmark, toggleBookmark, getBookmarkedJobs } from '../../utils/jobStore';
 
 const JobCard = ({ job, onBookmark }) => {
   const navigate = useNavigate();
-  const [bookmarked, setBookmarked] = useState(job.is_bookmarked || false);
+  const [bookmarked, setBookmarked] = useState(() => checkBookmark(job.id));
 
-  const handleBookmark = async (e) => {
+  // Re-sync bookmark state from localStorage on every mount/navigation
+  useEffect(() => {
+    setBookmarked(checkBookmark(job.id));
+  }, [job.id]);
+
+  const handleBookmark = (e) => {
     e.stopPropagation();
-    try {
-      if (bookmarked) {
-        await jobsAPI.removeBookmark(job.id);
-      } else {
-        await jobsAPI.bookmark(job.id);
-      }
-      setBookmarked(!bookmarked);
-      if (onBookmark) onBookmark(job.id, !bookmarked);
-    } catch (error) {
-      console.error('Bookmark failed:', error);
-    }
+    const newState = toggleBookmark(job.id);
+    setBookmarked(newState);
+    if (onBookmark) onBookmark(job.id, newState);
   };
 
   return (
@@ -140,55 +138,13 @@ const JobList = () => {
     fetchJobs();
   }, []);
 
-  // Mock data
-  const mockJobs = [
-    {
-      id: 1,
-      company: '우리은행',
-      title_ko: '시니어 금융 컨설턴트',
-      location: '서울 중구',
-      employment_type: '계약직',
-      salary_range: '연봉 5,000만원 ~ 6,000만원 (협의가능)',
-      requirements: ['금융권 경력 15년 이상', '자산관리 및 투자 상담 경험 우대'],
-      posted_date: '2024.05.20',
-      is_bookmarked: false,
-    },
-    {
-      id: 2,
-      company: '삼성생명',
-      title_ko: '퇴직연금 전문 상담역',
-      location: '서울 강남구',
-      employment_type: '정규직',
-      salary_range: '협의 후 결정',
-      requirements: ['퇴직연금 관련 자격증 소지자', '법인 및 개인 고객 상담 능력 필수'],
-      posted_date: '2024.05.19',
-      is_bookmarked: true,
-    },
-    {
-      id: 3,
-      company: '현대건설',
-      title_ko: '부동산 자문위원',
-      location: '경기 성남시',
-      employment_type: '프리랜서',
-      salary_range: '프로젝트별 협의',
-      requirements: ['부동산 개발 및 투자 분석 경력 10년 이상', '관련 네트워크 보유자 우대'],
-      posted_date: '2024.05.18',
-      is_bookmarked: false,
-    },
-    {
-      id: 4,
-      company: '서울시 사회공헌센터',
-      title_ko: '시니어 사회공헌 프로젝트 매니저',
-      location: '서울 여의도',
-      employment_type: '계약직',
-      salary_range: '월급 350만원 (협의가능)',
-      requirements: ['비영리 단체 또는 사회공헌 활동 경험', '프로젝트 기획 및 운영 능력 우수자'],
-      posted_date: '2024.05.17',
-      is_bookmarked: false,
-    },
-  ];
+  const [sidebarFavorites, setSidebarFavorites] = useState(getBookmarkedJobs);
 
-  const displayJobs = jobs.length > 0 ? jobs : mockJobs;
+  const displayJobs = jobs.length > 0 ? jobs : MOCK_JOBS;
+
+  const handleBookmarkChange = () => {
+    setSidebarFavorites(getBookmarkedJobs());
+  };
 
   const toggleFilter = (type, value) => {
     setFilters((prev) => ({
@@ -285,7 +241,7 @@ const JobList = () => {
             <Grid container spacing={2}>
               {displayJobs.map((job) => (
                 <Grid item xs={12} sm={6} key={job.id}>
-                  <JobCard job={job} />
+                  <JobCard job={job} onBookmark={handleBookmarkChange} />
                 </Grid>
               ))}
             </Grid>
@@ -301,22 +257,20 @@ const JobList = () => {
                 {t('jobs.myFavorites')}
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ p: 1.5, backgroundColor: '#F8F9FA', borderRadius: 1 }}>
-                  <Typography variant="body2" fontWeight={500}>
-                    시니어 금융 컨설턴트
+                {sidebarFavorites.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    관심 채용이 없습니다
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    (우리은행)
-                  </Typography>
-                </Box>
-                <Box sx={{ p: 1.5, backgroundColor: '#F8F9FA', borderRadius: 1 }}>
-                  <Typography variant="body2" fontWeight={500}>
-                    퇴직연금 전문 상담역
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    (삼성생명)
-                  </Typography>
-                </Box>
+                ) : sidebarFavorites.slice(0, 5).map((fav) => (
+                  <Box key={fav.id} sx={{ p: 1.5, backgroundColor: '#F8F9FA', borderRadius: 1, cursor: 'pointer', '&:hover': { bgcolor: '#EEF2F6' } }} onClick={() => navigate(`/jobs/${fav.id}`)}>
+                    <Typography variant="body2" fontWeight={500}>
+                      {fav.title_ko || fav.position}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      ({fav.company})
+                    </Typography>
+                  </Box>
+                ))}
               </Box>
             </CardContent>
           </Card>

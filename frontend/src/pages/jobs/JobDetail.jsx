@@ -22,15 +22,16 @@ import {
 } from '@mui/icons-material';
 import { jobsAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import { getJobById, isBookmarked as checkBookmark, toggleBookmark } from '../../utils/jobStore';
 
 const JobDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess } = useNotification();
 
   const [loading, setLoading] = useState(true);
   const [job, setJob] = useState(null);
-  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(() => checkBookmark(id));
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -38,49 +39,10 @@ const JobDetail = () => {
         const response = await jobsAPI.getById(id);
         setJob(response.data.job);
         setBookmarked(response.data.job.is_bookmarked);
-      } catch (error) {
-        console.error('Failed to fetch job:', error);
-        // Mock data
-        setJob({
-          id,
-          company: '우리은행',
-          title_ko: '시니어 금융 컨설턴트',
-          title_en: 'Senior Financial Consultant',
-          location: '서울 중구',
-          employment_type: '계약직',
-          salary_range: '연봉 5,000만원 ~ 6,000만원 (협의가능)',
-          description: `우리은행에서 시니어 금융 컨설턴트를 모집합니다.
-
-주요 업무:
-- 고객 자산관리 상담 및 컨설팅
-- 투자 포트폴리오 분석 및 추천
-- VIP 고객 관리 및 관계 유지
-- 금융상품 설명 및 판매
-
-자격요건:
-- 금융권 경력 15년 이상
-- 자산관리 및 투자 상담 경험 우대
-- 관련 자격증 보유자 우대 (CFP, AFPK 등)
-
-우대사항:
-- 우리은행 퇴직자 우대
-- 고객 네트워크 보유자 우대
-- 금융상품 판매 실적 우수자`,
-          requirements: [
-            '금융권 경력 15년 이상',
-            '자산관리 및 투자 상담 경험',
-            '관련 자격증 보유자 우대 (CFP, AFPK 등)',
-          ],
-          benefits: [
-            '유연근무제',
-            '4대보험',
-            '경조금 지원',
-            '자기계발비 지원',
-          ],
-          contact: '인사담당자 02-2002-3000',
-          posted_date: '2024.05.20',
-          deadline: '2024.06.20',
-        });
+      } catch {
+        // Use shared mock data matched by ID
+        const mockJob = getJobById(id);
+        setJob(mockJob);
       } finally {
         setLoading(false);
       }
@@ -89,27 +51,19 @@ const JobDetail = () => {
     fetchJob();
   }, [id]);
 
-  const handleBookmark = async () => {
-    try {
-      if (bookmarked) {
-        await jobsAPI.removeBookmark(id);
-        showSuccess('관심 채용에서 삭제되었습니다');
-      } else {
-        await jobsAPI.bookmark(id);
-        showSuccess('관심 채용에 추가되었습니다');
-      }
-      setBookmarked(!bookmarked);
-    } catch (error) {
-      showError('처리에 실패했습니다');
-    }
+  // Sync bookmark state when navigating between jobs
+  useEffect(() => {
+    setBookmarked(checkBookmark(id));
+  }, [id]);
+
+  const handleBookmark = () => {
+    const newState = toggleBookmark(id);
+    setBookmarked(newState);
+    showSuccess(newState ? '관심 채용에 추가되었습니다' : '관심 채용에서 삭제되었습니다');
   };
 
   const handleApply = () => {
-    if (job.external_url) {
-      window.open(job.external_url, '_blank');
-    } else {
-      navigate(`/jobs/${id}/apply`);
-    }
+    showSuccess('지원이 완료되었습니다. 결과는 이메일로 안내드리겠습니다.');
   };
 
   if (loading) {

@@ -58,6 +58,7 @@ const menuItems = [
       { id: 'applications', labelKey: 'activities.applicationHistory', path: '/activities/applications' },
       { id: 'consultations', labelKey: 'activities.consultationRecords', path: '/activities/consultations' },
       { id: 'courses', labelKey: 'activities.courseStatus', path: '/activities/courses' },
+      { id: 'bookmarks', labelKey: '북마크', path: '/activities/bookmarks' },
       { id: 'booking', labelKey: '상담 예약', path: '/consultations/booking' },
     ],
   },

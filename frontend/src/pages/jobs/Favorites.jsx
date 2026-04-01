@@ -18,6 +18,7 @@ import {
 } from '@mui/icons-material';
 import { jobsAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
+import { getBookmarkedJobs, toggleBookmark } from '../../utils/jobStore';
 
 const Favorites = () => {
   const { t } = useTranslation();
@@ -31,28 +32,15 @@ const Favorites = () => {
     const fetchFavorites = async () => {
       try {
         const response = await jobsAPI.getBookmarks();
-        setFavorites(response.data.bookmarks || []);
-      } catch (error) {
-        console.error('Failed to fetch favorites:', error);
-        // Mock data
-        setFavorites([
-          {
-            id: 1,
-            company: '우리은행',
-            title_ko: '시니어 금융 컨설턴트',
-            location: '서울 중구',
-            employment_type: '계약직',
-            deadline: '2024.06.20',
-          },
-          {
-            id: 2,
-            company: '삼성생명',
-            title_ko: '퇴직연금 전문 상담역',
-            location: '서울 강남구',
-            employment_type: '정규직',
-            deadline: '2024.06.15',
-          },
-        ]);
+        const apiBookmarks = response.data.bookmarks || [];
+        if (apiBookmarks.length > 0) {
+          setFavorites(apiBookmarks);
+        } else {
+          setFavorites(getBookmarkedJobs());
+        }
+      } catch {
+        // No backend — read from localStorage via shared store
+        setFavorites(getBookmarkedJobs());
       } finally {
         setLoading(false);
       }
@@ -62,13 +50,14 @@ const Favorites = () => {
   }, []);
 
   const handleRemove = async (id) => {
+    toggleBookmark(id); // removes from localStorage
     try {
       await jobsAPI.removeBookmark(id);
-      setFavorites(favorites.filter((f) => f.id !== id));
-      showSuccess('관심 채용에서 삭제되었습니다');
-    } catch (error) {
-      console.error('Failed to remove bookmark:', error);
+    } catch {
+      // No backend — localStorage already updated
     }
+    setFavorites(favorites.filter((f) => f.id !== id));
+    showSuccess('관심 채용에서 삭제되었습니다');
   };
 
   return (

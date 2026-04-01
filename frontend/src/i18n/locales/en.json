@@ -123,7 +123,8 @@
     "views": "Views",
     "play": "Play",
     "fileSize": "File Size",
-    "downloadCount": "Downloads"
+    "downloadCount": "Downloads",
+    "searchPlaceholder": "Search here"
   },
   "support": {
     "title": "Customer Support",
