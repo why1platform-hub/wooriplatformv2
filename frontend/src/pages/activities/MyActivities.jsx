@@ -101,6 +101,16 @@ const MyActivities = () => {
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(null);
 
+  // Always load applications for the sidebar stats, regardless of active tab
+  useEffect(() => {
+    const loadStats = async () => {
+      const allApps = await loadApplications();
+      const myApps = user ? allApps.filter((a) => a.email === user.email) : allApps;
+      setApplications(myApps);
+    };
+    loadStats();
+  }, [user]);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
