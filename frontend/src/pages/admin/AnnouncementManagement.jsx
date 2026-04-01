@@ -11,6 +11,7 @@ import {
   ColorLens as ColorIcon, Circle as CircleIcon,
 } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
+import { saveConfigToSupabase } from '../../utils/siteConfig';
 
 const STORAGE_KEY = 'woori_announcement_categories';
 
@@ -71,7 +72,7 @@ const AnnouncementManagement = () => {
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(categories));
+    saveConfigToSupabase(STORAGE_KEY, categories);
   }, [categories]);
 
   const getTypeStyle = (type) => {

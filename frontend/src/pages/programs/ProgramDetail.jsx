@@ -26,14 +26,11 @@ import {
   NotificationsActive as NotifyIcon,
 } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useAuth } from '../../contexts/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
 import CategoryBadge from '../../components/common/CategoryBadge';
-import {
-  getProgramById,
-  loadApplications,
-  saveApplications,
-  getApplicationsForProgram,
-} from '../../utils/programStore';
+import { getProgramById } from '../../utils/programStore';
+import { supabase } from '../../utils/supabase';
 
 const NOTIFICATIONS_KEY = 'woori_program_notifications';
 
@@ -52,40 +49,46 @@ const ProgramDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showSuccess } = useNotification();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [program, setProgram] = useState(null);
   const [applied, setApplied] = useState(false);
   const [applicationStatus, setApplicationStatus] = useState(null);
+  const [existingAppId, setExistingAppId] = useState(null);
   const [notified, setNotified] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [currentParticipants, setCurrentParticipants] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // Load from shared store
-    const p = getProgramById(id);
-    setProgram(p);
-    setLoading(false);
+    const fetchData = async () => {
+      const p = await getProgramById(id);
+      setProgram(p);
+      setLoading(false);
+    };
+    fetchData();
   }, [id]);
 
-  // Check if already applied or notified
+  // Refresh application data from Supabase
+  const refreshApplications = async () => {
+    if (!user) return;
+    const { data } = await supabase.from('program_applications').select('*').eq('program_id', String(id));
+    const apps = data || [];
+    const active = apps.filter((a) => a.status !== '취소' && a.status !== '반려');
+    setCurrentParticipants(active.length);
+    const mine = active.find((a) => a.email === user.email);
+    setApplied(!!mine);
+    setApplicationStatus(mine?.status || null);
+    setExistingAppId(mine?.id || null);
+  };
+
   useEffect(() => {
-    if (!program) return;
-    const apps = loadApplications();
-    const existing = apps.find(
-      (a) => String(a.programId) === String(id) && a.status !== '취소'
-    );
-    setApplied(!!existing);
-    setApplicationStatus(existing?.status || null);
-
-    // Count approved + pending applicants for this program
-    const programApps = getApplicationsForProgram(id);
-    const activeCount = programApps.filter((a) => a.status !== '취소' && a.status !== '반려').length;
-    setCurrentParticipants(program.applicants || activeCount);
-
+    if (!program || !user) return;
+    refreshApplications();
     const notifs = loadNotifications();
     setNotified(notifs.includes(String(id)));
-  }, [program, id]);
+  }, [program, id, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const maxCap = program?.capacity || 30;
   const isFull = currentParticipants >= maxCap;
@@ -95,43 +98,54 @@ const ProgramDetail = () => {
     setConfirmOpen(true);
   };
 
-  const confirmApply = () => {
-    const apps = loadApplications();
-    apps.push({
-      id: Date.now(),
-      programId: String(id),
-      user_name: '나 (현재 사용자)',
-      email: 'me@woori.com',
-      program_title: program.title_ko || program.title,
-      category: program.category,
-      status: '승인대기',
-      applied_at: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
-      date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
-    });
-    saveApplications(apps);
-    setApplied(true);
-    setApplicationStatus('승인대기');
-    setCurrentParticipants((p) => p + 1);
-    setConfirmOpen(false);
-    showSuccess('프로그램 신청이 완료되었습니다!');
+  const confirmApply = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      // Double-check not already applied before inserting
+      const { data: existing } = await supabase.from('program_applications')
+        .select('id').eq('email', user?.email).eq('program_id', String(id))
+        .neq('status', '취소').neq('status', '반려').limit(1);
+      if (existing && existing.length > 0) {
+        setConfirmOpen(false);
+        await refreshApplications();
+        return;
+      }
+      const row = {
+        user_name: user?.name_ko || '사용자',
+        email: user?.email || '',
+        program_id: String(id),
+        program_title: program.title_ko || program.title,
+        category: program.category,
+        status: '승인대기',
+        applied_at: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+        date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+      };
+      await supabase.from('program_applications').insert(row);
+      setConfirmOpen(false);
+      await refreshApplications();
+      showSuccess('프로그램 신청이 완료되었습니다!');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
     setCancelOpen(true);
   };
 
-  const confirmCancel = () => {
-    const apps = loadApplications();
-    const updated = apps.map((a) =>
-      String(a.programId) === String(id) && a.status !== '취소'
-        ? { ...a, status: '취소' }
-        : a
-    );
-    saveApplications(updated);
-    setApplied(false);
-    setApplicationStatus(null);
-    setCurrentParticipants((p) => Math.max(0, p - 1));
+  const confirmCancel = async () => {
+    if (existingAppId) {
+      await supabase.from('program_applications').update({ status: '취소' }).eq('id', existingAppId);
+    } else {
+      await supabase.from('program_applications')
+        .update({ status: '취소' })
+        .eq('email', user?.email)
+        .eq('program_id', String(id))
+        .neq('status', '취소');
+    }
     setCancelOpen(false);
+    await refreshApplications();
     showSuccess('신청이 취소되었습니다.');
   };
 
@@ -366,8 +380,10 @@ const ProgramDetail = () => {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setConfirmOpen(false)}>취소</Button>
-          <Button variant="contained" onClick={confirmApply}>신청하기</Button>
+          <Button onClick={() => setConfirmOpen(false)} disabled={submitting}>취소</Button>
+          <Button variant="contained" onClick={confirmApply} disabled={submitting}>
+            {submitting ? '처리 중...' : '신청하기'}
+          </Button>
         </DialogActions>
       </Dialog>
 

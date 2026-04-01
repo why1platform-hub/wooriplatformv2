@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, TextField, InputAdornment, IconButton, Chip, Menu, MenuItem,
@@ -11,10 +11,8 @@ import {
   CheckCircle as ApproveIcon, Cancel as RejectIcon,
 } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
-import {
-  loadPrograms, savePrograms,
-  loadApplications, saveApplications,
-} from '../../utils/programStore';
+import { loadPrograms, addProgram, updateProgram, deleteProgram, syncProgramApplicants } from '../../utils/programStore';
+import { loadApplications, updateApplicationStatus } from '../../utils/consultationStore';
 
 const CATEGORIES = ['금융컨설팅', '부동산', '창업', '사회공헌', '교육', '기타'];
 const STATUS_OPTIONS = ['모집중', '마감예정', '진행중', '종료'];
@@ -38,21 +36,21 @@ const ProgramManagement = () => {
     capacity: 30, description: '', location: '', instructor: '',
   });
 
-  // Load from shared store
-  useEffect(() => {
-    setPrograms(loadPrograms());
-    setApplications(loadApplications());
+  const fetchData = useCallback(async () => {
+    const [programData, appData] = await Promise.all([
+      loadPrograms(),
+      loadApplications(),
+    ]);
+    setPrograms(programData);
+    setApplications(appData);
   }, []);
 
-  // Persist programs to shared store on change
+  // Load from Supabase on mount + auto-refresh every 5s
   useEffect(() => {
-    if (programs.length > 0) savePrograms(programs);
-  }, [programs]);
-
-  // Persist applications to shared store on change
-  useEffect(() => {
-    if (applications.length > 0) saveApplications(applications);
-  }, [applications]);
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   const getCategoryColor = (cat) => {
     const colors = { '금융컨설팅': 'primary', '부동산': 'secondary', '창업': 'warning', '사회공헌': 'success', '교육': 'info' };
@@ -98,20 +96,18 @@ const ProgramManagement = () => {
     handleMenuClose();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title_ko.trim()) return;
     if (editMode && selectedItem) {
-      setPrograms((prev) => prev.map((p) =>
-        p.id === selectedItem.id ? { ...p, ...form } : p
-      ));
+      await updateProgram(selectedItem.id, form);
       showSuccess('프로그램이 수정되었습니다');
     } else {
-      const newId = Math.max(0, ...programs.map((p) => p.id)) + 1;
-      setPrograms((prev) => [...prev, { id: newId, ...form, applicants: 0 }]);
+      await addProgram({ ...form, applicants: 0 });
       showSuccess('프로그램이 등록되었습니다');
     }
     setDialogOpen(false);
     setSelectedItem(null);
+    await fetchData();
   };
 
   const handleDeleteClick = () => {
@@ -119,22 +115,27 @@ const ProgramManagement = () => {
     handleMenuClose();
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!selectedItem) return;
-    setPrograms((prev) => prev.filter((p) => p.id !== selectedItem.id));
+    await deleteProgram(selectedItem.id);
     showSuccess('프로그램이 삭제되었습니다');
     setDeleteConfirmOpen(false);
     setSelectedItem(null);
+    await fetchData();
   };
 
-  const handleApprove = (app) => {
-    setApplications((prev) => prev.map((a) => a.id === app.id ? { ...a, status: '승인' } : a));
+  const handleApprove = async (app) => {
+    await updateApplicationStatus(app.id, '승인');
+    await syncProgramApplicants(app.programId);
     showSuccess(`${app.user_name}님의 신청이 승인되었습니다`);
+    await fetchData();
   };
 
-  const handleReject = (app) => {
-    setApplications((prev) => prev.map((a) => a.id === app.id ? { ...a, status: '반려' } : a));
+  const handleReject = async (app) => {
+    await updateApplicationStatus(app.id, '반려');
+    await syncProgramApplicants(app.programId);
     showSuccess(`${app.user_name}님의 신청이 반려되었습니다`);
+    await fetchData();
   };
 
   // Get applicants for the selected program (for detail view)
@@ -184,7 +185,7 @@ const ProgramManagement = () => {
                   const appCount = applications.filter(
                     (a) => String(a.programId) === String(program.id) && a.status !== '취소' && a.status !== '반려'
                   ).length;
-                  const displayApplicants = Math.max(program.applicants || 0, appCount);
+                  const displayApplicants = appCount;
                   return (
                     <TableRow key={program.id} hover>
                       <TableCell><Typography variant="body2" fontWeight={500}>{program.title_ko}</Typography></TableCell>

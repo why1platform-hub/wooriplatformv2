@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Grid, Paper, Avatar, Chip, Table, TableBody, TableCell,
@@ -47,25 +47,30 @@ const AdminDashboard = () => {
   const { user } = useAuth();
   const isConsultantRole = user?.role === 'consultant';
 
-  const programs = useMemo(() => loadPrograms(), []);
-  const applications = useMemo(() => loadApplications(), []);
-
+  const [programs, setPrograms] = useState([]);
+  const [applications, setApplications] = useState([]);
   const [consultStats, setConsultStats] = useState({});
   const [consultantStats, setConsultantStats] = useState({});
   const [bookings, setBookings] = useState([]);
 
   useEffect(() => {
     const loadAsync = async () => {
-      const [cs, cas, bk] = await Promise.all([
+      const [progs, apps, cs, cas, bk] = await Promise.all([
+        loadPrograms(),
+        loadApplications(),
         getConsultationStats(),
         getConsultantStats(),
         loadBookings(),
       ]);
+      setPrograms(progs);
+      setApplications(apps);
       setConsultStats(cs);
       setConsultantStats(cas);
       setBookings(bk);
     };
     loadAsync();
+    const interval = setInterval(loadAsync, 5000);
+    return () => clearInterval(interval);
   }, []);
   const userCount = Object.values(ALL_USERS).filter((u) => u.role === 'learner').length;
 
@@ -284,7 +289,7 @@ const AdminDashboard = () => {
                     <Typography variant="caption" color="text.secondary">{p.start_date} ~ {p.end_date}</Typography>
                   </Box>
                   <Chip label={p.status} size="small" sx={{ bgcolor: alpha(sc[p.status] || '#666', 0.1), color: sc[p.status], fontWeight: 600, height: 22, fontSize: '0.7rem' }} />
-                  <Typography variant="body2" fontWeight={600} color="text.secondary">{Math.max(p.applicants || 0, appCount)}/{p.capacity}</Typography>
+                  <Typography variant="body2" fontWeight={600} color="text.secondary">{appCount}/{p.capacity}</Typography>
                 </Box>
               );
             })}

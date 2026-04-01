@@ -22,7 +22,6 @@ import {
   Divider,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
-import { inquiriesAPI } from '../../services/api';
 import StatusBadge from '../../components/common/StatusBadge';
 
 const InquiryList = () => {
@@ -35,19 +34,16 @@ const InquiryList = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
-    const fetchInquiries = async () => {
-      setLoading(true);
-      try {
-        const response = await inquiriesAPI.getMine();
-        setInquiries(response.data.inquiries || []);
-      } catch (error) {
-        console.error('Failed to fetch inquiries:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInquiries();
+    setLoading(true);
+    try {
+      const INQUIRY_KEY = 'woori_inquiries';
+      const saved = JSON.parse(localStorage.getItem(INQUIRY_KEY) || '[]');
+      setInquiries(saved);
+    } catch (error) {
+      console.error('Failed to fetch inquiries:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // Mock data

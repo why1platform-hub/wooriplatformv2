@@ -24,20 +24,32 @@ import {
 } from '@mui/icons-material';
 import StatusBadge from '../../components/common/StatusBadge';
 import CategoryBadge from '../../components/common/CategoryBadge';
-import { loadPrograms, getUserApplication } from '../../utils/programStore';
+import { useAuth } from '../../contexts/AuthContext';
+import { loadPrograms } from '../../utils/programStore';
+import { loadApplications } from '../../utils/consultationStore';
 
 const ProgramList = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [tab, setTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [programs, setPrograms] = useState([]);
+  const [applications, setApplications] = useState([]);
 
   useEffect(() => {
-    // Load from shared localStorage store
-    const data = loadPrograms();
-    setPrograms(data);
-    setLoading(false);
+    const fetchData = async () => {
+      const [programData, appData] = await Promise.all([
+        loadPrograms(),
+        loadApplications(),
+      ]);
+      setPrograms(programData);
+      setApplications(appData);
+      setLoading(false);
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const filteredPrograms = programs.filter((program) => {
@@ -115,7 +127,9 @@ const ProgramList = () => {
                       </TableRow>
                     ) : (
                       filteredPrograms.map((program) => {
-                        const existing = getUserApplication(program.id);
+                        const existing = applications.find(
+                          (a) => String(a.programId) === String(program.id) && a.email === user?.email && a.status !== '취소'
+                        );
                         return (
                           <TableRow
                             key={program.id}

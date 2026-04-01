@@ -67,6 +67,10 @@ const AdminLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [notifAnchor, setNotifAnchor] = useState(null);
+  const [notifCount, setNotifCount] = useState(() => {
+    return localStorage.getItem('woori_admin_notif_read') ? 0 : 3;
+  });
 
   const sidebarWidth = collapsed && !isMobile ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH;
 
@@ -301,8 +305,8 @@ const AdminLayout = ({ children }) => {
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Tooltip title="알림">
-                <IconButton size="small">
-                  <Badge badgeContent={3} color="error" variant="dot">
+                <IconButton size="small" onClick={(e) => { setNotifAnchor(e.currentTarget); setNotifCount(0); localStorage.setItem('woori_admin_notif_read', '1'); }}>
+                  <Badge badgeContent={notifCount} color="error" variant={notifCount > 0 ? 'standard' : 'dot'} invisible={notifCount === 0}>
                     <NotificationsIcon fontSize="small" />
                   </Badge>
                 </IconButton>
@@ -310,7 +314,7 @@ const AdminLayout = ({ children }) => {
 
               <IconButton
                 size="small"
-                onClick={(e) => setAnchorEl(e.currentTarget)}
+                onClick={(e) => { setNotifAnchor(null); setAnchorEl(e.currentTarget); }}
                 sx={{ ml: 0.5 }}
               >
                 <Avatar
@@ -345,7 +349,7 @@ const AdminLayout = ({ children }) => {
                   <ListItemIcon><HomeIcon fontSize="small" /></ListItemIcon>
                   사용자 페이지
                 </MenuItem>
-                <MenuItem onClick={() => setAnchorEl(null)}>
+                <MenuItem onClick={() => { setAnchorEl(null); navigate('/admin/settings'); }}>
                   <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
                   설정
                 </MenuItem>
@@ -353,6 +357,36 @@ const AdminLayout = ({ children }) => {
                 <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
                   <ListItemIcon><LogoutIcon fontSize="small" sx={{ color: 'error.main' }} /></ListItemIcon>
                   로그아웃
+                </MenuItem>
+              </Menu>
+
+              {/* Notification Menu */}
+              <Menu
+                anchorEl={notifAnchor}
+                open={Boolean(notifAnchor)}
+                onClose={() => setNotifAnchor(null)}
+                PaperProps={{ sx: { mt: 1, width: 320, maxHeight: 400, borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)' } }}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              >
+                <Box sx={{ p: 2, borderBottom: '1px solid #F0F0F0' }}>
+                  <Typography variant="subtitle2" fontWeight={700}>알림</Typography>
+                </Box>
+                <MenuItem onClick={() => { setNotifAnchor(null); navigate('/admin/consultations'); }}>
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>새로운 상담 예약이 접수되었습니다</Typography>
+                    <Typography variant="caption" color="text.secondary">5분 전</Typography>
+                  </Box>
+                </MenuItem>
+                <MenuItem onClick={() => { setNotifAnchor(null); navigate('/admin/programs'); }}>
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>프로그램 신청이 승인 대기 중입니다</Typography>
+                    <Typography variant="caption" color="text.secondary">1시간 전</Typography>
+                  </Box>
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={() => setNotifAnchor(null)} sx={{ justifyContent: 'center' }}>
+                  <Typography variant="body2" color="primary" fontWeight={600}>모든 알림 확인</Typography>
                 </MenuItem>
               </Menu>
             </Box>

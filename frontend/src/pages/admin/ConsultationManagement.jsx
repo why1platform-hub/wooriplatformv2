@@ -4,6 +4,8 @@ import {
   TableHead, TableRow, Button, Chip, Tabs, Tab, Avatar, IconButton,
   Dialog, DialogTitle, DialogContent, DialogActions, Tooltip,
   ToggleButton, ToggleButtonGroup, TextField, InputAdornment,
+  FormControl, InputLabel, Select, MenuItem,
+  FormControlLabel, Checkbox, Radio, RadioGroup, FormGroup,
 } from '@mui/material';
 import {
   CheckCircle as ApproveIcon,
@@ -24,7 +26,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import {
-  loadBookings, assignConsultant, approveBooking, completeBooking,
+  loadBookings, assignConsultant, approveBooking, completeBooking, rejectBooking,
   getConsultationStats, getConsultantStats,
   getConsultationHistory, CONSULTANTS,
   getAvailableInstructorsForSlot,
@@ -41,6 +43,7 @@ const statusConfig = {
   confirmed: { label: '확정', color: '#1E40AF', bg: '#DBEAFE' },
   completed: { label: '완료', color: '#166534', bg: '#DCFCE7' },
   cancelled: { label: '취소', color: '#991B1B', bg: '#FEE2E2' },
+  rejected: { label: '거절', color: '#C62828', bg: '#FFEBEE' },
 };
 const methodIcon = { '온라인': <OnlineIcon sx={{ fontSize: 16 }} />, '오프라인': <OfflineIcon sx={{ fontSize: 16 }} />, '전화': <PhoneIcon sx={{ fontSize: 16 }} /> };
 
@@ -77,19 +80,35 @@ const ConsultationManagement = () => {
   const [tab, setTab] = useState(0);
   const [bookings, setBookings] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterMethod, setFilterMethod] = useState('all');
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignTarget, setAssignTarget] = useState(null);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectComment, setRejectComment] = useState('');
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [intakeUserId, setIntakeUserId] = useState(null);
   const [intakeUserName, setIntakeUserName] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyData, setHistoryData] = useState({ name: '', items: [] });
 
-  // Consultation notes
+  // Consultation notes (상담일지)
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteBooking, setNoteBooking] = useState(null);
-  const [noteTitle, setNoteTitle] = useState('');
-  const [noteContent, setNoteContent] = useState('');
+  const [noteErrors, setNoteErrors] = useState({});
+  const defaultNoteForm = {
+    consultType: '',           // 상담유형: 대면/유선/온라인/기타
+    timeStart: '',             // 상담시간 시작
+    timeEnd: '',               // 상담시간 끝
+    topic: '',                 // 상담주제
+    careerGoals: [],           // 희망 진로 (checkbox array)
+    consultContent: '',        // 컨설팅 내용
+    consultantOpinion: '',     // 상담사 의견
+    risks: '',                 // 주요리스크 및 특이사항
+    nextDate: '',              // 다음 상담 예정일
+  };
+  const [noteForm, setNoteForm] = useState({ ...defaultNoteForm });
 
   // Async-loaded stats
   const [stats, setStats] = useState({ total: 0, pending: 0, confirmed: 0, completed: 0 });
@@ -146,13 +165,10 @@ const ConsultationManagement = () => {
     return () => { cancelled = true; };
   }, [bookings]);
 
-  const allMyBookings = isConsultantRole
-    ? bookings.filter((b) => b.consultantId === user.id && b.status !== 'cancelled')
-    : bookings.filter((b) => b.status !== 'cancelled');
-  const pendingBookings = bookings.filter((b) => b.status === 'pending');
-
-  // Apply search filter
-  const filterBooking = (b) => {
+  // Apply search + dropdown filters
+  const filterBooking = useCallback((b) => {
+    if (filterStatus !== 'all' && b.status !== filterStatus) return false;
+    if (filterMethod !== 'all' && b.method !== filterMethod) return false;
     if (!searchTerm) return true;
     const q = searchTerm.toLowerCase();
     return (b.userName || '').toLowerCase().includes(q)
@@ -160,7 +176,12 @@ const ConsultationManagement = () => {
       || (b.consultantName || '').toLowerCase().includes(q)
       || (b.date || '').includes(q)
       || (b.method || '').toLowerCase().includes(q);
-  };
+  }, [filterStatus, filterMethod, searchTerm]);
+
+  const allMyBookings = isConsultantRole
+    ? bookings.filter((b) => b.consultantId === user.id && b.status !== 'cancelled')
+    : bookings.filter((b) => b.status !== 'cancelled');
+  const pendingBookings = bookings.filter((b) => b.status === 'pending').filter(filterBooking);
   const myBookings = allMyBookings.filter(filterBooking);
   const PAGE_SIZE = 8;
 
@@ -259,19 +280,70 @@ const ConsultationManagement = () => {
     showSuccess('상담이 완료 처리되었습니다.');
   };
 
+  const handleReject = async () => {
+    if (!rejectTarget) return;
+    const reason = rejectComment.trim() || '해당 시간에 가용한 강사가 없습니다. 다른 시간을 선택해 주세요.';
+    await rejectBooking(rejectTarget.id, reason);
+    setBookings(await loadBookings());
+    setRejectOpen(false);
+    setRejectTarget(null);
+    setRejectComment('');
+    showSuccess(`${rejectTarget.userName}님의 예약이 거절되었습니다.`);
+  };
+
   const openIntake = (uid, name) => { setIntakeUserId(uid); setIntakeUserName(name); setIntakeOpen(true); };
   const openNote = async (booking) => {
     const existing = await getNote(booking.id);
     setNoteBooking(booking);
-    setNoteTitle(existing?.title || '');
-    setNoteContent(existing?.content || '');
+    setNoteErrors({});
+    if (existing?.content) {
+      try {
+        const parsed = JSON.parse(existing.content);
+        setNoteForm({ ...defaultNoteForm, ...parsed, topic: existing.title || parsed.topic || '' });
+      } catch {
+        // Legacy plain-text note: put old content into consultContent
+        setNoteForm({ ...defaultNoteForm, topic: existing.title || '', consultContent: existing.content || '' });
+      }
+    } else {
+      setNoteForm({ ...defaultNoteForm });
+    }
     setNoteOpen(true);
+  };
+  const validateNoteForm = () => {
+    const errs = {};
+    if (!noteForm.consultType) errs.consultType = true;
+    if (!noteForm.timeStart || !noteForm.timeEnd) errs.time = true;
+    if (!noteForm.topic.trim()) errs.topic = true;
+    if (noteForm.careerGoals.length === 0) errs.careerGoals = true;
+    if (!noteForm.consultContent.trim()) errs.consultContent = true;
+    if (!noteForm.consultantOpinion.trim()) errs.consultantOpinion = true;
+    if (!noteForm.risks.trim()) errs.risks = true;
+    if (!noteForm.nextDate) errs.nextDate = true;
+    setNoteErrors(errs);
+    return Object.keys(errs).length === 0;
   };
   const handleSaveNote = async () => {
     if (!noteBooking) return;
-    await saveNote(noteBooking.id, noteTitle, noteContent);
+    if (!validateNoteForm()) return;
+    const title = noteForm.topic;
+    const content = JSON.stringify(noteForm);
+    await saveNote(noteBooking.id, title, content);
     setNoteOpen(false);
-    showSuccess('상담 기록이 저장되었습니다.');
+    showSuccess('상담일지가 저장되었습니다.');
+  };
+  const updateNoteField = (field, value) => {
+    setNoteForm((prev) => ({ ...prev, [field]: value }));
+    const errKey = (field === 'timeStart' || field === 'timeEnd') ? 'time' : field;
+    setNoteErrors((prev) => ({ ...prev, [errKey]: false }));
+  };
+  const toggleCareerGoal = (goal) => {
+    setNoteForm((prev) => ({
+      ...prev,
+      careerGoals: prev.careerGoals.includes(goal)
+        ? prev.careerGoals.filter((g) => g !== goal)
+        : [...prev.careerGoals, goal],
+    }));
+    setNoteErrors((prev) => ({ ...prev, careerGoals: false }));
   };
   const openHistory = async (uid, name) => {
     const items = await getConsultationHistory(uid, isConsultantRole ? user.id : null);
@@ -402,18 +474,40 @@ const ConsultationManagement = () => {
       </Grid>
 
       <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
-        <Tabs value={tab} onChange={(_, v) => { setTab(v); setSearchTerm(''); }} sx={{ mb: 2 }}>
+        <Tabs value={tab} onChange={(_, v) => { setTab(v); setSearchTerm(''); setFilterStatus('all'); setFilterMethod('all'); }} sx={{ mb: 2 }}>
           {tabs.map((t, i) => <Tab key={i} label={t.label} />)}
         </Tabs>
 
-        {/* Search bar — shown on booking tabs */}
+        {/* Filters + Search — shown on booking tabs */}
         {((isAdmin && tab <= 1) || (isConsultantRole && tab <= 1)) && (
-          <TextField
-            fullWidth size="small" placeholder="검색 (이름, 이메일, 날짜, 방법...)"
-            value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
-            sx={{ mb: 2 }}
-          />
+          <Box sx={{ display: 'flex', gap: 1.5, mb: 2, alignItems: 'center' }}>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>상태</InputLabel>
+              <Select value={filterStatus} label="상태" onChange={(e) => setFilterStatus(e.target.value)}>
+                <MenuItem value="all">전체</MenuItem>
+                <MenuItem value="pending">배정 대기</MenuItem>
+                <MenuItem value="pending_approval">승인 대기</MenuItem>
+                <MenuItem value="confirmed">확정</MenuItem>
+                <MenuItem value="completed">완료</MenuItem>
+                <MenuItem value="cancelled">취소</MenuItem>
+                <MenuItem value="rejected">거절</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>방법</InputLabel>
+              <Select value={filterMethod} label="방법" onChange={(e) => setFilterMethod(e.target.value)}>
+                <MenuItem value="all">전체</MenuItem>
+                <MenuItem value="온라인">온라인</MenuItem>
+                <MenuItem value="오프라인">오프라인</MenuItem>
+                <MenuItem value="전화">전화</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth size="small" placeholder="검색 (이름, 이메일, 날짜...)"
+              value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
+            />
+          </Box>
         )}
 
         {/* ─── Tab 0 (Admin): Pending assignments ─── */}
@@ -439,7 +533,10 @@ const ConsultationManagement = () => {
                     )) : <Typography variant="caption" color="error">없음</Typography>}
                   </TableCell>
                   <TableCell align="center">
-                    <Button size="small" variant="contained" startIcon={<AssignIcon />} onClick={() => { setAssignTarget(b); setAssignOpen(true); }} sx={{ fontSize: '0.75rem' }}>배정</Button>
+                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                      <Button size="small" variant="contained" startIcon={<AssignIcon />} onClick={() => { setAssignTarget(b); setAssignOpen(true); }} sx={{ fontSize: '0.75rem' }}>배정</Button>
+                      <Button size="small" variant="outlined" color="error" onClick={() => { setRejectTarget(b); setRejectComment(''); setRejectOpen(true); }} sx={{ fontSize: '0.75rem' }}>거절</Button>
+                    </Box>
                   </TableCell>
                 </TableRow>
               );
@@ -744,52 +841,222 @@ const ConsultationManagement = () => {
         <DialogActions><Button onClick={() => setHistoryOpen(false)}>닫기</Button></DialogActions>
       </Dialog>
 
-      {/* ─── Consultation Notes Dialog ─── */}
-      <Dialog open={noteOpen} onClose={() => setNoteOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
-        <DialogTitle fontWeight={700}>
-          {noteBooking && (
-            <Box>
-              <Typography variant="h6" fontWeight={700}>상담 기록</Typography>
-              <Typography variant="caption" color="text.secondary">
-                {noteBooking.userName} · {noteBooking.date} {noteBooking.time} · {noteBooking.method}
+      {/* ─── Reject Booking Dialog ─── */}
+      <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+        <DialogTitle fontWeight={700} sx={{ color: '#C62828' }}>예약 거절</DialogTitle>
+        <DialogContent>
+          {rejectTarget && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>{rejectTarget.userName}</strong>님의 예약을 거절합니다.
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {rejectTarget.date} {rejectTarget.time} · {rejectTarget.method}
               </Typography>
             </Box>
           )}
+          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>거절 사유 및 추천 시간 (사용자에게 전달됨)</Typography>
+          <TextField
+            fullWidth multiline rows={4} value={rejectComment}
+            onChange={(e) => setRejectComment(e.target.value)}
+            placeholder={"해당 시간에 가용한 강사가 없습니다. 다른 시간을 선택해 주세요.\n\n추천 시간: 예) 2026.04.10 14:00~15:00"}
+            sx={{ '& .MuiInputBase-root': { fontSize: '0.85rem' } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setRejectOpen(false)}>취소</Button>
+          <Button variant="contained" color="error" onClick={handleReject}>거절 확정</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ─── Consultation Notes Dialog (상담일지) ─── */}
+      <Dialog open={noteOpen} onClose={() => setNoteOpen(false)} maxWidth="lg" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+        <DialogTitle sx={{ bgcolor: '#1F3864', color: '#fff', py: 2 }}>
+          <Typography variant="h6" fontWeight={700} sx={{ color: '#fff' }}>
+            우리은행 퇴직자 전직지원 프로그램 / 상담일지 양식
+          </Typography>
+          {noteBooking && (
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 0.5 }}>
+              {noteBooking.userName} · {noteBooking.date} {noteBooking.time} · {noteBooking.method}
+            </Typography>
+          )}
         </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>상담 제목</Typography>
-              <input
-                value={noteTitle}
-                onChange={(e) => setNoteTitle(e.target.value)}
-                placeholder="예: 초기 진로 상담, 이력서 피드백 등"
-                style={{
-                  width: '100%', padding: '10px 12px', borderRadius: 8,
-                  border: '1px solid #D1D5DB', fontSize: '0.9rem', outline: 'none',
-                  fontFamily: 'inherit',
-                }}
-              />
+        <DialogContent sx={{ p: 0 }}>
+          {/* ── Header section (grey bg) ── */}
+          <Box sx={{ bgcolor: '#F2F2F2', p: 3 }}>
+            {/* 상담유형 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 100, bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center' }}>
+                상담유형 *
+              </Typography>
+              <RadioGroup row value={noteForm.consultType} onChange={(e) => updateNoteField('consultType', e.target.value)}>
+                {['대면', '유선', '온라인', '기타'].map((t) => (
+                  <FormControlLabel key={t} value={t} control={<Radio size="small" />} label={t} />
+                ))}
+              </RadioGroup>
+              {noteErrors.consultType && <Typography variant="caption" color="error">필수 항목</Typography>}
             </Box>
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>상담 내용</Typography>
-              <textarea
-                value={noteContent}
-                onChange={(e) => setNoteContent(e.target.value)}
-                placeholder="상담 내용을 자유롭게 기록하세요..."
-                rows={8}
-                style={{
-                  width: '100%', padding: '10px 12px', borderRadius: 8,
-                  border: '1px solid #D1D5DB', fontSize: '0.85rem', outline: 'none',
-                  fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6,
-                }}
+
+            {/* 상담시간 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 100, bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center' }}>
+                상담시간 *
+              </Typography>
+              <TextField
+                type="time" size="small" value={noteForm.timeStart}
+                onChange={(e) => updateNoteField('timeStart', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ width: 150, bgcolor: '#fff' }}
+                error={!!noteErrors.time}
+              />
+              <Typography variant="body2" fontWeight={600}>~</Typography>
+              <TextField
+                type="time" size="small" value={noteForm.timeEnd}
+                onChange={(e) => updateNoteField('timeEnd', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ width: 150, bgcolor: '#fff' }}
+                error={!!noteErrors.time}
+              />
+              {noteErrors.time && <Typography variant="caption" color="error">필수 항목</Typography>}
+            </Box>
+
+            {/* 상담주제 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 100, bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center' }}>
+                상담주제 *
+              </Typography>
+              <TextField
+                fullWidth size="small" value={noteForm.topic}
+                onChange={(e) => updateNoteField('topic', e.target.value)}
+                placeholder="예: 초기 진로 상담, 이력서 피드백 등"
+                sx={{ bgcolor: '#fff' }}
+                error={!!noteErrors.topic}
               />
             </Box>
           </Box>
+
+          {/* ── 희망 진로 section ── */}
+          <Box sx={{ px: 3, pt: 2, pb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+              <Typography variant="subtitle1" fontWeight={700} sx={{ bgcolor: '#B3E5A1', px: 1.5, py: 0.5, borderRadius: 1 }}>
+                희망 진로 *
+              </Typography>
+              {noteErrors.careerGoals && <Typography variant="caption" color="error">1개 이상 선택 필수</Typography>}
+            </Box>
+            <FormGroup sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
+              {['재취업(정규·계약직)', '파트타임 근무', '창업·소자본 창업', '프리랜서·컨설팅', '사회공헌·강의·코칭', '아직 미정'].map((goal) => (
+                <FormControlLabel
+                  key={goal}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={noteForm.careerGoals.includes(goal)}
+                      onChange={() => toggleCareerGoal(goal)}
+                    />
+                  }
+                  label={<Typography variant="body2">{goal}</Typography>}
+                />
+              ))}
+            </FormGroup>
+          </Box>
+
+          {/* ── 상담내용 section ── */}
+          <Box sx={{ px: 3, pb: 2 }}>
+            <Box sx={{ bgcolor: '#215E99', color: '#fff', px: 2, py: 1, borderRadius: '4px 4px 0 0', mt: 2 }}>
+              <Typography variant="subtitle1" fontWeight={700}>상담내용</Typography>
+            </Box>
+            <Box sx={{ border: '1px solid #D1D5DB', borderTop: 'none', borderRadius: '0 0 4px 4px', p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* 컨설팅 내용 */}
+              <Box>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, display: 'inline-block', mb: 1 }}>
+                  컨설팅 내용 *
+                </Typography>
+                <textarea
+                  value={noteForm.consultContent}
+                  onChange={(e) => updateNoteField('consultContent', e.target.value)}
+                  placeholder="상담에서 다룬 구체적인 내용을 기록하세요..."
+                  rows={5}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 4,
+                    border: noteErrors.consultContent ? '2px solid #d32f2f' : '1px solid #D1D5DB',
+                    fontSize: '0.85rem', outline: 'none',
+                    fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6,
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </Box>
+
+              {/* 상담사 의견 */}
+              <Box>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, display: 'inline-block', mb: 1 }}>
+                  상담사 의견 *
+                </Typography>
+                <textarea
+                  value={noteForm.consultantOpinion}
+                  onChange={(e) => updateNoteField('consultantOpinion', e.target.value)}
+                  placeholder="상담사로서의 소견, 조언, 평가를 기록하세요..."
+                  rows={5}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 4,
+                    border: noteErrors.consultantOpinion ? '2px solid #d32f2f' : '1px solid #D1D5DB',
+                    fontSize: '0.85rem', outline: 'none',
+                    fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6,
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </Box>
+
+              {/* 주요리스크 및 특이사항 */}
+              <Box>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, display: 'inline-block', mb: 1 }}>
+                  주요리스크 및 특이사항 *
+                </Typography>
+                <textarea
+                  value={noteForm.risks}
+                  onChange={(e) => updateNoteField('risks', e.target.value)}
+                  placeholder="리스크 요인, 특이사항, 유의점 등을 기록하세요..."
+                  rows={4}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 4,
+                    border: noteErrors.risks ? '2px solid #d32f2f' : '1px solid #D1D5DB',
+                    fontSize: '0.85rem', outline: 'none',
+                    fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.6,
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </Box>
+            </Box>
+          </Box>
+
+          {/* ── 하단 section ── */}
+          <Box sx={{ px: 3, pb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* 상담사진 placeholder */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 130 }}>상담사진 (2장)</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                사진 업로드 기능은 추후 제공 예정입니다.
+              </Typography>
+            </Box>
+
+            {/* 다음 상담 예정일 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 130, bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center' }}>다음 상담 예정일 *</Typography>
+              <TextField
+                type="date" size="small" value={noteForm.nextDate}
+                onChange={(e) => updateNoteField('nextDate', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ width: 200, bgcolor: '#fff' }}
+                error={!!noteErrors.nextDate}
+              />
+              {noteErrors.nextDate && <Typography variant="caption" color="error">필수 항목</Typography>}
+            </Box>
+          </Box>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setNoteOpen(false)}>취소</Button>
-          <Button variant="contained" onClick={handleSaveNote}>저장</Button>
+        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #E5E7EB' }}>
+          <Button onClick={() => setNoteOpen(false)} sx={{ mr: 1 }}>취소</Button>
+          <Button variant="contained" onClick={handleSaveNote} sx={{ bgcolor: '#1F3864', '&:hover': { bgcolor: '#162b52' } }}>
+            저장
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

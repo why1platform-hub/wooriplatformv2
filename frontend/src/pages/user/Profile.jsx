@@ -27,6 +27,8 @@ const Profile = () => {
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(user?.profile_image || '');
+  const fileInputRef = React.useRef(null);
 
   const handleChange = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -39,6 +41,7 @@ const Profile = () => {
     const updatedUser = {
       ...user,
       ...form,
+      profile_image: avatarUrl || user?.profile_image || '',
       skills: form.skills ? form.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
     };
     localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -63,16 +66,36 @@ const Profile = () => {
             <CardContent sx={{ textAlign: 'center', py: 4 }}>
               <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
                 <Avatar sx={{ width: 96, height: 96, bgcolor: '#0047BA', fontSize: '2rem', mx: 'auto' }}
-                  src={user?.profile_image}>
+                  src={avatarUrl || user?.profile_image}>
                   {(user?.name_ko || user?.name_en || 'U').charAt(0)}
                 </Avatar>
-                <Box sx={{
-                  position: 'absolute', bottom: 0, right: -4,
-                  width: 32, height: 32, borderRadius: '50%',
-                  bgcolor: '#fff', border: '2px solid #E5E5E5',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', '&:hover': { bgcolor: '#F5F5F5' },
-                }}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        setAvatarUrl(ev.target.result);
+                        showSuccess('프로필 사진이 변경되었습니다. 저장 버튼을 눌러주세요.');
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                <Box
+                  onClick={() => fileInputRef.current?.click()}
+                  sx={{
+                    position: 'absolute', bottom: 0, right: -4,
+                    width: 32, height: 32, borderRadius: '50%',
+                    bgcolor: '#fff', border: '2px solid #E5E5E5',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', '&:hover': { bgcolor: '#F5F5F5' },
+                  }}
+                >
                   <CameraIcon sx={{ fontSize: 16, color: '#888' }} />
                 </Box>
               </Box>
@@ -125,7 +148,8 @@ const Profile = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField fullWidth label="이메일" value={form.email}
-                    onChange={handleChange('email')} disabled />
+                    onChange={handleChange('email')} disabled
+                    helperText="로그인 계정이므로 변경할 수 없습니다" />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField fullWidth label="연락처" value={form.phone}

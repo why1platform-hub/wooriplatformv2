@@ -56,3 +56,38 @@ export const loadLogo = () => {
 };
 
 export const isBrandingLoaded = () => _loaded;
+
+// ── Banner/config sync helpers ──
+// On admin save: write to both Supabase + localStorage (for immediate local use)
+// On page load: try Supabase first, cache to localStorage
+
+const BANNER_KEYS = [
+  'woori_landing_slides', 'woori_footer_banners', 'woori_footer_speed',
+  'woori_footer_active', 'woori_popup_banners', 'woori_home_banners', 'woori_site_logo',
+  'woori_homepage_order', 'woori_policies', 'woori_sso_config',
+  'woori_announcement_categories', 'woori_faq_categories', 'woori_faq_settings',
+];
+
+export const syncConfigFromSupabase = async () => {
+  try {
+    const { data } = await supabase.from('site_config').select('key, value');
+    if (data) {
+      data.forEach((row) => {
+        if (BANNER_KEYS.includes(row.key) || row.key === 'branding') {
+          localStorage.setItem(row.key, typeof row.value === 'string' ? row.value : JSON.stringify(row.value));
+        }
+      });
+    }
+  } catch { /* ignore — use localStorage cache */ }
+};
+
+export const saveConfigToSupabase = async (key, value) => {
+  // Save locally immediately
+  localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+  // Persist to Supabase
+  try {
+    await supabase.from('site_config').upsert({
+      key, value, updated_at: new Date().toISOString(),
+    });
+  } catch { /* ignore */ }
+};

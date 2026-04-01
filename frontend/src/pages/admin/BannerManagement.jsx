@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { syncConfigFromSupabase, saveConfigToSupabase } from '../../utils/siteConfig';
 import {
   Box, Typography, Paper, Grid, TextField, Button, Switch, FormControlLabel,
   Dialog, DialogTitle, DialogContent, IconButton, Divider,
@@ -163,33 +164,38 @@ const BannerManagement = () => {
   const [editingHomeBannerIndex, setEditingHomeBannerIndex] = useState(null);
   const [homeBannerPreviewIndex, setHomeBannerPreviewIndex] = useState(0);
 
-  // ─── Save handlers ─────────────────────────────────
-  const handleSavePopups = () => {
-    localStorage.setItem('woori_popup_banners', JSON.stringify(popups));
+  // Sync from Supabase on mount
+  useEffect(() => { syncConfigFromSupabase(); }, []);
+
+  // ─── Save handlers (localStorage + Supabase) ─────────────────────────────────
+  const handleSavePopups = async () => {
+    await saveConfigToSupabase('woori_popup_banners', popups);
     localStorage.removeItem('woori_popup_banner');
     showSuccess('팝업 배너가 저장되었습니다');
   };
 
-  const handleSaveFooter = () => {
-    localStorage.setItem('woori_footer_banners', JSON.stringify(footerBanners));
-    localStorage.setItem('woori_footer_speed', String(footerSpeed));
-    localStorage.setItem('woori_footer_active', String(footerActive));
+  const handleSaveFooter = async () => {
+    await Promise.all([
+      saveConfigToSupabase('woori_footer_banners', footerBanners),
+      saveConfigToSupabase('woori_footer_speed', String(footerSpeed)),
+      saveConfigToSupabase('woori_footer_active', String(footerActive)),
+    ]);
     showSuccess('하단 배너가 저장되었습니다');
   };
 
-  const handleSaveLogo = () => {
-    localStorage.setItem('woori_site_logo', JSON.stringify(siteLogo));
-    showSuccess('로고가 저장되었습니다. 새로고침 후 반영됩니다.');
+  const handleSaveLogo = async () => {
+    await saveConfigToSupabase('woori_site_logo', siteLogo);
+    showSuccess('로고가 저장되었습니다.');
   };
 
-  const handleSaveSlides = () => {
-    localStorage.setItem('woori_landing_slides', JSON.stringify(slides));
-    showSuccess('랜딩 배너가 저장되었습니다. 새로고침 후 반영됩니다.');
+  const handleSaveSlides = async () => {
+    await saveConfigToSupabase('woori_landing_slides', slides);
+    showSuccess('랜딩 배너가 저장되었습니다.');
   };
 
-  const handleSaveHomeBanners = () => {
-    localStorage.setItem('woori_home_banners', JSON.stringify(homeBanners));
-    showSuccess('홈 배너가 저장되었습니다. 새로고침 후 반영됩니다.');
+  const handleSaveHomeBanners = async () => {
+    await saveConfigToSupabase('woori_home_banners', homeBanners);
+    showSuccess('홈 배너가 저장되었습니다.');
   };
 
   // ─── Popup handlers ─────────────────────────────────

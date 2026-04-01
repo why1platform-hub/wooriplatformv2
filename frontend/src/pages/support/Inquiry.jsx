@@ -14,7 +14,6 @@ import {
   Alert,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
-import { inquiriesAPI } from '../../services/api';
 import { useNotification } from '../../contexts/NotificationContext';
 
 const Inquiry = () => {
@@ -52,16 +51,25 @@ const Inquiry = () => {
   const onSubmit = async (data) => {
     setSubmitting(true);
     try {
-      await inquiriesAPI.create({
+      // Save to localStorage (no backend server)
+      const INQUIRY_KEY = 'woori_inquiries';
+      const existing = JSON.parse(localStorage.getItem(INQUIRY_KEY) || '[]');
+      const newInquiry = {
+        id: Date.now(),
         category: data.category,
         title: data.title,
         content: data.content,
         contact_email: data.email,
         contact_phone: data.phone,
-      });
+        status: '대기중',
+        created_at: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+        response: null,
+      };
+      existing.push(newInquiry);
+      localStorage.setItem(INQUIRY_KEY, JSON.stringify(existing));
       showSuccess('문의가 성공적으로 등록되었습니다. 빠른 시일 내에 답변 드리겠습니다.');
       reset();
-      navigate('/support/inquiries');
+      navigate('/support/inquiry/list');
     } catch (error) {
       showError('문의 등록에 실패했습니다. 다시 시도해주세요.');
     } finally {
@@ -234,7 +242,7 @@ const Inquiry = () => {
               <Button
                 variant="outlined"
                 size="large"
-                onClick={() => navigate('/support/inquiries')}
+                onClick={() => navigate('/support/inquiry/list')}
                 sx={{ minWidth: 120 }}
               >
                 취소

@@ -19,7 +19,7 @@ import {
   DragIndicator as DragIcon,
 } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
-import { loadBranding, saveBranding } from '../../utils/siteConfig';
+import { loadBranding, saveBranding, saveConfigToSupabase } from '../../utils/siteConfig';
 
 const API_BASE = '/api';
 const POLICIES_STORAGE_KEY = 'woori_policies';
@@ -124,8 +124,8 @@ const Settings = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Save to localStorage for immediate use
-      localStorage.setItem('woori_sso_config', JSON.stringify(ssoConfig));
+      // Save to localStorage + Supabase for cross-device sync
+      await saveConfigToSupabase('woori_sso_config', ssoConfig);
 
       // Try saving to backend
       const token = localStorage.getItem('woori_token');
@@ -557,7 +557,7 @@ const Settings = () => {
                         const newOrder = [...sectionOrder];
                         [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
                         setSectionOrder(newOrder);
-                        localStorage.setItem(HOMEPAGE_ORDER_KEY, JSON.stringify(newOrder));
+                        saveConfigToSupabase(HOMEPAGE_ORDER_KEY, newOrder);
                         showSuccess('섹션 순서가 변경되었습니다.');
                       }}>
                       <ArrowUpIcon fontSize="small" />
@@ -567,7 +567,7 @@ const Settings = () => {
                         const newOrder = [...sectionOrder];
                         [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
                         setSectionOrder(newOrder);
-                        localStorage.setItem(HOMEPAGE_ORDER_KEY, JSON.stringify(newOrder));
+                        saveConfigToSupabase(HOMEPAGE_ORDER_KEY, newOrder);
                         showSuccess('섹션 순서가 변경되었습니다.');
                       }}>
                       <ArrowDownIcon fontSize="small" />
@@ -580,7 +580,7 @@ const Settings = () => {
             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
               <Button variant="outlined" size="small" onClick={() => {
                 setSectionOrder(DEFAULT_SECTION_ORDER);
-                localStorage.setItem(HOMEPAGE_ORDER_KEY, JSON.stringify(DEFAULT_SECTION_ORDER));
+                saveConfigToSupabase(HOMEPAGE_ORDER_KEY, DEFAULT_SECTION_ORDER);
                 showSuccess('기본 순서로 초기화되었습니다.');
               }}>
                 기본 순서로 초기화
@@ -650,7 +650,7 @@ const Settings = () => {
                   privacy: { ...policies.privacy, updatedAt: now },
                   terms: { ...policies.terms, updatedAt: now },
                 };
-                localStorage.setItem(POLICIES_STORAGE_KEY, JSON.stringify(updated));
+                saveConfigToSupabase(POLICIES_STORAGE_KEY, updated);
                 setPolicies(updated);
                 showSuccess('약관이 저장되었습니다.');
                 setPolicySaving(false);

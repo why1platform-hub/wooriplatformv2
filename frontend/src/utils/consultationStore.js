@@ -52,6 +52,7 @@ export const loadBookings = async () => {
         id: r.id, userId: r.user_id, userName: r.user_name, userEmail: r.user_email,
         date: r.date, time: r.time, method: r.method, status: r.status,
         consultantId: r.consultant_id, consultantName: r.consultant_name,
+        rejectReason: r.reject_reason || '',
         createdAt: r.created_at,
       }));
     }
@@ -102,6 +103,12 @@ export const completeBooking = async (bookingId) => {
 export const cancelBooking = async (bookingId) => {
   try {
     await supabase.from('consultation_bookings').update({ status: 'cancelled' }).eq('id', bookingId);
+  } catch { /* ignore */ }
+};
+
+export const rejectBooking = async (bookingId, reason) => {
+  try {
+    await supabase.from('consultation_bookings').update({ status: 'rejected', reject_reason: reason }).eq('id', bookingId);
   } catch { /* ignore */ }
 };
 
@@ -291,7 +298,8 @@ export const setSiteConfig = async (key, value) => {
 export const loadApplications = async () => {
   try {
     const { data, error } = await supabase.from('program_applications').select('*').order('id', { ascending: false });
-    if (!error && data) {
+    if (error) { console.error('loadApplications error:', error); return []; }
+    if (data) {
       return data.map((r) => ({
         id: r.id, user_name: r.user_name, email: r.email,
         programId: r.program_id, program_title: r.program_title,
@@ -299,24 +307,43 @@ export const loadApplications = async () => {
         applied_at: r.applied_at, date: r.date,
       }));
     }
-  } catch { /* fallback */ }
+  } catch (e) { console.error('loadApplications exception:', e); }
   return [];
 };
 
 export const addApplication = async (app) => {
   try {
-    const { data } = await supabase.from('program_applications').insert({
+    const row = {
       user_name: app.user_name, email: app.email, program_id: app.programId,
       program_title: app.program_title, category: app.category,
       status: app.status || '승인대기', applied_at: app.applied_at, date: app.date,
-    }).select().single();
+    };
+    const { data, error } = await supabase.from('program_applications').insert(row).select().single();
+    if (error) {
+      console.error('addApplication error:', error);
+      return null;
+    }
     if (data) return { ...app, id: data.id };
-  } catch { /* ignore */ }
+  } catch (e) { console.error('addApplication exception:', e); }
   return null;
 };
 
 export const updateApplicationStatus = async (appId, status) => {
+  if (!appId) { console.error('updateApplicationStatus: no appId'); return; }
   try {
-    await supabase.from('program_applications').update({ status }).eq('id', appId);
-  } catch { /* ignore */ }
+    const { error } = await supabase.from('program_applications').update({ status }).eq('id', appId);
+    if (error) console.error('updateApplicationStatus error:', error);
+  } catch (e) { console.error('updateApplicationStatus exception:', e); }
+};
+
+// Cancel application by email+programId (fallback when appId is unknown)
+export const cancelApplicationByEmail = async (email, programId) => {
+  try {
+    const { error } = await supabase.from('program_applications')
+      .update({ status: '취소' })
+      .eq('email', email)
+      .eq('program_id', String(programId))
+      .neq('status', '취소');
+    if (error) console.error('cancelApplicationByEmail error:', error);
+  } catch (e) { console.error('cancelApplicationByEmail exception:', e); }
 };

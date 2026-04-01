@@ -11,6 +11,7 @@ import {
   ColorLens as ColorIcon, Circle as CircleIcon,
 } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
+import { saveConfigToSupabase } from '../../utils/siteConfig';
 
 const STORAGE_KEY = 'woori_faq_categories';
 const FAQ_SETTINGS_KEY = 'woori_faq_settings';
@@ -79,7 +80,7 @@ const FAQManagement = () => {
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(categories));
+    saveConfigToSupabase(STORAGE_KEY, categories);
   }, [categories]);
 
   const getCatStyle = (catName) => {
@@ -214,7 +215,7 @@ const FAQManagement = () => {
                 <Switch checked={showViewCount} onChange={(e) => {
                   const val = e.target.checked;
                   setShowViewCount(val);
-                  localStorage.setItem(FAQ_SETTINGS_KEY, JSON.stringify({ showViewCount: val }));
+                  saveConfigToSupabase(FAQ_SETTINGS_KEY, { showViewCount: val });
                   showSuccess(val ? '조회수가 사용자에게 표시됩니다.' : '조회수가 사용자에게 숨겨집니다.');
                 }} />
               }
