@@ -51,6 +51,14 @@ const Register = () => {
 
   const password = watch('password');
 
+  // Auto-format phone number: 010-1234-5678
+  const formatPhone = (value) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  };
+
   const onSubmit = async (data) => {
     setLoading(true);
     setError('');
@@ -59,7 +67,7 @@ const Register = () => {
       email: data.email,
       password: data.password,
       name_ko: data.name_ko,
-      name_en: data.name_en,
+      name_en: '',
       phone: data.phone,
       employee_id: data.employee_id,
     };
@@ -122,31 +130,15 @@ const Register = () => {
           <Box component="form" onSubmit={handleSubmit(onSubmit)}>
             <Grid container spacing={2}>
               {/* Name (Korean) */}
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="이름 (한글)"
+                  label="이름"
                   {...register('name_ko', {
                     required: '이름을 입력해주세요',
                   })}
                   error={!!errors.name_ko}
                   helperText={errors.name_ko?.message}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PersonIcon color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-
-              {/* Name (English) */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Name (English)"
-                  {...register('name_en')}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -189,13 +181,17 @@ const Register = () => {
                   label={t('auth.phone')}
                   {...register('phone', {
                     pattern: {
-                      value: /^[0-9-]+$/,
-                      message: '올바른 전화번호 형식이 아닙니다',
+                      value: /^\d{3}-\d{4}-\d{4}$/,
+                      message: '연락처 형식: 010-1234-5678',
                     },
                   })}
                   error={!!errors.phone}
-                  helperText={errors.phone?.message}
+                  helperText={errors.phone?.message || '예: 010-1234-5678'}
                   placeholder="010-1234-5678"
+                  inputProps={{ maxLength: 13 }}
+                  onChange={(e) => {
+                    e.target.value = formatPhone(e.target.value);
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">

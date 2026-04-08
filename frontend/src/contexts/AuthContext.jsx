@@ -148,40 +148,24 @@ export const AuthProvider = ({ children }) => {
       return { success: false, error: message };
     }
 
-    try {
-      const response = await authAPI.register(userData);
-      const { token, user: newUser } = response.data;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      setUser(newUser);
-      return { success: true };
-    } catch {
-      // Backend unavailable — demo registration fallback
-      try {
-        const newUser = {
-          id: Date.now(),
-          email: userData.email,
-          name_ko: userData.name_ko,
-          name_en: userData.name_en || '',
-          phone: userData.phone || '',
-          employee_id: userData.employee_id || '',
-          role: 'learner',
-          department: '',
-        };
-        const mockToken = 'mock-jwt-token-' + Date.now();
-        // Save to registered users list for persistence
-        registeredUsers.push({ ...newUser, password: userData.password });
-        localStorage.setItem('registered_users', JSON.stringify(registeredUsers));
-        localStorage.setItem('token', mockToken);
-        localStorage.setItem('user', JSON.stringify(newUser));
-        setUser(newUser);
-        return { success: true };
-      } catch (fallbackErr) {
-        const message = '회원가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.';
-        setError(message);
-        return { success: false, error: message };
-      }
-    }
+    // Demo registration — save locally (backend may not be available)
+    const newUser = {
+      id: Date.now(),
+      email: userData.email,
+      name_ko: userData.name_ko,
+      name_en: userData.name_en || '',
+      phone: userData.phone || '',
+      employee_id: userData.employee_id || '',
+      role: 'learner',
+      department: '',
+    };
+    const mockToken = 'mock-jwt-token-' + Date.now();
+    registeredUsers.push({ ...newUser, password: userData.password });
+    localStorage.setItem('registered_users', JSON.stringify(registeredUsers));
+    localStorage.setItem('token', mockToken);
+    localStorage.setItem('user', JSON.stringify(newUser));
+    setUser(newUser);
+    return { success: true };
   }, []);
 
   const logout = useCallback(async () => {
