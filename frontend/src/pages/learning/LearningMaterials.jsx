@@ -29,6 +29,82 @@ import {
 import { coursesAPI } from '../../services/api';
 import CategoryBadge from '../../components/common/CategoryBadge';
 
+// Mock courses fallback when backend is unavailable
+const MOCK_COURSES = [
+  {
+    id: 'mock-1',
+    title: '디지털 금융 트렌드 2026',
+    category: '금융컨설팅',
+    duration: '45:00',
+    views: 1234,
+    created_at: '2026.03.15',
+    thumbnail: '',
+    progress: 0,
+    video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+  },
+  {
+    id: 'mock-2',
+    title: '시니어를 위한 AI 활용법',
+    category: '기타',
+    duration: '38:20',
+    views: 892,
+    created_at: '2026.03.10',
+    thumbnail: '',
+    progress: 0,
+    video_url: 'https://www.youtube.com/watch?v=jNQXAC9IVRw',
+  },
+  {
+    id: 'mock-3',
+    title: '부동산 투자 기초 가이드',
+    category: '부동산',
+    duration: '52:10',
+    views: 2156,
+    created_at: '2026.02.28',
+    thumbnail: '',
+    progress: 30,
+    video_url: 'https://www.youtube.com/watch?v=9bZkp7q19f0',
+  },
+  {
+    id: 'mock-4',
+    title: '성공적인 창업 전략',
+    category: '창업',
+    duration: '41:30',
+    views: 1567,
+    created_at: '2026.02.20',
+    thumbnail: '',
+    progress: 0,
+    video_url: 'https://www.youtube.com/watch?v=kJQP7kiw5Fk',
+  },
+  {
+    id: 'mock-5',
+    title: '자산관리와 은퇴 설계',
+    category: '금융컨설팅',
+    duration: '35:45',
+    views: 3421,
+    created_at: '2026.02.15',
+    thumbnail: '',
+    progress: 65,
+    video_url: 'https://www.youtube.com/watch?v=RgKAFK5djSk',
+  },
+  {
+    id: 'mock-6',
+    title: '사회공헌 활동 시작하기',
+    category: '사회공헌',
+    duration: '28:15',
+    views: 678,
+    created_at: '2026.02.10',
+    thumbnail: '',
+    progress: 0,
+    video_url: 'https://www.youtube.com/watch?v=JGwWNGJdvx8',
+  },
+];
+
+const MOCK_MATERIALS = [
+  { id: 'mat-1', title: '2026 은퇴설계 가이드북', category: '금융컨설팅', file_type: 'pdf', file_size: '2.4MB', download_count: 456, file_url: '#' },
+  { id: 'mat-2', title: '부동산 투자 체크리스트', category: '부동산', file_type: 'xlsx', file_size: '1.1MB', download_count: 312, file_url: '#' },
+  { id: 'mat-3', title: '창업 사업계획서 템플릿', category: '창업', file_type: 'docx', file_size: '890KB', download_count: 234, file_url: '#' },
+];
+
 const VideoCard = ({ video, onClick }) => {
   return (
     <Card
@@ -193,13 +269,20 @@ const LearningMaterials = () => {
       try {
         if (tab === 0) {
           const response = await coursesAPI.getAll();
-          setVideos(response.data.courses || []);
+          const courses = response.data.courses || [];
+          setVideos(courses.length > 0 ? courses : MOCK_COURSES);
         } else {
           const response = await coursesAPI.getMaterials();
-          setMaterials(response.data.materials || []);
+          const mats = response.data.materials || [];
+          setMaterials(mats.length > 0 ? mats : MOCK_MATERIALS);
         }
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
+      } catch {
+        // Backend unavailable — use mock data
+        if (tab === 0) {
+          setVideos(MOCK_COURSES);
+        } else {
+          setMaterials(MOCK_MATERIALS);
+        }
       } finally {
         setLoading(false);
       }
@@ -316,7 +399,7 @@ const LearningMaterials = () => {
                           <Grid item xs={12} sm={6} md={4} key={video.id}>
                             <VideoCard
                               video={video}
-                              onClick={() => navigate(`/learning/video/${video.id}`)}
+                              onClick={() => navigate(`/learning/${video.id}`)}
                             />
                           </Grid>
                         ))
@@ -370,7 +453,7 @@ const LearningMaterials = () => {
                       cursor: 'pointer',
                       '&:hover': { backgroundColor: '#EEEEEE' },
                     }}
-                    onClick={() => navigate(`/learning/video/${video.id}`)}
+                    onClick={() => navigate(`/learning/${video.id}`)}
                   >
                     <Typography variant="body2" fontWeight={500} noWrap>
                       {video.title}

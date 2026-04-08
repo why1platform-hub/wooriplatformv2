@@ -12,6 +12,10 @@ import {
   InputAdornment,
   IconButton,
   Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Visibility,
@@ -36,6 +40,7 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
 
   const {
     register,
@@ -65,8 +70,9 @@ const Register = () => {
       showSuccess(t('auth.registerSuccess'));
       navigate('/');
     } else {
-      setError(result.error || '회원가입에 실패했습니다');
-      showError(result.error || '회원가입에 실패했습니다');
+      const errorMsg = result.error || '회원가입에 실패했습니다';
+      setError(errorMsg);
+      setErrorDialogOpen(true);
     }
 
     setLoading(false);
@@ -316,6 +322,46 @@ const Register = () => {
           </Box>
         </Paper>
       </Container>
+
+      {/* Error Detail Dialog */}
+      <Dialog
+        open={errorDialogOpen}
+        onClose={() => setErrorDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '12px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: '#DC2626' }}>
+          회원가입 실패
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+          <Typography variant="body2" color="text.secondary">
+            아래 사항을 확인해주세요:
+          </Typography>
+          <Box component="ul" sx={{ mt: 1, pl: 2 }}>
+            <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              이름(한글)은 필수 입력 항목입니다
+            </Typography>
+            <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              올바른 이메일 형식인지 확인해주세요
+            </Typography>
+            <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              비밀번호는 최소 8자 이상이어야 합니다
+            </Typography>
+            <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              이미 등록된 이메일은 사용할 수 없습니다
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button variant="contained" onClick={() => setErrorDialogOpen(false)}>
+            확인
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

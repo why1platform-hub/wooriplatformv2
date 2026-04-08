@@ -117,7 +117,8 @@ const Notices = () => {
     },
   ];
 
-  const displayNotices = notices.length > 0 ? notices : mockNotices;
+  // Show admin-published notices if available, otherwise fall back to mock data
+  const displayNotices = notices.length > 0 ? [...notices, ...mockNotices.filter((m) => !notices.some((n) => n.id === m.id))] : mockNotices;
 
   const filteredNotices = displayNotices.filter((notice) =>
     notice.title.toLowerCase().includes(searchTerm.toLowerCase())

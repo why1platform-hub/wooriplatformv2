@@ -14,6 +14,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { saveConfigToSupabase } from '../../utils/siteConfig';
 
 const STORAGE_KEY = 'woori_announcement_categories';
+const ANNOUNCEMENTS_STORAGE_KEY = 'woori_announcements';
 
 const DEFAULT_CATEGORIES = [
   { name: '일반', color: '#6B7280' },
@@ -36,6 +37,25 @@ const loadCategories = () => {
   return DEFAULT_CATEGORIES;
 };
 
+const loadAnnouncements = () => {
+  try {
+    const saved = localStorage.getItem(ANNOUNCEMENTS_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* ignore */ }
+  return null;
+};
+
+const saveAnnouncements = (items) => {
+  // Only persist published announcements to user-facing storage
+  const published = items.filter((a) => a.status === '게시중');
+  localStorage.setItem(ANNOUNCEMENTS_STORAGE_KEY, JSON.stringify(published));
+  // Also save full list for admin reload
+  localStorage.setItem('woori_announcements_admin', JSON.stringify(items));
+};
+
 const INITIAL_ANNOUNCEMENTS = [
   { id: 1, title: '[긴급] 2024년 2분기 시니어 프로그램 모집 안내', type: '긴급', status: '게시중', date: '2024.05.20', views: 1234, content: '2024년 2분기 시니어 프로그램 모집을 시작합니다. 금융컨설팅, 부동산, 창업 등 다양한 프로그램에 참여하세요.' },
   { id: 2, title: '플랫폼 서비스 점검 안내 (5/25 02:00-06:00)', type: '안내', status: '게시중', date: '2024.05.18', views: 567, content: '서비스 안정성 향상을 위한 정기 점검이 예정되어 있습니다.' },
@@ -52,7 +72,17 @@ const AnnouncementManagement = () => {
 
   const [tabIndex, setTabIndex] = useState(0);
   const [categories, setCategories] = useState(loadCategories);
-  const [announcements, setAnnouncements] = useState(INITIAL_ANNOUNCEMENTS);
+  const [announcements, setAnnouncements] = useState(() => {
+    // Load from admin storage first, then fall back to initial data
+    try {
+      const saved = localStorage.getItem('woori_announcements_admin');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { /* ignore */ }
+    return INITIAL_ANNOUNCEMENTS;
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -74,6 +104,11 @@ const AnnouncementManagement = () => {
   useEffect(() => {
     saveConfigToSupabase(STORAGE_KEY, categories);
   }, [categories]);
+
+  // Persist announcements to localStorage so user-facing Notices page can read them
+  useEffect(() => {
+    saveAnnouncements(announcements);
+  }, [announcements]);
 
   const getTypeStyle = (type) => {
     const cat = categories.find((c) => c.name === type);

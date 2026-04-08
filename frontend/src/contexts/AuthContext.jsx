@@ -84,12 +84,25 @@ export const AuthProvider = ({ children }) => {
   const login = useCallback(async (email, password) => {
     setError(null);
 
+    // Demo account login
     if (password === 'demo1234' && ALL_USERS[email]) {
       const mockUser = ALL_USERS[email];
       const mockToken = 'mock-jwt-token-' + Date.now();
       localStorage.setItem('token', mockToken);
       localStorage.setItem('user', JSON.stringify(mockUser));
       setUser(mockUser);
+      return { success: true };
+    }
+
+    // Check registered demo users
+    const registeredUsers = JSON.parse(localStorage.getItem('registered_users') || '[]');
+    const registeredUser = registeredUsers.find((u) => u.email === email && u.password === password);
+    if (registeredUser) {
+      const { password: _, ...userWithoutPassword } = registeredUser;
+      const mockToken = 'mock-jwt-token-' + Date.now();
+      localStorage.setItem('token', mockToken);
+      localStorage.setItem('user', JSON.stringify(userWithoutPassword));
+      setUser(userWithoutPassword);
       return { success: true };
     }
 
@@ -101,7 +114,7 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       return { success: true };
     } catch (err) {
-      const message = err.response?.data?.message || '로그인에 실패했습니다. 데모 계정을 사용해주세요.';
+      const message = err.response?.data?.message || '이메일 또는 비밀번호가 올바르지 않습니다.';
       setError(message);
       return { success: false, error: message };
     }
@@ -109,6 +122,32 @@ export const AuthProvider = ({ children }) => {
 
   const register = useCallback(async (userData) => {
     setError(null);
+
+    // Client-side validation
+    if (!userData.email || !userData.password || !userData.name_ko) {
+      const message = '필수 항목을 모두 입력해주세요. (이름, 이메일, 비밀번호)';
+      setError(message);
+      return { success: false, error: message };
+    }
+    if (userData.password.length < 8) {
+      const message = '비밀번호는 최소 8자 이상이어야 합니다.';
+      setError(message);
+      return { success: false, error: message };
+    }
+    // Check duplicate email among demo accounts
+    if (ALL_USERS[userData.email]) {
+      const message = '이미 등록된 이메일 주소입니다.';
+      setError(message);
+      return { success: false, error: message };
+    }
+    // Check duplicate in previously registered demo users
+    const registeredUsers = JSON.parse(localStorage.getItem('registered_users') || '[]');
+    if (registeredUsers.some((u) => u.email === userData.email)) {
+      const message = '이미 등록된 이메일 주소입니다.';
+      setError(message);
+      return { success: false, error: message };
+    }
+
     try {
       const response = await authAPI.register(userData);
       const { token, user: newUser } = response.data;
@@ -116,10 +155,32 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(newUser));
       setUser(newUser);
       return { success: true };
-    } catch (err) {
-      const message = err.response?.data?.message || 'Registration failed';
-      setError(message);
-      return { success: false, error: message };
+    } catch {
+      // Backend unavailable — demo registration fallback
+      try {
+        const newUser = {
+          id: Date.now(),
+          email: userData.email,
+          name_ko: userData.name_ko,
+          name_en: userData.name_en || '',
+          phone: userData.phone || '',
+          employee_id: userData.employee_id || '',
+          role: 'learner',
+          department: '',
+        };
+        const mockToken = 'mock-jwt-token-' + Date.now();
+        // Save to registered users list for persistence
+        registeredUsers.push({ ...newUser, password: userData.password });
+        localStorage.setItem('registered_users', JSON.stringify(registeredUsers));
+        localStorage.setItem('token', mockToken);
+        localStorage.setItem('user', JSON.stringify(newUser));
+        setUser(newUser);
+        return { success: true };
+      } catch (fallbackErr) {
+        const message = '회원가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.';
+        setError(message);
+        return { success: false, error: message };
+      }
     }
   }, []);
 

@@ -194,8 +194,8 @@ const ProgramDetail = () => {
       </Button>
 
       <Grid container spacing={3}>
-        {/* Main Content */}
-        <Grid item xs={12} lg={8}>
+        {/* Main Content - full width when user has applied */}
+        <Grid item xs={12} lg={applied ? 12 : 8}>
           <Card>
             <CardContent>
               <Box sx={{ mb: 3 }}>
@@ -253,6 +253,32 @@ const ProgramDetail = () => {
 
               <Divider sx={{ my: 3 }} />
 
+              {/* Inline application status when applied (full page view) */}
+              {applied && (
+                <Box sx={{ mb: 3 }}>
+                  <Alert severity={statusSeverity} icon={<CheckIcon />} sx={{ fontSize: '0.95rem' }}>
+                    {applicationStatus === '승인'
+                      ? '신청이 승인되었습니다!'
+                      : applicationStatus === '반려'
+                      ? '신청이 반려되었습니다.'
+                      : '신청 완료! 승인 결과를 기다려주세요.'}
+                    <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                      현재 {currentParticipants}/{maxCap}명 신청 중
+                    </Typography>
+                  </Alert>
+                  {applicationStatus !== '반려' && applicationStatus !== '승인' && (
+                    <Button
+                      variant="outlined" color="error" size="small"
+                      onClick={handleCancel}
+                      sx={{ mt: 1 }}
+                    >
+                      신청 취소
+                    </Button>
+                  )}
+                  <Divider sx={{ mt: 2 }} />
+                </Box>
+              )}
+
               <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
                 프로그램 소개
               </Typography>
@@ -263,7 +289,8 @@ const ProgramDetail = () => {
           </Card>
         </Grid>
 
-        {/* Sidebar - Application */}
+        {/* Sidebar - Application (hidden after applying, shown inline in main content) */}
+        {!applied && (
         <Grid item xs={12} lg={4}>
           <Card>
             <CardContent>
@@ -365,6 +392,7 @@ const ProgramDetail = () => {
             </CardContent>
           </Card>
         </Grid>
+        )}
       </Grid>
 
       {/* Apply Confirmation Dialog */}
