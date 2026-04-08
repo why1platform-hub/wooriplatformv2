@@ -1045,6 +1045,8 @@ const ConsultationManagement = () => {
                 type="date" size="small" value={noteForm.nextDate}
                 onChange={(e) => updateNoteField('nextDate', e.target.value)}
                 InputLabelProps={{ shrink: true }}
+                inputProps={{ max: '2099-12-31', min: '2020-01-01' }}
+                placeholder="YYYY-MM-DD"
                 sx={{ width: 200, bgcolor: '#fff' }}
                 error={!!noteErrors.nextDate}
               />

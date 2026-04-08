@@ -108,14 +108,13 @@ export const cancelBooking = async (bookingId) => {
 
 export const rejectBooking = async (bookingId, reason) => {
   try {
-    const { error } = await supabase.from('consultation_bookings').update({ status: 'rejected', reject_reason: reason }).eq('id', bookingId);
-    if (error) {
-      // Fallback: if 'rejected' violates CHECK constraint, use 'cancelled' with reason in notes
-      await supabase.from('consultation_bookings').update({ status: 'cancelled' }).eq('id', bookingId);
-      // Store reject reason separately
+    // Update status only (reject_reason column may not exist)
+    await supabase.from('consultation_bookings').update({ status: 'rejected' }).eq('id', bookingId);
+    // Store reject reason in consultation_notes
+    if (reason) {
       try {
         await supabase.from('consultation_notes').upsert({
-          booking_id: bookingId, title: '거절 사유', content: reason || '거절됨',
+          booking_id: bookingId, title: '거절 사유', content: reason,
           updated_at: new Date().toISOString(),
         });
       } catch { /* ignore */ }
