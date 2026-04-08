@@ -207,7 +207,11 @@ const MyActivities = () => {
     try {
       await consultationsAPI.cancel(consultation.id);
     } catch {
-      // API may fail for demo data
+      // API may fail for demo data — try Supabase directly
+      try {
+        const { supabase } = require('../../utils/supabase');
+        await supabase.from('consultation_bookings').update({ status: 'cancelled' }).eq('id', consultation.id);
+      } catch { /* ignore */ }
     }
     // Update locally
     const updated = consultations.map((c) =>
@@ -367,7 +371,7 @@ const MyActivities = () => {
                                       <Button size="small" variant="outlined" onClick={() => handleViewDetail(c)}>
                                         {t('common.viewDetail')}
                                       </Button>
-                                      {c.status === '예약됨' && (
+                                      {(c.status === '예약됨' || c.status === '배정대기' || c.status === '승인대기') && (
                                         <Button
                                           size="small"
                                           variant="outlined"

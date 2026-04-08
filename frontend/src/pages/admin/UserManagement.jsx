@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, TextField, InputAdornment, IconButton, Chip, Menu, MenuItem,
@@ -437,7 +437,27 @@ const UserManagement = () => {
   const { showSuccess } = useNotification();
   const { isAdmin } = useAuth();
 
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const [users, setUsers] = useState(() => {
+    // Merge hardcoded users + registered demo users from localStorage
+    const registered = JSON.parse(localStorage.getItem('registered_users') || '[]');
+    const registeredMapped = registered.map((u) => ({
+      id: u.id || Date.now() + Math.random(),
+      name_ko: u.name_ko || '',
+      name_en: u.name_en || '',
+      email: u.email,
+      role: u.role || 'learner',
+      status: 'active',
+      department: u.department || '',
+      phone: u.phone || '',
+      created_at: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+      last_login: '-',
+      retirement_date: '', birth_date: '', address: '',
+      skills: '', bio: '신규 가입 회원',
+    }));
+    const existingEmails = new Set(INITIAL_USERS.map((u) => u.email));
+    const newUsers = registeredMapped.filter((u) => !existingEmails.has(u.email));
+    return [...INITIAL_USERS, ...newUsers];
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [anchorEl, setAnchorEl] = useState(null);
