@@ -32,7 +32,7 @@ import { loadApplications } from '../../utils/programStore';
 import { loadBookings } from '../../utils/consultationStore';
 import StatusBadge from '../../components/common/StatusBadge';
 import CategoryBadge from '../../components/common/CategoryBadge';
-import { MOCK_JOBS as SHARED_JOBS, isBookmarked as checkBookmark, toggleBookmark } from '../../utils/jobStore';
+import { getAllJobs, isBookmarked as checkBookmark, toggleBookmark } from '../../utils/jobStore';
 
 // ─── Constants ─────────────────────────────────
 const CARD_RADIUS = '12px';
@@ -503,7 +503,7 @@ const HomeJobCard = ({ job }) => {
 const JobSection = ({ jobs, loading }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const items = jobs?.length > 0 ? jobs : SHARED_JOBS;
+  const items = jobs?.length > 0 ? jobs : getAllJobs();
 
   if (loading) return <SectionCard><Box>{[1,2,3].map(i => <Skeleton key={i} height={72} sx={{ borderRadius: '10px', mb: 1 }} />)}</Box></SectionCard>;
 

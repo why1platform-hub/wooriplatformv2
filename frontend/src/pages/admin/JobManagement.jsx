@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, TextField, InputAdornment, IconButton, Chip, Menu, MenuItem,
@@ -21,11 +21,33 @@ const INITIAL_JOBS = [
 
 const EMPLOYMENT_TYPES = ['정규직', '계약직', '프리랜서', '파트타임'];
 const STATUS_OPTIONS = ['게시중', '마감', '임시저장'];
+const JOBS_STORAGE_KEY = 'woori_admin_jobs';
+
+const saveJobsToStorage = (items) => {
+  localStorage.setItem(JOBS_STORAGE_KEY, JSON.stringify(items));
+  // Also save published jobs for user-facing page
+  const published = items.filter((j) => j.status === '게시중');
+  localStorage.setItem('woori_jobs_published', JSON.stringify(published));
+};
 
 const JobManagement = () => {
   const { showSuccess } = useNotification();
 
-  const [jobs, setJobs] = useState(INITIAL_JOBS);
+  const [jobs, setJobs] = useState(() => {
+    try {
+      const saved = localStorage.getItem(JOBS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { /* ignore */ }
+    return INITIAL_JOBS;
+  });
+  // Persist jobs to localStorage whenever they change
+  useEffect(() => {
+    saveJobsToStorage(jobs);
+  }, [jobs]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);

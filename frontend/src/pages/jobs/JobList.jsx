@@ -21,7 +21,7 @@ import {
   LocationOn as LocationIcon,
 } from '@mui/icons-material';
 import { jobsAPI } from '../../services/api';
-import { MOCK_JOBS, isBookmarked as checkBookmark, toggleBookmark } from '../../utils/jobStore';
+import { getAllJobs, isBookmarked as checkBookmark, toggleBookmark } from '../../utils/jobStore';
 
 const JobCard = ({ job, onBookmark }) => {
   const navigate = useNavigate();
@@ -135,7 +135,7 @@ const JobList = () => {
     fetchJobs();
   }, []);
 
-  const allJobs = jobs.length > 0 ? jobs : MOCK_JOBS;
+  const allJobs = jobs.length > 0 ? jobs : getAllJobs();
 
   const handleBookmarkChange = () => {};
 

@@ -73,9 +73,26 @@ export const MOCK_JOBS = [
   },
 ];
 
+// Get all jobs: admin-published jobs + mock fallback (no duplicates)
+export const getAllJobs = () => {
+  try {
+    const saved = localStorage.getItem('woori_jobs_published');
+    if (saved) {
+      const adminJobs = JSON.parse(saved);
+      if (Array.isArray(adminJobs) && adminJobs.length > 0) {
+        const adminIds = new Set(adminJobs.map((j) => j.id));
+        const mockOnly = MOCK_JOBS.filter((j) => !adminIds.has(j.id));
+        return [...adminJobs, ...mockOnly];
+      }
+    }
+  } catch { /* ignore */ }
+  return MOCK_JOBS;
+};
+
 export const getJobById = (id) => {
   const numId = Number(id);
-  return MOCK_JOBS.find((j) => j.id === numId) || null;
+  const allJobs = getAllJobs();
+  return allJobs.find((j) => j.id === numId || String(j.id) === String(id)) || null;
 };
 
 export const getBookmarkedIds = () => {
@@ -102,5 +119,5 @@ export const toggleBookmark = (id) => {
 
 export const getBookmarkedJobs = () => {
   const ids = getBookmarkedIds();
-  return MOCK_JOBS.filter((j) => ids.includes(j.id));
+  return getAllJobs().filter((j) => ids.includes(j.id));
 };
