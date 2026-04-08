@@ -135,7 +135,7 @@ const JobList = () => {
     fetchJobs();
   }, []);
 
-  const displayJobs = jobs.length > 0 ? jobs : MOCK_JOBS;
+  const allJobs = jobs.length > 0 ? jobs : MOCK_JOBS;
 
   const handleBookmarkChange = () => {};
 
@@ -147,6 +147,48 @@ const JobList = () => {
         : [...prev[type], value],
     }));
   };
+
+  // Helper: derive field from job title/company
+  const getJobField = (job) => {
+    const text = `${job.title_ko || job.title || ''} ${job.company || ''} ${job.description || ''}`.toLowerCase();
+    if (text.includes('부동산') || text.includes('건설')) return '부동산';
+    if (text.includes('금융') || text.includes('자산') || text.includes('은행') || text.includes('투자')) return '금융';
+    if (text.includes('컨설팅') || text.includes('자문')) return '컨설팅';
+    if (text.includes('사회') || text.includes('공헌') || text.includes('봉사') || text.includes('농촌') || text.includes('농업')) return '사회공헌';
+    return '기타';
+  };
+
+  // Helper: derive region from location
+  const getJobRegion = (job) => {
+    const loc = (job.location || '').toLowerCase();
+    if (loc.includes('서울')) return '서울';
+    if (loc.includes('경기') || loc.includes('인천')) return '경기';
+    if (loc.includes('전국')) return '전국';
+    return '기타';
+  };
+
+  // Apply search + filters
+  const displayJobs = allJobs.filter((job) => {
+    // Search
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      const searchable = `${job.title_ko || ''} ${job.title || ''} ${job.company || ''} ${job.location || ''}`.toLowerCase();
+      if (!searchable.includes(term)) return false;
+    }
+    // Region filter
+    if (filters.region.length > 0) {
+      if (!filters.region.includes(getJobRegion(job))) return false;
+    }
+    // Employment type filter
+    if (filters.employmentType.length > 0) {
+      if (!filters.employmentType.includes(job.employment_type) && !filters.employmentType.includes(job.type)) return false;
+    }
+    // Field filter
+    if (filters.field.length > 0) {
+      if (!filters.field.includes(job.field || getJobField(job))) return false;
+    }
+    return true;
+  });
 
   return (
     <Box>
@@ -219,6 +261,18 @@ const JobList = () => {
         </Box>
       </Box>
 
+      {/* Active filters count + reset */}
+      {(filters.region.length > 0 || filters.employmentType.length > 0 || filters.field.length > 0) && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            {displayJobs.length}건의 결과
+          </Typography>
+          <Button size="small" onClick={() => setFilters({ region: [], employmentType: [], field: [] })}>
+            필터 초기화
+          </Button>
+        </Box>
+      )}
+
       {loading ? (
         <Grid container spacing={2}>
           {[1, 2, 3, 4].map((i) => (
@@ -227,6 +281,18 @@ const JobList = () => {
             </Grid>
           ))}
         </Grid>
+      ) : displayJobs.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+            검색 결과가 없습니다
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            필터 조건을 변경하거나 검색어를 수정해보세요
+          </Typography>
+          <Button variant="outlined" onClick={() => { setFilters({ region: [], employmentType: [], field: [] }); setSearchTerm(''); }}>
+            필터 초기화
+          </Button>
+        </Box>
       ) : (
         <Grid container spacing={2}>
           {displayJobs.map((job) => (
