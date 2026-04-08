@@ -380,7 +380,9 @@ const Header = ({ onMenuToggle }) => {
         anchor="left"
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
+        sx={{ zIndex: (theme) => theme.zIndex.drawer + 2 }}
         PaperProps={{ sx: { width: 300, borderRadius: '0 16px 16px 0' } }}
+        ModalProps={{ keepMounted: false }}
       >
         <Box sx={{ p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F0F0F0' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
