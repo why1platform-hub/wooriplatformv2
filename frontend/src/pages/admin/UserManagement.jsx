@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, TextField, InputAdornment, IconButton, Chip, Menu, MenuItem,
@@ -17,6 +17,7 @@ import {
 } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../utils/supabase';
 
 const INITIAL_USERS = [
   { id: 1, name_ko: '관리자', name_en: 'Admin', email: 'admin@woori.com', role: 'admin', status: 'active', department: '시스템관리팀', phone: '', created_at: '2024.01.01', last_login: '2026.03.25', retirement_date: '', birth_date: '', address: '', skills: '', bio: '시스템 관리자' },
@@ -437,27 +438,43 @@ const UserManagement = () => {
   const { showSuccess } = useNotification();
   const { isAdmin } = useAuth();
 
-  const [users, setUsers] = useState(() => {
-    // Merge hardcoded users + registered demo users from localStorage
-    const registered = JSON.parse(localStorage.getItem('registered_users') || '[]');
-    const registeredMapped = registered.map((u) => ({
-      id: u.id || Date.now() + Math.random(),
-      name_ko: u.name_ko || '',
-      name_en: u.name_en || '',
-      email: u.email,
-      role: u.role || 'learner',
-      status: 'active',
-      department: u.department || '',
-      phone: u.phone || '',
-      created_at: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
-      last_login: '-',
-      retirement_date: '', birth_date: '', address: '',
-      skills: '', bio: '신규 가입 회원',
-    }));
-    const existingEmails = new Set(INITIAL_USERS.map((u) => u.email));
-    const newUsers = registeredMapped.filter((u) => !existingEmails.has(u.email));
-    return [...INITIAL_USERS, ...newUsers];
-  });
+  const [users, setUsers] = useState(INITIAL_USERS);
+
+  // Load registered users from Supabase (shared across all browsers)
+  useEffect(() => {
+    const loadRegisteredUsers = async () => {
+      try {
+        const { data: row } = await supabase.from('site_config').select('value').eq('key', 'registered_users').single();
+        const registered = row?.value || [];
+        if (registered.length > 0) {
+          const registeredMapped = registered.map((u) => ({
+            id: u.id || Date.now() + Math.random(),
+            name_ko: u.name_ko || '',
+            name_en: u.name_en || '',
+            email: u.email,
+            role: u.role || 'learner',
+            status: 'active',
+            department: u.department || '',
+            phone: u.phone || '',
+            created_at: u.created_at || '-',
+            last_login: '-',
+            retirement_date: '', birth_date: '', address: '',
+            skills: '', bio: '신규 가입 회원',
+          }));
+          const existingEmails = new Set(INITIAL_USERS.map((u) => u.email));
+          const newUsers = registeredMapped.filter((u) => !existingEmails.has(u.email));
+          if (newUsers.length > 0) {
+            setUsers((prev) => {
+              const prevEmails = new Set(prev.map((u) => u.email));
+              const toAdd = newUsers.filter((u) => !prevEmails.has(u.email));
+              return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+            });
+          }
+        }
+      } catch { /* ignore */ }
+    };
+    loadRegisteredUsers();
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [anchorEl, setAnchorEl] = useState(null);

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authAPI } from '../services/api';
+import { supabase } from '../utils/supabase';
 
 const AuthContext = createContext(null);
 
@@ -94,9 +95,22 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     }
 
-    // Check registered demo users
-    const registeredUsers = JSON.parse(localStorage.getItem('registered_users') || '[]');
-    const registeredUser = registeredUsers.find((u) => u.email === email && u.password === password);
+    // Check registered users (localStorage + Supabase)
+    let registeredUsers = JSON.parse(localStorage.getItem('registered_users') || '[]');
+    let registeredUser = registeredUsers.find((u) => u.email === email && u.password === password);
+    if (!registeredUser) {
+      // Try Supabase
+      try {
+        const { data: row } = await supabase.from('site_config').select('value').eq('key', 'registered_users').single();
+        const sbUsers = row?.value || [];
+        registeredUser = sbUsers.find((u) => u.email === email && u.password === password);
+        if (registeredUser) {
+          // Sync to local for future logins
+          registeredUsers.push(registeredUser);
+          localStorage.setItem('registered_users', JSON.stringify(registeredUsers));
+        }
+      } catch { /* ignore */ }
+    }
     if (registeredUser) {
       const { password: _, ...userWithoutPassword } = registeredUser;
       const mockToken = 'mock-jwt-token-' + Date.now();
@@ -140,15 +154,18 @@ export const AuthProvider = ({ children }) => {
       setError(message);
       return { success: false, error: message };
     }
-    // Check duplicate in previously registered demo users
-    const registeredUsers = JSON.parse(localStorage.getItem('registered_users') || '[]');
-    if (registeredUsers.some((u) => u.email === userData.email)) {
-      const message = '이미 등록된 이메일 주소입니다.';
-      setError(message);
-      return { success: false, error: message };
-    }
+    // Check duplicate in Supabase registered users
+    try {
+      const { data: existing } = await supabase.from('site_config').select('value').eq('key', 'registered_users').single();
+      const supabaseUsers = existing?.value || [];
+      if (supabaseUsers.some((u) => u.email === userData.email)) {
+        const message = '이미 등록된 이메일 주소입니다.';
+        setError(message);
+        return { success: false, error: message };
+      }
+    } catch { /* table may not exist yet, continue */ }
 
-    // Demo registration — save locally (backend may not be available)
+    // Demo registration — save to Supabase (shared) + localStorage
     const newUser = {
       id: Date.now(),
       email: userData.email,
@@ -158,8 +175,20 @@ export const AuthProvider = ({ children }) => {
       employee_id: userData.employee_id || '',
       role: 'learner',
       department: '',
+      created_at: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
     };
     const mockToken = 'mock-jwt-token-' + Date.now();
+
+    // Save to Supabase so admin can see all registered users
+    try {
+      const { data: row } = await supabase.from('site_config').select('value').eq('key', 'registered_users').single();
+      const current = row?.value || [];
+      current.push({ ...newUser, password: userData.password });
+      await supabase.from('site_config').upsert({ key: 'registered_users', value: current, updated_at: new Date().toISOString() });
+    } catch { /* ignore */ }
+
+    // Also save locally for login persistence
+    const registeredUsers = JSON.parse(localStorage.getItem('registered_users') || '[]');
     registeredUsers.push({ ...newUser, password: userData.password });
     localStorage.setItem('registered_users', JSON.stringify(registeredUsers));
     localStorage.setItem('token', mockToken);
