@@ -37,17 +37,6 @@ const loadCategories = () => {
   return DEFAULT_CATEGORIES;
 };
 
-const loadAnnouncements = () => {
-  try {
-    const saved = localStorage.getItem(ANNOUNCEMENTS_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch { /* ignore */ }
-  return null;
-};
-
 const saveAnnouncements = (items) => {
   // Only persist published announcements to user-facing storage
   const published = items.filter((a) => a.status === '게시중');

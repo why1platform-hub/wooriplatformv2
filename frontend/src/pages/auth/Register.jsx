@@ -34,7 +34,7 @@ const Register = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { register: registerUser } = useAuth();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess } = useNotification();
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
