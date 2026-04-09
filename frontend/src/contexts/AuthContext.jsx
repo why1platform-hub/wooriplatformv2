@@ -181,11 +181,14 @@ export const AuthProvider = ({ children }) => {
 
     // Save to Supabase so admin can see all registered users
     try {
-      const { data: row } = await supabase.from('site_config').select('value').eq('key', 'registered_users').single();
-      const current = row?.value || [];
+      let current = [];
+      try {
+        const { data: row } = await supabase.from('site_config').select('value').eq('key', 'registered_users').single();
+        current = row?.value || [];
+      } catch { /* row may not exist yet */ }
       current.push({ ...newUser, password: userData.password });
       await supabase.from('site_config').upsert({ key: 'registered_users', value: current, updated_at: new Date().toISOString() });
-    } catch { /* ignore */ }
+    } catch (e) { console.error('Failed to save user to Supabase:', e); }
 
     // Also save locally for login persistence
     const registeredUsers = JSON.parse(localStorage.getItem('registered_users') || '[]');

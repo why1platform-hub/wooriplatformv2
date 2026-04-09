@@ -10,13 +10,13 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const programRoutes = require('./routes/programs');
 const consultationRoutes = require('./routes/consultations');
-const courseRoutes = require('./routes/courses');
-const jobRoutes = require('./routes/jobs');
-const announcementRoutes = require('./routes/announcements');
-const qaRoutes = require('./routes/qa');
-const faqRoutes = require('./routes/faq');
-const inquiryRoutes = require('./routes/inquiries');
-const dashboardRoutes = require('./routes/dashboard');
+// const courseRoutes = require('./routes/courses');       // TODO: not yet implemented
+// const jobRoutes = require('./routes/jobs');              // TODO: not yet implemented
+// const announcementRoutes = require('./routes/announcements'); // TODO: not yet implemented
+// const qaRoutes = require('./routes/qa');                 // TODO: not yet implemented
+// const faqRoutes = require('./routes/faq');               // TODO: not yet implemented
+// const inquiryRoutes = require('./routes/inquiries');     // TODO: not yet implemented
+// const dashboardRoutes = require('./routes/dashboard');   // TODO: not yet implemented
 
 // Initialize express app
 const app = express();
@@ -58,13 +58,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/programs', programRoutes);
 app.use('/api/consultations', consultationRoutes);
-app.use('/api/courses', courseRoutes);
-app.use('/api/jobs', jobRoutes);
-app.use('/api/announcements', announcementRoutes);
-app.use('/api/qa', qaRoutes);
-app.use('/api/faq', faqRoutes);
-app.use('/api/inquiries', inquiryRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+// app.use('/api/courses', courseRoutes);
+// app.use('/api/jobs', jobRoutes);
+// app.use('/api/announcements', announcementRoutes);
+// app.use('/api/qa', qaRoutes);
+// app.use('/api/faq', faqRoutes);
+// app.use('/api/inquiries', inquiryRoutes);
+// app.use('/api/dashboard', dashboardRoutes);
 
 // 404 handler
 app.use((req, res) => {

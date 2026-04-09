@@ -2,11 +2,13 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box, Typography, Grid, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Chip, Tabs, Tab, Avatar, IconButton,
-  Dialog, DialogTitle, DialogContent, DialogActions, Tooltip,
+  Dialog, DialogTitle, DialogContent, DialogActions, Tooltip, Collapse,
   ToggleButton, ToggleButtonGroup, TextField, InputAdornment,
   FormControl, InputLabel, Select, MenuItem,
   FormControlLabel, Checkbox, Radio, RadioGroup, FormGroup,
+  useMediaQuery,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import {
   CheckCircle as ApproveIcon,
   Videocam as OnlineIcon,
@@ -22,6 +24,11 @@ import {
   StickyNote2 as NoteIcon,
   Search as SearchIcon,
   HowToReg as AcceptIcon,
+  Visibility as ViewNoteIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  Download as DownloadIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -36,10 +43,12 @@ import {
   getKSTDate, formatKSTDate,
 } from '../../utils/consultationStore';
 import IntakeForm from '../consultations/IntakeForm';
+import { pushUserNotification } from '../../utils/notificationHelper';
 
 const statusConfig = {
   pending: { label: '배정 대기', color: '#92400E', bg: '#FEF3C7' },
   pending_approval: { label: '승인 대기', color: '#7C3AED', bg: '#F3F0FF' },
+  proposed: { label: '상담 제안', color: '#0369A1', bg: '#E0F2FE' },
   confirmed: { label: '확정', color: '#1E40AF', bg: '#DBEAFE' },
   completed: { label: '완료', color: '#166534', bg: '#DCFCE7' },
   cancelled: { label: '취소', color: '#991B1B', bg: '#FEE2E2' },
@@ -72,8 +81,10 @@ const generateTimeSlots = (duration) => {
 };
 
 const ConsultationManagement = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user } = useAuth();
-  const { showSuccess } = useNotification();
+  const { showSuccess, showError } = useNotification();
   const isAdmin = user?.role === 'admin';
   const isConsultantRole = user?.role === 'consultant';
 
@@ -106,9 +117,23 @@ const ConsultationManagement = () => {
     consultContent: '',        // 컨설팅 내용
     consultantOpinion: '',     // 상담사 의견
     risks: '',                 // 주요리스크 및 특이사항
+    photos: [],                // 상담사진 (base64 array, max 2)
     nextDate: '',              // 다음 상담 예정일
+    nextTime: '',              // 다음 상담 예정 시간
   };
   const [noteForm, setNoteForm] = useState({ ...defaultNoteForm });
+
+  // Read-only note viewer
+  const [viewNoteOpen, setViewNoteOpen] = useState(false);
+  const [viewNoteData, setViewNoteData] = useState(null);
+  const [viewNoteBooking, setViewNoteBooking] = useState(null);
+
+  // Photo lightbox
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState('');
+
+  // History accordion expand state (by userId)
+  const [expandedUsers, setExpandedUsers] = useState({});
 
   // Async-loaded stats
   const [stats, setStats] = useState({ total: 0, pending: 0, confirmed: 0, completed: 0 });
@@ -124,7 +149,7 @@ const ConsultationManagement = () => {
   const [calAvailMap, setCalAvailMap] = useState({});
 
   // Async-loaded consultation history for instructor tab 1
-  const [userHistoryMap, setUserHistoryMap] = useState({});
+  const [userHistoryMap, setUserHistoryMap] = useState({}); // eslint-disable-line no-unused-vars
 
   // Async-loaded pending-row available instructors
   const [pendingAvailMap, setPendingAvailMap] = useState({});
@@ -178,9 +203,15 @@ const ConsultationManagement = () => {
       || (b.method || '').toLowerCase().includes(q);
   }, [filterStatus, filterMethod, searchTerm]);
 
-  const allMyBookings = isConsultantRole
+  const sortByDateDesc = (a, b) => {
+    const dateA = `${a.date} ${a.time}`;
+    const dateB = `${b.date} ${b.time}`;
+    return dateB.localeCompare(dateA);
+  };
+  const allMyBookings = (isConsultantRole
     ? bookings.filter((b) => b.consultantId === user.id && b.status !== 'cancelled')
-    : bookings.filter((b) => b.status !== 'cancelled');
+    : bookings.filter((b) => b.status !== 'cancelled')
+  ).sort(sortByDateDesc);
   const pendingBookings = bookings.filter((b) => b.status === 'pending').filter(filterBooking);
   const myBookings = allMyBookings.filter(filterBooking);
   const PAGE_SIZE = 8;
@@ -318,7 +349,12 @@ const ConsultationManagement = () => {
     if (!noteForm.consultContent.trim()) errs.consultContent = true;
     if (!noteForm.consultantOpinion.trim()) errs.consultantOpinion = true;
     if (!noteForm.risks.trim()) errs.risks = true;
-    if (!noteForm.nextDate) errs.nextDate = true;
+    if (!noteForm.nextDate) {
+      errs.nextDate = true;
+    } else {
+      const d = new Date(noteForm.nextDate);
+      if (isNaN(d.getTime()) || d.getFullYear() < 2020 || d.getFullYear() > 2099) errs.nextDate = true;
+    }
     setNoteErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -328,8 +364,68 @@ const ConsultationManagement = () => {
     const title = noteForm.topic;
     const content = JSON.stringify(noteForm);
     await saveNote(noteBooking.id, title, content);
+
+    // Auto-create next consultation booking if date+time provided
+    if (noteForm.nextDate && noteForm.nextTime) {
+      try {
+        const { supabase } = await import('../../utils/supabase');
+        const nextDateFormatted = noteForm.nextDate; // YYYY-MM-DD
+        const nextTime = noteForm.nextTime; // HH:MM
+        // Convert date to display format YYYY.MM.DD
+        const displayDate = nextDateFormatted.replace(/-/g, '.');
+        const bookingData = {
+          user_id: noteBooking.userId,
+          user_name: noteBooking.userName,
+          user_email: noteBooking.userEmail || '',
+          date: displayDate,
+          time: nextTime,
+          method: noteBooking.method || '온라인',
+          consultant_id: user.id,
+          consultant_name: user.name_ko,
+        };
+        // Try 'proposed' status first; fall back to 'pending_approval' if CHECK constraint not updated
+        let { error } = await supabase.from('consultation_bookings').insert({ ...bookingData, status: 'proposed' });
+        if (error) {
+          console.warn('proposed status failed, falling back to pending_approval:', error.message);
+          const r = await supabase.from('consultation_bookings').insert({ ...bookingData, status: 'pending_approval' });
+          error = r.error;
+        }
+        if (error) {
+          console.error('Booking insert failed:', error.message);
+          showError(`다음 상담 예약 실패: ${error.message}`);
+        } else {
+          setBookings(await loadBookings());
+          // Notify the user about the proposal
+          pushUserNotification(
+            noteBooking.userEmail,
+            `${user.name_ko} 강사가 다음 상담을 제안했습니다 (${displayDate} ${nextTime})`,
+            '/activities?tab=1'
+          );
+          showSuccess(`상담일지 저장 + 다음 상담 (${displayDate} ${nextTime}) 제안됨 (사용자 승인 대기)`);
+        }
+      } catch (e) {
+        console.error('Auto-booking failed:', e);
+        showSuccess('상담일지가 저장되었습니다. (다음 상담 자동 예약 실패)');
+      }
+    } else {
+      showSuccess('상담일지가 저장되었습니다.');
+    }
     setNoteOpen(false);
-    showSuccess('상담일지가 저장되었습니다.');
+  };
+
+  const openViewNote = async (booking) => {
+    const existing = await getNote(booking.id);
+    if (!existing?.content) {
+      showError('저장된 상담 기록이 없습니다.');
+      return;
+    }
+    try {
+      setViewNoteData(JSON.parse(existing.content));
+    } catch {
+      setViewNoteData({ consultContent: existing.content, topic: existing.title });
+    }
+    setViewNoteBooking(booking);
+    setViewNoteOpen(true);
   };
   const updateNoteField = (field, value) => {
     setNoteForm((prev) => ({ ...prev, [field]: value }));
@@ -372,13 +468,32 @@ const ConsultationManagement = () => {
   const calDays = useMemo(() => getMonthDays(calYear, calMonth), [calYear, calMonth]);
   const timeSlots = useMemo(() => generateTimeSlots(sessionDur), [sessionDur]);
 
+  // Default weekday slots: 09:00 ~ 17:30 (based on session duration)
+  const getDefaultWeekdaySlots = useCallback((dur) => {
+    const slots = [];
+    for (let h = 9; h < 18; h++) {
+      for (let m = 0; m < 60; m += dur) {
+        if (h === 17 && m + dur > 60) break; // don't exceed 18:00
+        slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+      }
+    }
+    return slots;
+  }, []);
+
   const selectDay = useCallback(async (day) => {
     if (!day || !availInstructor) return;
     setSelectedDay(day);
     const ds = fmtDate(calYear, calMonth, day);
-    const slots = await getInstructorAvailability(availInstructor.id, ds);
-    setDaySlots(slots);
-  }, [availInstructor, calYear, calMonth]);
+    const saved = await getInstructorAvailability(availInstructor.id, ds);
+    if (saved && saved.length > 0) {
+      setDaySlots(saved);
+    } else {
+      // No saved data — apply default for weekdays (Mon-Fri)
+      const dow = new Date(calYear, calMonth, day).getDay();
+      const isWeekday = dow >= 1 && dow <= 5;
+      setDaySlots(isWeekday ? getDefaultWeekdaySlots(sessionDur) : []);
+    }
+  }, [availInstructor, calYear, calMonth, sessionDur, getDefaultWeekdaySlots]);
 
   const toggleSlot = (time) => {
     setDaySlots((prev) => prev.includes(time) ? prev.filter((t) => t !== time) : [...prev, time].sort());
@@ -464,7 +579,7 @@ const ConsultationManagement = () => {
           { label: '확정', value: isConsultantRole ? myBookings.filter((b) => b.status === 'confirmed').length : stats.confirmed, color: '#1E40AF', bg: '#DBEAFE' },
           { label: '완료', value: isConsultantRole ? myBookings.filter((b) => b.status === 'completed').length : stats.completed, color: '#166534', bg: '#DCFCE7' },
         ].map((k) => (
-          <Grid item xs={6} sm={3} key={k.label}>
+          <Grid item xs={6} md={3} key={k.label}>
             <Paper elevation={0} sx={{ p: 2.5, borderRadius: '12px', border: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
               <Typography variant="caption" sx={{ color: k.color, fontWeight: 600 }}>{k.label}</Typography>
               <Typography variant="h4" sx={{ fontWeight: 700, color: k.color }}>{k.value}</Typography>
@@ -480,8 +595,8 @@ const ConsultationManagement = () => {
 
         {/* Filters + Search — shown on booking tabs */}
         {((isAdmin && tab <= 1) || (isConsultantRole && tab <= 1)) && (
-          <Box sx={{ display: 'flex', gap: 1.5, mb: 2, alignItems: 'center' }}>
-            <FormControl size="small" sx={{ minWidth: 120 }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 1.5, mb: 2, alignItems: { md: 'center' } }}>
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', md: 120 } }}>
               <InputLabel>상태</InputLabel>
               <Select value={filterStatus} label="상태" onChange={(e) => setFilterStatus(e.target.value)}>
                 <MenuItem value="all">전체</MenuItem>
@@ -493,7 +608,7 @@ const ConsultationManagement = () => {
                 <MenuItem value="rejected">거절</MenuItem>
               </Select>
             </FormControl>
-            <FormControl size="small" sx={{ minWidth: 120 }}>
+            <FormControl size="small" sx={{ minWidth: { xs: '100%', md: 120 } }}>
               <InputLabel>방법</InputLabel>
               <Select value={filterMethod} label="방법" onChange={(e) => setFilterMethod(e.target.value)}>
                 <MenuItem value="all">전체</MenuItem>
@@ -512,36 +627,68 @@ const ConsultationManagement = () => {
 
         {/* ─── Tab 0 (Admin): Pending assignments ─── */}
         {isAdmin && tab === 0 && (
-          <TableContainer sx={{ maxHeight: 480 }}><Table size="small" stickyHeader><TableHead><TableRow>
-            <TableCell>신청자</TableCell><TableCell align="center">희망 날짜</TableCell>
-            <TableCell align="center">희망 시간</TableCell><TableCell align="center">방법</TableCell>
-            <TableCell align="center">가용 강사</TableCell><TableCell align="center">처리</TableCell>
-          </TableRow></TableHead><TableBody>
-            {pendingBookings.length === 0 ? (
-              <TableRow><TableCell colSpan={6} align="center" sx={{ py: 4 }}><Typography color="text.secondary">배정 대기 중인 예약이 없습니다</Typography></TableCell></TableRow>
-            ) : pendingBookings.map((b) => {
-              const avail = pendingAvailMap[b.id] || [];
-              return (
-                <TableRow key={b.id} hover>
-                  <TableCell><Typography variant="body2" fontWeight={500}>{b.userName}</Typography></TableCell>
-                  <TableCell align="center"><Typography variant="body2" fontWeight={600}>{b.date}</Typography></TableCell>
-                  <TableCell align="center"><Typography variant="body2" fontWeight={600}>{b.time}</Typography></TableCell>
-                  <TableCell align="center"><Chip icon={methodIcon[b.method]} label={b.method} size="small" sx={{ height: 24 }} /></TableCell>
-                  <TableCell align="center">
-                    {avail.length > 0 ? avail.map((inst) => (
-                      <Chip key={inst.id} label={inst.name_ko} size="small" sx={{ bgcolor: '#DCFCE7', color: '#166534', fontWeight: 600, fontSize: '0.75rem', mr: 0.5 }} />
-                    )) : <Typography variant="caption" color="error">없음</Typography>}
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                      <Button size="small" variant="contained" startIcon={<AssignIcon />} onClick={() => { setAssignTarget(b); setAssignOpen(true); }} sx={{ fontSize: '0.75rem' }}>배정</Button>
-                      <Button size="small" variant="outlined" color="error" onClick={() => { setRejectTarget(b); setRejectComment(''); setRejectOpen(true); }} sx={{ fontSize: '0.75rem' }}>거절</Button>
+          pendingBookings.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}><Typography color="text.secondary">배정 대기 중인 예약이 없습니다</Typography></Box>
+          ) : isMobile ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {pendingBookings.map((b) => {
+                const avail = pendingAvailMap[b.id] || [];
+                return (
+                  <Paper key={b.id} elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid', borderColor: 'divider' }}>
+                    <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>{b.userName}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                      <Typography variant="body2" fontWeight={600}>{b.date}</Typography>
+                      <Typography variant="body2" fontWeight={600} color="primary">{b.time}</Typography>
+                      <Chip icon={methodIcon[b.method]} label={b.method} size="small" sx={{ height: 24 }} />
                     </Box>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody></Table></TableContainer>
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>가용 강사</Typography>
+                      {avail.length > 0 ? (
+                        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          {avail.map((inst) => (
+                            <Chip key={inst.id} label={inst.name_ko} size="small" sx={{ bgcolor: '#DCFCE7', color: '#166534', fontWeight: 600, fontSize: '0.75rem' }} />
+                          ))}
+                        </Box>
+                      ) : <Typography variant="caption" color="error">없음</Typography>}
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Button size="small" variant="contained" startIcon={<AssignIcon />} onClick={() => { setAssignTarget(b); setAssignOpen(true); }} sx={{ fontSize: '0.75rem', flex: 1 }}>배정</Button>
+                      <Button size="small" variant="outlined" color="error" onClick={() => { setRejectTarget(b); setRejectComment(''); setRejectOpen(true); }} sx={{ fontSize: '0.75rem', flex: 1 }}>거절</Button>
+                    </Box>
+                  </Paper>
+                );
+              })}
+            </Box>
+          ) : (
+            <TableContainer sx={{ maxHeight: 480 }}><Table size="small" stickyHeader><TableHead><TableRow>
+              <TableCell>신청자</TableCell><TableCell align="center">희망 날짜</TableCell>
+              <TableCell align="center">희망 시간</TableCell><TableCell align="center">방법</TableCell>
+              <TableCell align="center">가용 강사</TableCell><TableCell align="center">처리</TableCell>
+            </TableRow></TableHead><TableBody>
+              {pendingBookings.map((b) => {
+                const avail = pendingAvailMap[b.id] || [];
+                return (
+                  <TableRow key={b.id} hover>
+                    <TableCell><Typography variant="body2" fontWeight={500}>{b.userName}</Typography></TableCell>
+                    <TableCell align="center"><Typography variant="body2" fontWeight={600}>{b.date}</Typography></TableCell>
+                    <TableCell align="center"><Typography variant="body2" fontWeight={600}>{b.time}</Typography></TableCell>
+                    <TableCell align="center"><Chip icon={methodIcon[b.method]} label={b.method} size="small" sx={{ height: 24 }} /></TableCell>
+                    <TableCell align="center">
+                      {avail.length > 0 ? avail.map((inst) => (
+                        <Chip key={inst.id} label={inst.name_ko} size="small" sx={{ bgcolor: '#DCFCE7', color: '#166534', fontWeight: 600, fontSize: '0.75rem', mr: 0.5 }} />
+                      )) : <Typography variant="caption" color="error">없음</Typography>}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                        <Button size="small" variant="contained" startIcon={<AssignIcon />} onClick={() => { setAssignTarget(b); setAssignOpen(true); }} sx={{ fontSize: '0.75rem' }}>배정</Button>
+                        <Button size="small" variant="outlined" color="error" onClick={() => { setRejectTarget(b); setRejectComment(''); setRejectOpen(true); }} sx={{ fontSize: '0.75rem' }}>거절</Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody></Table></TableContainer>
+          )
         )}
 
         {/* ─── Tab 0 (Instructor): My bookings / Tab 1 (Admin): All bookings ─── */}
@@ -552,50 +699,94 @@ const ConsultationManagement = () => {
               {myBookings.length}건 중 최근 {PAGE_SIZE}건 표시 (스크롤하여 더 보기)
             </Typography>
           )}
-          <TableContainer sx={{ maxHeight: 480 }}><Table size="small" stickyHeader><TableHead><TableRow>
-            <TableCell>사용자</TableCell><TableCell align="center">날짜</TableCell>
-            <TableCell align="center">시간</TableCell><TableCell align="center">방법</TableCell>
-            {isAdmin && <TableCell align="center">강사</TableCell>}
-            <TableCell align="center">상태</TableCell><TableCell align="center">관리</TableCell>
-          </TableRow></TableHead><TableBody>
-            {myBookings.length === 0 ? (
-              <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}><Typography color="text.secondary">상담 내역이 없습니다</Typography></TableCell></TableRow>
-            ) : myBookings.map((b) => {
-              const s = statusConfig[b.status];
-              const noteForBooking = notesMap[b.id];
-              return (
-                <TableRow key={b.id} hover>
-                  <TableCell><Typography variant="body2" fontWeight={500}>{b.userName}</Typography></TableCell>
-                  <TableCell align="center">{b.date}</TableCell>
-                  <TableCell align="center">{b.time}</TableCell>
-                  <TableCell align="center"><Chip icon={methodIcon[b.method]} label={b.method} size="small" sx={{ height: 24 }} /></TableCell>
-                  {isAdmin && <TableCell align="center">{b.consultantName || '-'}</TableCell>}
-                  <TableCell align="center">
-                    <Chip label={s.label} size="small" sx={{ bgcolor: s.bg, color: s.color, fontWeight: 600, height: 24, fontSize: '0.75rem' }} />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+          {myBookings.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}><Typography color="text.secondary">상담 내역이 없습니다</Typography></Box>
+          ) : isMobile ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {myBookings.map((b) => {
+                const s = statusConfig[b.status] || { label: b.status, color: '#666', bg: '#F3F4F6' };
+                const noteForBooking = notesMap[b.id];
+                return (
+                  <Paper key={b.id} elevation={0} sx={{ p: 2, borderRadius: '10px', border: '1px solid', borderColor: 'divider' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                      <Typography variant="body2" fontWeight={700}>{b.userName}</Typography>
+                      <Chip label={s.label} size="small" sx={{ bgcolor: s.bg, color: s.color, fontWeight: 600, height: 22, fontSize: '0.7rem' }} />
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                      <Typography variant="body2" fontWeight={600}>{b.date}</Typography>
+                      <Typography variant="body2" fontWeight={600} color="primary">{b.time}</Typography>
+                      <Chip icon={methodIcon[b.method]} label={b.method} size="small" sx={{ height: 24 }} />
+                      {isAdmin && b.consultantName && <Typography variant="caption" color="text.secondary">{b.consultantName}</Typography>}
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                       {b.status === 'pending_approval' && isConsultantRole && (
-                        <Tooltip title="승인"><Button size="small" variant="contained" color="success" startIcon={<AcceptIcon />} onClick={() => handleApprove(b)} sx={{ fontSize: '0.7rem', minWidth: 0 }}>승인</Button></Tooltip>
+                        <Button size="small" variant="contained" color="success" startIcon={<AcceptIcon />} onClick={() => handleApprove(b)} sx={{ fontSize: '0.7rem', minWidth: 0 }}>승인</Button>
+                      )}
+                      {b.status === 'pending_approval' && isConsultantRole && (
+                        <Button size="small" variant="outlined" color="error" onClick={() => { setRejectTarget(b); setRejectComment(''); setRejectOpen(true); }} sx={{ fontSize: '0.7rem', minWidth: 0 }}>거절</Button>
                       )}
                       {b.status === 'confirmed' && (
-                        <Tooltip title="완료 처리"><IconButton size="small" color="success" onClick={() => handleComplete(b)}><DoneIcon fontSize="small" /></IconButton></Tooltip>
+                        <Button size="small" variant="contained" color="success" startIcon={<DoneIcon />} onClick={() => handleComplete(b)} sx={{ fontSize: '0.7rem', minWidth: 0 }}>완료</Button>
                       )}
                       {(b.status === 'confirmed' || b.status === 'completed') && (
-                        <Tooltip title={noteForBooking ? '상담 기록 보기' : '상담 기록 작성'}>
-                          <IconButton size="small" sx={{ color: noteForBooking ? '#7C3AED' : '#9CA3AF' }} onClick={() => openNote(b)}>
-                            <NoteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        <IconButton size="small" sx={{ color: noteForBooking ? '#7C3AED' : '#9CA3AF' }} onClick={() => openNote(b)}>
+                          <NoteIcon fontSize="small" />
+                        </IconButton>
                       )}
-                      <Tooltip title="인테이크"><IconButton size="small" color="primary" onClick={() => openIntake(b.userId, b.userName)}><FormIcon fontSize="small" /></IconButton></Tooltip>
-                      <Tooltip title="이력"><IconButton size="small" onClick={() => openHistory(b.userId, b.userName)}><HistoryIcon fontSize="small" /></IconButton></Tooltip>
+                      <IconButton size="small" color="primary" onClick={() => openIntake(b.userId, b.userName)}><FormIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" onClick={() => openHistory(b.userId, b.userName)}><HistoryIcon fontSize="small" /></IconButton>
                     </Box>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody></Table></TableContainer>
+                  </Paper>
+                );
+              })}
+            </Box>
+          ) : (
+            <TableContainer sx={{ maxHeight: 480 }}><Table size="small" stickyHeader><TableHead><TableRow>
+              <TableCell>사용자</TableCell><TableCell align="center">날짜</TableCell>
+              <TableCell align="center">시간</TableCell><TableCell align="center">방법</TableCell>
+              {isAdmin && <TableCell align="center">강사</TableCell>}
+              <TableCell align="center">상태</TableCell><TableCell align="center">관리</TableCell>
+            </TableRow></TableHead><TableBody>
+              {myBookings.map((b) => {
+                const s = statusConfig[b.status] || { label: b.status, color: '#666', bg: '#F3F4F6' };
+                const noteForBooking = notesMap[b.id];
+                return (
+                  <TableRow key={b.id} hover>
+                    <TableCell><Typography variant="body2" fontWeight={500}>{b.userName}</Typography></TableCell>
+                    <TableCell align="center">{b.date}</TableCell>
+                    <TableCell align="center">{b.time}</TableCell>
+                    <TableCell align="center"><Chip icon={methodIcon[b.method]} label={b.method} size="small" sx={{ height: 24 }} /></TableCell>
+                    {isAdmin && <TableCell align="center">{b.consultantName || '-'}</TableCell>}
+                    <TableCell align="center">
+                      <Chip label={s.label} size="small" sx={{ bgcolor: s.bg, color: s.color, fontWeight: 600, height: 24, fontSize: '0.75rem' }} />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                        {b.status === 'pending_approval' && isConsultantRole && (
+                          <Tooltip title="승인"><Button size="small" variant="contained" color="success" startIcon={<AcceptIcon />} onClick={() => handleApprove(b)} sx={{ fontSize: '0.7rem', minWidth: 0 }}>승인</Button></Tooltip>
+                        )}
+                        {b.status === 'pending_approval' && isConsultantRole && (
+                          <Tooltip title="거절"><Button size="small" variant="outlined" color="error" onClick={() => { setRejectTarget(b); setRejectComment(''); setRejectOpen(true); }} sx={{ fontSize: '0.7rem', minWidth: 0 }}>거절</Button></Tooltip>
+                        )}
+                        {b.status === 'confirmed' && (
+                          <Tooltip title="완료 처리"><Button size="small" variant="contained" color="success" startIcon={<DoneIcon />} onClick={() => handleComplete(b)} sx={{ fontSize: '0.7rem', minWidth: 0 }}>완료 처리</Button></Tooltip>
+                        )}
+                        {(b.status === 'confirmed' || b.status === 'completed') && (
+                          <Tooltip title={noteForBooking ? '상담 기록 보기' : '상담 기록 작성'}>
+                            <IconButton size="small" sx={{ color: noteForBooking ? '#7C3AED' : '#9CA3AF' }} onClick={() => openNote(b)}>
+                              <NoteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        <Tooltip title="인테이크"><IconButton size="small" color="primary" onClick={() => openIntake(b.userId, b.userName)}><FormIcon fontSize="small" /></IconButton></Tooltip>
+                        <Tooltip title="이력"><IconButton size="small" onClick={() => openHistory(b.userId, b.userName)}><HistoryIcon fontSize="small" /></IconButton></Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody></Table></TableContainer>
+          )}
           </Box>
         )}
 
@@ -616,7 +807,7 @@ const ConsultationManagement = () => {
                         <Typography variant="caption" color="text.secondary">{c.email}</Typography>
                       </Box>
                       <Chip label={`배정 ${cs.total || 0}건`} size="small" sx={{ fontWeight: 600, bgcolor: '#EBF0FA', color: '#0047BA' }} />
-                      <Button size="small" variant="outlined" startIcon={<ClockIcon />} onClick={() => openAvailCalendar(c)}>가용시간 설정</Button>
+                      <Button size="small" variant="outlined" startIcon={<ClockIcon />} onClick={() => openAvailCalendar(c)}>{isMobile ? '설정' : '가용시간 설정'}</Button>
                     </Box>
                   </Paper>
                 );
@@ -631,39 +822,78 @@ const ConsultationManagement = () => {
             {myUsers.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}><Typography color="text.secondary">상담 이력이 없습니다</Typography></Box>
             ) : myUsers.map((u) => {
-              const hist = userHistoryMap[u.id] || [];
               const allUserBookings = myBookings.filter((b) => b.userId === u.id);
+              const isExpanded = !!expandedUsers[u.id];
               return (
-                <Paper key={u.id} elevation={0} sx={{ p: 2.5, mb: 2, borderRadius: '10px', border: '1px solid', borderColor: 'divider' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
+                <Paper key={u.id} elevation={0} sx={{ mb: 2, borderRadius: '10px', border: '1px solid', borderColor: isExpanded ? '#0047BA' : 'divider', transition: 'border-color 0.2s' }}>
+                  <Box
+                    onClick={() => setExpandedUsers((prev) => ({ ...prev, [u.id]: !prev[u.id] }))}
+                    sx={{ p: 2.5, display: 'flex', alignItems: 'center', gap: 2, cursor: 'pointer', '&:hover': { bgcolor: 'rgba(0,71,186,0.02)' } }}
+                  >
                     <Avatar sx={{ bgcolor: '#0047BA' }}>{u.name.charAt(0)}</Avatar>
-                    <Box sx={{ flex: 1 }}><Typography fontWeight={600}>{u.name}</Typography><Typography variant="caption" color="text.secondary">{u.email}</Typography></Box>
-                    <Chip label={`상담 ${hist.length}회 완료`} size="small" sx={{ fontWeight: 600, bgcolor: '#EBF0FA', color: '#0047BA' }} />
-                    <Tooltip title="인테이크 양식"><IconButton size="small" color="primary" onClick={() => openIntake(u.id, u.name)}><FormIcon fontSize="small" /></IconButton></Tooltip>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography fontWeight={600}>{u.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">{u.email}</Typography>
+                    </Box>
+                    <Chip label={`상담 ${allUserBookings.length}회`} size="small" sx={{ fontWeight: 600, bgcolor: '#EBF0FA', color: '#0047BA' }} />
+                    <Tooltip title="인테이크 양식"><IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); openIntake(u.id, u.name); }}><FormIcon fontSize="small" /></IconButton></Tooltip>
+                    {isExpanded ? <ExpandLessIcon sx={{ color: '#0047BA' }} /> : <ExpandMoreIcon sx={{ color: '#aaa' }} />}
                   </Box>
-                  {/* Session list with notes */}
+                  <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                   {allUserBookings.length > 0 && (
-                    <Box sx={{ ml: 6 }}>
+                    <Box sx={{ ml: { xs: 0, sm: 6 }, px: { xs: 1.5, sm: 2.5 }, pb: 2 }}>
                       {allUserBookings.map((b) => {
-                        const s = statusConfig[b.status];
+                        const s = statusConfig[b.status] || { label: b.status, color: '#666', bg: '#F3F4F6' };
                         const note = notesMap[b.id];
                         return (
-                          <Box key={b.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1, borderBottom: '1px solid #F3F4F6' }}>
-                            <Typography variant="body2" fontWeight={500} sx={{ minWidth: 85 }}>{b.date}</Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 45 }}>{b.time}</Typography>
-                            <Chip icon={methodIcon[b.method]} label={b.method} size="small" sx={{ height: 22 }} />
-                            <Chip label={s.label} size="small" sx={{ height: 20, fontSize: '0.65rem', bgcolor: s.bg, color: s.color, fontWeight: 600 }} />
-                            {note && <Chip label={note.title || '기록 있음'} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />}
-                            {(b.status === 'confirmed' || b.status === 'completed') && (
-                              <Button size="small" variant="outlined" onClick={() => openNote(b)} sx={{ fontSize: '0.7rem', ml: 'auto', minWidth: 0, px: 1 }}>
-                                {note ? '기록 수정' : '상담하기'}
-                              </Button>
-                            )}
+                          <Box key={b.id} sx={{ py: 1, borderBottom: '1px solid #F3F4F6' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1.5 }, flexWrap: 'wrap' }}>
+                              <Typography variant="body2" fontWeight={500} sx={{ minWidth: 85 }}>{b.date}</Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ minWidth: 45 }}>{b.time}</Typography>
+                              <Chip icon={methodIcon[b.method]} label={b.method} size="small" sx={{ height: 22 }} />
+                              <Chip label={s.label} size="small" sx={{ height: 20, fontSize: '0.65rem', bgcolor: s.bg, color: s.color, fontWeight: 600 }} />
+                              {note && <Chip label={note.title || '기록 있음'} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />}
+                              {/* 희망진로 + 다음 상담 예정일 from saved note */}
+                              {(() => {
+                                if (!note?.content) return null;
+                                try {
+                                  const parsed = JSON.parse(note.content);
+                                  return (
+                                    <>
+                                      {parsed.careerGoals?.length > 0 && parsed.careerGoals.map((g) => (
+                                        <Chip key={g} label={g} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.6rem', borderColor: '#7C3AED', color: '#7C3AED' }} />
+                                      ))}
+                                      {parsed.nextDate && (
+                                        <Chip
+                                          label={`다음 상담 예정일 ${parsed.nextDate}${parsed.nextTime ? ' ' + parsed.nextTime : ''}`}
+                                          size="small"
+                                          sx={{ height: 20, fontSize: '0.6rem', bgcolor: '#B3E5A1', color: '#166534', fontWeight: 600 }}
+                                        />
+                                      )}
+                                    </>
+                                  );
+                                } catch { return null; }
+                              })()}
+                              {(b.status === 'confirmed' || b.status === 'completed') && (
+                                <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto' }}>
+                                  {note && (
+                                    <Button size="small" variant="text" startIcon={<ViewNoteIcon sx={{ fontSize: '14px !important' }} />}
+                                      onClick={() => openViewNote(b)} sx={{ fontSize: '0.7rem', minWidth: 0, px: 1, color: '#0047BA' }}>
+                                      기록 보기
+                                    </Button>
+                                  )}
+                                  <Button size="small" variant="outlined" onClick={() => openNote(b)} sx={{ fontSize: '0.7rem', minWidth: 0, px: 1 }}>
+                                    {note ? '기록 수정' : '상담하기'}
+                                  </Button>
+                                </Box>
+                              )}
+                            </Box>
                           </Box>
                         );
                       })}
                     </Box>
                   )}
+                  </Collapse>
                 </Paper>
               );
             })}
@@ -672,7 +902,7 @@ const ConsultationManagement = () => {
       </Paper>
 
       {/* ─── Assign Dialog ─── */}
-      <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile} PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>강사 배정</DialogTitle>
         <DialogContent>
           {assignTarget && (
@@ -703,7 +933,7 @@ const ConsultationManagement = () => {
       </Dialog>
 
       {/* ─── Availability Calendar Dialog ─── */}
-      <Dialog open={availOpen} onClose={() => setAvailOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={availOpen} onClose={() => setAvailOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ClockIcon color="primary" />
@@ -736,10 +966,13 @@ const ConsultationManagement = () => {
                 {calDays.map((day, i) => {
                   if (!day) return <Box key={`e${i}`} />;
                   const ds = fmtDate(calYear, calMonth, day);
-                  const slots = calAvailMap[ds] || [];
+                  const savedSlots = calAvailMap[ds] || [];
+                  const dow = new Date(calYear, calMonth, day).getDay();
+                  const isWeekday = dow >= 1 && dow <= 5;
+                  // Show default slots count for unsaved weekdays
+                  const slots = savedSlots.length > 0 ? savedSlots : (isWeekday ? getDefaultWeekdaySlots(sessionDur) : []);
                   const isSelected = day === selectedDay;
                   const isToday = ds === formatKSTDate();
-                  const dow = new Date(calYear, calMonth, day).getDay();
                   const isWeekend = dow === 0 || dow === 6;
                   return (
                     <Paper
@@ -810,7 +1043,7 @@ const ConsultationManagement = () => {
       </Dialog>
 
       {/* ─── Intake Dialog ─── */}
-      <Dialog open={intakeOpen} onClose={() => setIntakeOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: '12px', maxHeight: '90vh' } }}>
+      <Dialog open={intakeOpen} onClose={() => setIntakeOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px', maxHeight: isMobile ? '100vh' : '90vh' } }}>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between' }}>
           <Typography variant="h6" fontWeight={700}>{intakeUserName} - 인테이크 상담양식</Typography>
           <Button onClick={() => setIntakeOpen(false)}>닫기</Button>
@@ -819,7 +1052,7 @@ const ConsultationManagement = () => {
       </Dialog>
 
       {/* ─── History Dialog ─── */}
-      <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} PaperProps={{ sx: { borderRadius: '12px', minWidth: 400 } }}>
+      <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} fullScreen={isMobile} PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px', minWidth: isMobile ? 'auto' : 400 } }}>
         <DialogTitle fontWeight={700}>{historyData.name} - 상담 이력</DialogTitle>
         <DialogContent>
           {historyData.items.length === 0 ? (
@@ -842,7 +1075,7 @@ const ConsultationManagement = () => {
       </Dialog>
 
       {/* ─── Reject Booking Dialog ─── */}
-      <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile} PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700} sx={{ color: '#C62828' }}>예약 거절</DialogTitle>
         <DialogContent>
           {rejectTarget && (
@@ -870,7 +1103,7 @@ const ConsultationManagement = () => {
       </Dialog>
 
       {/* ─── Consultation Notes Dialog (상담일지) ─── */}
-      <Dialog open={noteOpen} onClose={() => setNoteOpen(false)} maxWidth="lg" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={noteOpen} onClose={() => setNoteOpen(false)} maxWidth="lg" fullWidth fullScreen={isMobile} PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle sx={{ bgcolor: '#1F3864', color: '#fff', py: 2 }}>
           <Typography variant="h6" fontWeight={700} sx={{ color: '#fff' }}>
             우리은행 퇴직자 전직지원 프로그램 / 상담일지 양식
@@ -885,8 +1118,8 @@ const ConsultationManagement = () => {
           {/* ── Header section (grey bg) ── */}
           <Box sx={{ bgcolor: '#F2F2F2', p: 3 }}>
             {/* 상담유형 */}
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 100, bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center' }}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'center' }, mb: 2, gap: { xs: 1, sm: 2 } }}>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 100, bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center', alignSelf: { xs: 'flex-start', sm: 'auto' } }}>
                 상담유형 *
               </Typography>
               <RadioGroup row value={noteForm.consultType} onChange={(e) => updateNoteField('consultType', e.target.value)}>
@@ -898,31 +1131,33 @@ const ConsultationManagement = () => {
             </Box>
 
             {/* 상담시간 */}
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 100, bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center' }}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'center' }, mb: 2, gap: { xs: 1, sm: 2 } }}>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 100, bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center', alignSelf: { xs: 'flex-start', sm: 'auto' } }}>
                 상담시간 *
               </Typography>
-              <TextField
-                type="time" size="small" value={noteForm.timeStart}
-                onChange={(e) => updateNoteField('timeStart', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ width: 150, bgcolor: '#fff' }}
-                error={!!noteErrors.time}
-              />
-              <Typography variant="body2" fontWeight={600}>~</Typography>
-              <TextField
-                type="time" size="small" value={noteForm.timeEnd}
-                onChange={(e) => updateNoteField('timeEnd', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ width: 150, bgcolor: '#fff' }}
-                error={!!noteErrors.time}
-              />
-              {noteErrors.time && <Typography variant="caption" color="error">필수 항목</Typography>}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <TextField
+                  type="time" size="small" value={noteForm.timeStart}
+                  onChange={(e) => updateNoteField('timeStart', e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ width: { xs: '100%', sm: 150 }, bgcolor: '#fff' }}
+                  error={!!noteErrors.time}
+                />
+                <Typography variant="body2" fontWeight={600}>~</Typography>
+                <TextField
+                  type="time" size="small" value={noteForm.timeEnd}
+                  onChange={(e) => updateNoteField('timeEnd', e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ width: { xs: '100%', sm: 150 }, bgcolor: '#fff' }}
+                  error={!!noteErrors.time}
+                />
+                {noteErrors.time && <Typography variant="caption" color="error">필수 항목</Typography>}
+              </Box>
             </Box>
 
             {/* 상담주제 */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 100, bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center' }}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'center' }, gap: { xs: 1, sm: 2 } }}>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 100, bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center', alignSelf: { xs: 'flex-start', sm: 'auto' } }}>
                 상담주제 *
               </Typography>
               <TextField
@@ -943,7 +1178,7 @@ const ConsultationManagement = () => {
               </Typography>
               {noteErrors.careerGoals && <Typography variant="caption" color="error">1개 이상 선택 필수</Typography>}
             </Box>
-            <FormGroup sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5 }}>
+            <FormGroup sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 0.5 }}>
               {['재취업(정규·계약직)', '파트타임 근무', '창업·소자본 창업', '프리랜서·컨설팅', '사회공헌·강의·코칭', '아직 미정'].map((goal) => (
                 <FormControlLabel
                   key={goal}
@@ -1030,27 +1265,78 @@ const ConsultationManagement = () => {
 
           {/* ── 하단 section ── */}
           <Box sx={{ px: 3, pb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {/* 상담사진 placeholder */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 130 }}>상담사진 (2장)</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                사진 업로드 기능은 추후 제공 예정입니다.
-              </Typography>
+            {/* 상담사진 */}
+            <Box>
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'center' }, gap: { xs: 1, sm: 2 }, mb: 1 }}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 130 }}>상담사진 (최대 2장)</Typography>
+                {(noteForm.photos?.length || 0) < 2 && (
+                  <Button
+                    variant="outlined" size="small"
+                    component="label"
+                    sx={{ fontSize: '0.75rem' }}
+                  >
+                    사진 추가
+                    <input type="file" accept="image/*" hidden onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 5 * 1024 * 1024) { showError('파일 크기가 5MB를 초과합니다'); return; }
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        setNoteForm((prev) => ({
+                          ...prev,
+                          photos: [...(prev.photos || []), ev.target.result].slice(0, 2),
+                        }));
+                      };
+                      reader.readAsDataURL(file);
+                      e.target.value = '';
+                    }} />
+                  </Button>
+                )}
+              </Box>
+              {noteForm.photos?.length > 0 && (
+                <Box sx={{ display: 'flex', gap: 1.5 }}>
+                  {noteForm.photos.map((photo, idx) => (
+                    <Box key={idx} sx={{ position: 'relative', width: 120, height: 90 }}>
+                      <Box component="img" src={photo} alt={`상담사진 ${idx + 1}`}
+                        onClick={() => { setLightboxSrc(photo); setLightboxOpen(true); }}
+                        sx={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 1, border: '1px solid #E5E7EB', cursor: 'pointer', '&:hover': { opacity: 0.8 } }} />
+                      <IconButton size="small"
+                        onClick={() => setNoteForm((prev) => ({ ...prev, photos: prev.photos.filter((_, i) => i !== idx) }))}
+                        sx={{ position: 'absolute', top: -8, right: -8, bgcolor: '#EF4444', color: '#fff', width: 20, height: 20, '&:hover': { bgcolor: '#DC2626' } }}>
+                        <Typography sx={{ fontSize: 12, fontWeight: 700 }}>×</Typography>
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Box>
+              )}
             </Box>
 
             {/* 다음 상담 예정일 */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 130, bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center' }}>다음 상담 예정일 *</Typography>
-              <TextField
-                type="date" size="small" value={noteForm.nextDate}
-                onChange={(e) => updateNoteField('nextDate', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                inputProps={{ max: '2099-12-31', min: '2020-01-01' }}
-                placeholder="YYYY-MM-DD"
-                sx={{ width: 200, bgcolor: '#fff' }}
-                error={!!noteErrors.nextDate}
-              />
-              {noteErrors.nextDate && <Typography variant="caption" color="error">필수 항목</Typography>}
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { md: 'center' }, gap: { xs: 1, sm: 2 } }}>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ minWidth: 130, bgcolor: '#B3E5A1', px: 1, py: 0.5, borderRadius: 1, textAlign: 'center', alignSelf: { xs: 'flex-start', sm: 'auto' } }}>다음 상담 예정일 *</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <TextField
+                  type="date" size="small" value={noteForm.nextDate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const d = new Date(val);
+                    if (val && (isNaN(d.getTime()) || d.getFullYear() < 2020 || d.getFullYear() > 2099)) return;
+                    updateNoteField('nextDate', val);
+                  }}
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ max: '2099-12-31', min: '2020-01-01' }}
+                  placeholder="YYYY-MM-DD"
+                  sx={{ width: { xs: '100%', sm: 200 }, bgcolor: '#fff' }}
+                  error={!!noteErrors.nextDate}
+                />
+                <TextField
+                  type="time" size="small" value={noteForm.nextTime || ''}
+                  onChange={(e) => updateNoteField('nextTime', e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ width: { xs: '100%', sm: 150 }, bgcolor: '#fff' }}
+                />
+                {noteErrors.nextDate && <Typography variant="caption" color="error">유효한 날짜를 입력하세요</Typography>}
+              </Box>
             </Box>
           </Box>
         </DialogContent>
@@ -1060,6 +1346,108 @@ const ConsultationManagement = () => {
             저장
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* ─── Read-only Note Viewer Dialog ─── */}
+      <Dialog open={viewNoteOpen} onClose={() => setViewNoteOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
+        <DialogTitle sx={{ bgcolor: '#1F3864', color: '#fff', py: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            <Typography variant="h6" fontWeight={700} sx={{ color: '#fff' }}>상담 기록 보기</Typography>
+            {viewNoteBooking && (
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 0.5 }}>
+                {viewNoteBooking.userName} · {viewNoteBooking.date} {viewNoteBooking.time}
+              </Typography>
+            )}
+          </Box>
+          <IconButton onClick={() => setViewNoteOpen(false)} sx={{ color: '#fff' }}><CloseIcon /></IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          {viewNoteData && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              {viewNoteData.consultType && (
+                <Box><Typography variant="caption" color="text.secondary">상담유형</Typography><Typography variant="body1" fontWeight={600}>{viewNoteData.consultType}</Typography></Box>
+              )}
+              {viewNoteData.timeStart && (
+                <Box><Typography variant="caption" color="text.secondary">상담시간</Typography><Typography variant="body1">{viewNoteData.timeStart} ~ {viewNoteData.timeEnd}</Typography></Box>
+              )}
+              {viewNoteData.topic && (
+                <Box><Typography variant="caption" color="text.secondary">상담주제</Typography><Typography variant="body1" fontWeight={600}>{viewNoteData.topic}</Typography></Box>
+              )}
+              {viewNoteData.careerGoals?.length > 0 && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary">희망 진로</Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                    {viewNoteData.careerGoals.map((g) => <Chip key={g} label={g} size="small" sx={{ bgcolor: '#F3F0FF', color: '#7C3AED' }} />)}
+                  </Box>
+                </Box>
+              )}
+              {viewNoteData.consultContent && (
+                <Box><Typography variant="caption" color="text.secondary">컨설팅 내용</Typography>
+                  <Paper variant="outlined" sx={{ p: 2, mt: 0.5, bgcolor: '#FAFAFA' }}><Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{viewNoteData.consultContent}</Typography></Paper>
+                </Box>
+              )}
+              {viewNoteData.consultantOpinion && (
+                <Box><Typography variant="caption" color="text.secondary">상담사 의견</Typography>
+                  <Paper variant="outlined" sx={{ p: 2, mt: 0.5, bgcolor: '#FAFAFA' }}><Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{viewNoteData.consultantOpinion}</Typography></Paper>
+                </Box>
+              )}
+              {viewNoteData.risks && (
+                <Box><Typography variant="caption" color="text.secondary">주요리스크 및 특이사항</Typography>
+                  <Paper variant="outlined" sx={{ p: 2, mt: 0.5, bgcolor: '#FEF2F2' }}><Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{viewNoteData.risks}</Typography></Paper>
+                </Box>
+              )}
+              {viewNoteData.photos?.length > 0 && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary">상담사진</Typography>
+                  <Box sx={{ display: 'flex', gap: 1.5, mt: 0.5 }}>
+                    {viewNoteData.photos.map((photo, idx) => (
+                      <Box key={idx} sx={{ position: 'relative' }}>
+                        <Box component="img" src={photo} alt={`사진 ${idx + 1}`}
+                          onClick={() => { setLightboxSrc(photo); setLightboxOpen(true); }}
+                          sx={{ width: 160, height: 120, objectFit: 'cover', borderRadius: 1, border: '1px solid #E5E7EB', cursor: 'pointer', '&:hover': { opacity: 0.8 } }} />
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+              {viewNoteData.nextDate && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary">다음 상담 예정일</Typography>
+                  <Typography variant="body1" fontWeight={600} color="primary">
+                    {viewNoteData.nextDate}{viewNoteData.nextTime ? ` ${viewNoteData.nextTime}` : ''}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Photo Lightbox Dialog ─── */}
+      <Dialog open={lightboxOpen} onClose={() => setLightboxOpen(false)} maxWidth="lg"
+        PaperProps={{ sx: { borderRadius: '12px', bgcolor: 'transparent', boxShadow: 'none', overflow: 'visible' } }}>
+        <Box sx={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Box sx={{ position: 'absolute', top: -40, right: 0, display: 'flex', gap: 1 }}>
+            <IconButton
+              onClick={() => {
+                const a = document.createElement('a');
+                a.href = lightboxSrc;
+                a.download = `상담사진_${Date.now()}.jpg`;
+                a.click();
+              }}
+              sx={{ bgcolor: 'rgba(255,255,255,0.9)', '&:hover': { bgcolor: '#fff' } }}
+            >
+              <DownloadIcon />
+            </IconButton>
+            <IconButton onClick={() => setLightboxOpen(false)} sx={{ bgcolor: 'rgba(255,255,255,0.9)', '&:hover': { bgcolor: '#fff' } }}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+          {lightboxSrc && (
+            <Box component="img" src={lightboxSrc} alt="상담사진 확대"
+              sx={{ maxWidth: '90vw', maxHeight: '80vh', objectFit: 'contain', borderRadius: 2 }} />
+          )}
+        </Box>
       </Dialog>
     </Box>
   );

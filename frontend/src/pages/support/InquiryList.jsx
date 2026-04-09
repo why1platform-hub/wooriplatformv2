@@ -20,6 +20,7 @@ import {
   DialogContent,
   DialogActions,
   Divider,
+  useMediaQuery, useTheme,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import StatusBadge from '../../components/common/StatusBadge';
@@ -27,6 +28,8 @@ import StatusBadge from '../../components/common/StatusBadge';
 const InquiryList = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [loading, setLoading] = useState(true);
   const [inquiries, setInquiries] = useState([]);
@@ -34,16 +37,19 @@ const InquiryList = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    try {
-      const INQUIRY_KEY = 'woori_inquiries';
-      const saved = JSON.parse(localStorage.getItem(INQUIRY_KEY) || '[]');
-      setInquiries(saved);
-    } catch (error) {
-      console.error('Failed to fetch inquiries:', error);
-    } finally {
-      setLoading(false);
-    }
+    const fetch = async () => {
+      setLoading(true);
+      try {
+        const { loadInquiries } = await import('../../utils/supportStore');
+        const data = await loadInquiries();
+        setInquiries(data);
+      } catch (error) {
+        console.error('Failed to fetch inquiries:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetch();
   }, []);
 
   // Mock data
@@ -141,7 +147,21 @@ const InquiryList = () => {
                 문의 등록하기
               </Button>
             </Box>
-          ) : (
+          ) : isMobile ? (
+              <Box>
+                {displayInquiries.map((inquiry) => (
+                  <Box key={inquiry.id} onClick={() => handleRowClick(inquiry)}
+                    sx={{ p: 2, mb: 1, borderRadius: '10px', border: '1px solid #E5E7EB', cursor: 'pointer', '&:hover': { bgcolor: '#F9FAFB' } }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                      <Chip label={getCategoryLabel(inquiry.category)} size="small" variant="outlined" />
+                      <StatusBadge status={inquiry.status} />
+                    </Box>
+                    <Typography variant="body2" fontWeight={500} sx={{ mt: 0.5 }}>{inquiry.title}</Typography>
+                    <Typography variant="caption" color="text.secondary">{inquiry.created_at}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
             <TableContainer>
               <Table>
                 <TableHead>
@@ -154,32 +174,11 @@ const InquiryList = () => {
                 </TableHead>
                 <TableBody>
                   {displayInquiries.map((inquiry) => (
-                    <TableRow
-                      key={inquiry.id}
-                      hover
-                      sx={{ cursor: 'pointer' }}
-                      onClick={() => handleRowClick(inquiry)}
-                    >
-                      <TableCell align="center">
-                        <Chip
-                          label={getCategoryLabel(inquiry.category)}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={500}>
-                          {inquiry.title}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2" color="text.secondary">
-                          {inquiry.created_at}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <StatusBadge status={inquiry.status} />
-                      </TableCell>
+                    <TableRow key={inquiry.id} hover sx={{ cursor: 'pointer' }} onClick={() => handleRowClick(inquiry)}>
+                      <TableCell align="center"><Chip label={getCategoryLabel(inquiry.category)} size="small" variant="outlined" /></TableCell>
+                      <TableCell><Typography variant="body2" fontWeight={500}>{inquiry.title}</Typography></TableCell>
+                      <TableCell align="center"><Typography variant="body2" color="text.secondary">{inquiry.created_at}</Typography></TableCell>
+                      <TableCell align="center"><StatusBadge status={inquiry.status} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

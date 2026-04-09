@@ -3,7 +3,8 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, TextField, InputAdornment, IconButton, Chip, Menu, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, Grid, FormControl,
-  InputLabel, Select, Divider, Tabs, Tab, Tooltip,
+  InputLabel, Select, Divider, Tabs, Tab, Tooltip, Switch, FormControlLabel,
+  useMediaQuery, useTheme,
 } from '@mui/material';
 import {
   Search as SearchIcon, Add as AddIcon, MoreVert as MoreVertIcon,
@@ -37,11 +38,25 @@ const loadCategories = () => {
   return DEFAULT_CATEGORIES;
 };
 
-const saveAnnouncements = (items) => {
-  // Only persist published announcements to user-facing storage
-  const published = items.filter((a) => a.status === '게시중');
-  localStorage.setItem(ANNOUNCEMENTS_STORAGE_KEY, JSON.stringify(published));
-  // Also save full list for admin reload
+const saveAnnouncements = async (items) => {
+  // Save to Supabase
+  try {
+    const { supabase } = await import('../../utils/supabase');
+    for (const a of items) {
+      await supabase.from('announcements').upsert({
+        id: a.id,
+        title: a.title,
+        content: a.content || '',
+        type: a.type || '일반',
+        category: a.category || '일반',
+        status: a.status === '게시중' ? '게시' : a.status,
+        date: a.date,
+        views: a.views || 0,
+      });
+    }
+  } catch { /* ignore */ }
+  // Also keep localStorage fallback
+  localStorage.setItem(ANNOUNCEMENTS_STORAGE_KEY, JSON.stringify(items.filter((a) => a.status === '게시중')));
   localStorage.setItem('woori_announcements_admin', JSON.stringify(items));
 };
 
@@ -57,21 +72,56 @@ const INITIAL_ANNOUNCEMENTS = [
 const STATUS_OPTIONS = ['게시중', '예약', '비공개'];
 
 const AnnouncementManagement = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { showSuccess } = useNotification();
 
   const [tabIndex, setTabIndex] = useState(0);
   const [categories, setCategories] = useState(loadCategories);
-  const [announcements, setAnnouncements] = useState(() => {
-    // Load from admin storage first, then fall back to initial data
+  const [announcements, setAnnouncements] = useState(INITIAL_ANNOUNCEMENTS);
+  const [showViewCount, setShowViewCount] = useState(true);
+
+  // Load showViewCount setting from Supabase
+  useEffect(() => {
+    (async () => {
+      try {
+        const { supabase } = await import('../../utils/supabase');
+        const { data } = await supabase.from('site_config').select('value').eq('key', 'announcement_settings').single();
+        if (data?.value?.showViewCount !== undefined) setShowViewCount(data.value.showViewCount);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  const toggleViewCount = async (checked) => {
+    setShowViewCount(checked);
     try {
-      const saved = localStorage.getItem('woori_announcements_admin');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
+      const { supabase } = await import('../../utils/supabase');
+      await supabase.from('site_config').upsert({ key: 'announcement_settings', value: { showViewCount: checked } });
     } catch { /* ignore */ }
-    return INITIAL_ANNOUNCEMENTS;
-  });
+    showSuccess(checked ? '조회수가 사용자에게 표시됩니다' : '조회수가 사용자에게 숨겨집니다');
+  };
+
+  // Load from Supabase on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const { loadAnnouncements } = await import('../../utils/supportStore');
+        const data = await loadAnnouncements();
+        if (data.length > 0) {
+          // Map status for display
+          setAnnouncements(data.map((a) => ({ ...a, status: a.status === '게시' ? '게시중' : a.status })));
+          return;
+        }
+      } catch { /* ignore */ }
+      try {
+        const saved = localStorage.getItem('woori_announcements_admin');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) { setAnnouncements(parsed); return; }
+        }
+      } catch { /* ignore */ }
+    })();
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -217,11 +267,17 @@ const AnnouncementManagement = () => {
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 1.5 }}>
         <Box>
           <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>공지사항 관리</Typography>
           <Typography variant="body2" color="text.secondary">공지사항을 관리합니다 ({announcements.length}건)</Typography>
         </Box>
+        <FormControlLabel
+          control={<Switch checked={showViewCount} onChange={(e) => toggleViewCount(e.target.checked)} />}
+          label={<Typography variant="body2" fontWeight={500}>사용자 조회수 표시</Typography>}
+          labelPlacement="start"
+          sx={{ mr: 0 }}
+        />
       </Box>
 
       <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} sx={{ mb: 3 }}>
@@ -242,6 +298,35 @@ const AnnouncementManagement = () => {
               InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
               sx={{ mb: 3 }} />
 
+            {isMobile ? (
+              <Box>
+                {filtered.map((item) => {
+                  const typeStyle = getTypeStyle(item.type);
+                  return (
+                    <Box key={item.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#fff', cursor: 'pointer' }}
+                      onClick={() => { setSelectedItem(item); setViewOpen(true); }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                        <Typography variant="body2" fontWeight={600} sx={{ flex: 1, mr: 1 }}>{item.title}</Typography>
+                        <Chip label={item.status} size="small" color={getStatusColor(item.status)} />
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+                        <Chip label={item.type} size="small"
+                          sx={{ bgcolor: typeStyle.bg, color: typeStyle.color, fontWeight: 600, fontSize: '0.75rem' }} />
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                          조회 {item.views.toLocaleString()}
+                        </Typography>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary">{item.date}</Typography>
+                    </Box>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <Box sx={{ textAlign: 'center', py: 6 }}>
+                    <Typography color="text.secondary">공지사항이 없습니다</Typography>
+                  </Box>
+                )}
+              </Box>
+            ) : (
             <TableContainer>
               <Table size="small">
                 <TableHead>
@@ -290,6 +375,7 @@ const AnnouncementManagement = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+            )}
           </Paper>
         </>
       )}
@@ -354,8 +440,8 @@ const AnnouncementManagement = () => {
       </Menu>
 
       {/* View Dialog */}
-      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {selectedItem && (() => {
@@ -385,8 +471,8 @@ const AnnouncementManagement = () => {
       </Dialog>
 
       {/* Add/Edit Announcement Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>{editMode ? '공지사항 수정' : '새 공지사항 등록'}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ pt: 1 }}>
@@ -432,8 +518,8 @@ const AnnouncementManagement = () => {
       </Dialog>
 
       {/* Delete Announcement Confirmation */}
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>공지사항 삭제</DialogTitle>
         <DialogContent>
           <Typography>이 공지사항을 정말 삭제하시겠습니까?</Typography>
@@ -445,8 +531,8 @@ const AnnouncementManagement = () => {
       </Dialog>
 
       {/* Add/Edit Category Dialog */}
-      <Dialog open={catDialogOpen} onClose={() => setCatDialogOpen(false)} maxWidth="xs" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={catDialogOpen} onClose={() => setCatDialogOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>{editingCat ? '분류 수정' : '새 분류 추가'}</DialogTitle>
         <DialogContent dividers>
           <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -485,8 +571,8 @@ const AnnouncementManagement = () => {
       </Dialog>
 
       {/* Delete Category Confirmation */}
-      <Dialog open={!!catDeleteConfirm} onClose={() => setCatDeleteConfirm(null)}
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={!!catDeleteConfirm} onClose={() => setCatDeleteConfirm(null)} fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>분류 삭제</DialogTitle>
         <DialogContent>
           <Typography>"{catDeleteConfirm?.name}" 분류를 삭제하시겠습니까?</Typography>

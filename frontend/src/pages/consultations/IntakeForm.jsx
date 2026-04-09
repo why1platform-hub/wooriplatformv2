@@ -142,15 +142,48 @@ const EMPTY_FORM = {
   nextConsultationDate: '', consultantSignature: '',
 };
 
-// Mandatory field keys grouped by section for validation
-const MANDATORY_FIELDS = {
-  name: 'string', birthYear: 'string', residence: 'string', gender: 'string',
-  lastRank: 'string', tenureYears: 'string', tenureMonths: 'string', education: 'string',
-  currentStatus: 'string', psychologicalState: 'array', currentSituation: 'string',
-  mainDuties: 'string',
-  desiredCareer: 'array', desiredWorkType: 'array', desiredRegion: 'string', desiredTiming: 'string',
-  desiredIncome: 'string', minimumIncome: 'string',
-  expectations: 'array', preferredMethod: 'array', additionalRequests: 'string',
+// Mandatory fields in display order (top → bottom) with Korean labels
+const MANDATORY_FIELDS_ORDERED = [
+  { key: 'name', type: 'string', label: '성명' },
+  { key: 'birthYear', type: 'string', label: '출생년도' },
+  { key: 'residence', type: 'string', label: '거주지' },
+  { key: 'gender', type: 'string', label: '성별' },
+  { key: 'lastRank', type: 'string', label: '최종 직위' },
+  { key: 'tenureYears', type: 'string', label: '재직기간 (년)' },
+  { key: 'tenureMonths', type: 'string', label: '재직기간 (개월)' },
+  { key: 'education', type: 'string', label: '최종 학력' },
+  { key: 'currentStatus', type: 'string', label: '현재 상태' },
+  { key: 'psychologicalState', type: 'array', label: '심리적 상태' },
+  { key: 'currentSituation', type: 'string', label: '현재 상황 설명' },
+  { key: 'mainDuties', type: 'string', label: '주요 업무 내용' },
+  { key: 'desiredCareer', type: 'array', label: '희망 진로' },
+  { key: 'desiredWorkType', type: 'array', label: '희망 근무형태' },
+  { key: 'desiredRegion', type: 'string', label: '희망 근무 지역' },
+  { key: 'desiredTiming', type: 'string', label: '취업 희망 시기' },
+  { key: 'desiredIncome', type: 'string', label: '희망 소득' },
+  { key: 'minimumIncome', type: 'string', label: '최소 희망 소득' },
+  { key: 'expectations', type: 'array', label: '기대사항' },
+  { key: 'preferredMethod', type: 'array', label: '선호 상담 방법' },
+  { key: 'additionalRequests', type: 'string', label: '추가 요청사항' },
+];
+
+// Legacy map for field error checks — used by hasErr()
+const MANDATORY_FIELDS = Object.fromEntries(MANDATORY_FIELDS_ORDERED.map((f) => [f.key, f.type])); // eslint-disable-line no-unused-vars
+
+// Auto-format helpers
+const autoFormatDate = (raw) => {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 4)}.${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}`;
+};
+
+const autoFormatTime = (raw) => {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+  if (digits.length <= 6) return `${digits.slice(0, 2)}:${digits.slice(2, 4)} - ${digits.slice(4)}`;
+  return `${digits.slice(0, 2)}:${digits.slice(2, 4)} - ${digits.slice(4, 6)}:${digits.slice(6, 8)}`;
 };
 
 /**
@@ -217,14 +250,24 @@ const IntakeForm = ({ userId, mode, embedded = false, onClose }) => {
     });
   }, []);
 
+  const [validationMsg, setValidationMsg] = useState('');
+
   const validate = () => {
     const errs = {};
-    Object.entries(MANDATORY_FIELDS).forEach(([key, type]) => {
+    let firstMissing = null;
+    for (const { key, type, label } of MANDATORY_FIELDS_ORDERED) {
       const val = form[key];
-      if (type === 'string' && (!val || !val.trim())) errs[key] = true;
-      if (type === 'array' && (!val || !val.length)) errs[key] = true;
-    });
+      const isEmpty = type === 'string' ? (!val || !val.trim()) : (!val || !val.length);
+      if (isEmpty) {
+        errs[key] = true;
+        if (!firstMissing) firstMissing = label;
+      }
+    }
     setErrors(errs);
+    if (firstMissing) {
+      setValidationMsg(`"${firstMissing}" 항목을 입력해 주세요.`);
+      setTimeout(() => setValidationMsg(''), 5000);
+    }
     return Object.keys(errs).length === 0;
   };
 
@@ -233,6 +276,7 @@ const IntakeForm = ({ userId, mode, embedded = false, onClose }) => {
     try {
       await saveIntakeForm(userId, form);
       setSaved(true);
+      setValidationMsg('');
       setTimeout(() => setSaved(false), 3000);
       if (onClose) onClose();
     } catch { /* ignore */ }
@@ -249,6 +293,18 @@ const IntakeForm = ({ userId, mode, embedded = false, onClose }) => {
     ...(hasErr(field) ? { helperText: '필수 항목' } : {}),
     ...opts,
   });
+  // Date field with auto-format: 20260325 → 2026.03.25
+  const dateTfProps = (field, opts = {}) => ({
+    ...tfProps(field, opts),
+    onChange: (e) => update(field, autoFormatDate(e.target.value)),
+    inputProps: { maxLength: 10 },
+  });
+  // Time field with auto-format: 10001300 → 10:00 - 13:00
+  const timeTfProps = (field, opts = {}) => ({
+    ...tfProps(field, opts),
+    onChange: (e) => update(field, autoFormatTime(e.target.value)),
+    inputProps: { maxLength: 13 },
+  });
 
   if (loading) {
     return <Box sx={{ p: 4, textAlign: 'center' }}><Typography>로딩 중...</Typography></Box>;
@@ -257,8 +313,8 @@ const IntakeForm = ({ userId, mode, embedded = false, onClose }) => {
   return (
     <Box sx={{ width: '100%', maxWidth: '100%', mx: 'auto', p: embedded ? 2 : 3 }}>
       {saved && <Alert severity="success" sx={{ mb: 2 }}>저장되었습니다.</Alert>}
-      {Object.keys(errors).length > 0 && (
-        <Alert severity="error" sx={{ mb: 2 }}>필수 항목을 모두 입력해 주세요.</Alert>
+      {validationMsg && (
+        <Alert severity="error" sx={{ mb: 2, position: 'sticky', top: 0, zIndex: 10 }}>{validationMsg}</Alert>
       )}
 
       {/* ═══ Top banner ═══ */}
@@ -278,7 +334,7 @@ const IntakeForm = ({ userId, mode, embedded = false, onClose }) => {
             <TableRow>
               <TableCell sx={cellSx(COLORS.metaRowBg, { width: '100px', nowrap: true })}>상담일자</TableCell>
               <TableCell sx={cellSx(COLORS.inputBg)}>
-                <TextField {...tfProps('consultationDate', { placeholder: '예: 2026.03.26' })} />
+                <TextField {...dateTfProps('consultationDate', { placeholder: '예: 20260326' })} />
               </TableCell>
               <TableCell sx={cellSx(COLORS.metaRowBg, { width: '80px', nowrap: true })}>상담사</TableCell>
               <TableCell sx={cellSx(COLORS.inputBg)}>
@@ -286,7 +342,7 @@ const IntakeForm = ({ userId, mode, embedded = false, onClose }) => {
               </TableCell>
               <TableCell sx={cellSx(COLORS.metaRowBg, { width: '100px', nowrap: true })}>상담시간</TableCell>
               <TableCell sx={cellSx(COLORS.inputBg)}>
-                <TextField {...tfProps('consultationTime', { placeholder: '예: 10:00~11:00' })} />
+                <TextField {...timeTfProps('consultationTime', { placeholder: '예: 10001300' })} />
               </TableCell>
             </TableRow>
           </TableBody>
@@ -381,7 +437,7 @@ const IntakeForm = ({ userId, mode, embedded = false, onClose }) => {
             <TableRow>
               <LabelCell>퇴직 시점</LabelCell>
               <InputCell colSpan={5}>
-                <TextField {...tfProps('retirementDate', { placeholder: '예: 2025.12' })} />
+                <TextField {...dateTfProps('retirementDate', { placeholder: '예: 202512' })} />
               </InputCell>
             </TableRow>
 
@@ -803,7 +859,7 @@ const IntakeForm = ({ userId, mode, embedded = false, onClose }) => {
                 <TableRow>
                   <LabelCell>다음 상담 예정일</LabelCell>
                   <InputCell colSpan={2}>
-                    <TextField {...tfProps('nextConsultationDate', { placeholder: '예: 2026.04.02' })} />
+                    <TextField {...dateTfProps('nextConsultationDate', { placeholder: '예: 20260402' })} />
                   </InputCell>
                   <LabelCell>상담사 서명</LabelCell>
                   <InputCell colSpan={2}>

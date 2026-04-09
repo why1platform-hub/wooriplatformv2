@@ -34,6 +34,10 @@ const JobDetail = () => {
   const [loading, setLoading] = useState(true);
   const [job, setJob] = useState(null);
   const [bookmarked, setBookmarked] = useState(() => checkBookmark(id));
+  const [applied, setApplied] = useState(() => {
+    const appliedJobs = JSON.parse(localStorage.getItem('woori_applied_jobs') || '[]');
+    return appliedJobs.includes(Number(id)) || appliedJobs.includes(String(id));
+  });
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -43,7 +47,7 @@ const JobDetail = () => {
         setBookmarked(response.data.job.is_bookmarked);
       } catch {
         // Use shared mock data matched by ID
-        const mockJob = getJobById(id);
+        const mockJob = await getJobById(id);
         setJob(mockJob);
       } finally {
         setLoading(false);
@@ -65,7 +69,23 @@ const JobDetail = () => {
   };
 
   const handleApply = () => {
+    if (applied) return;
+    const appliedJobs = JSON.parse(localStorage.getItem('woori_applied_jobs') || '[]');
+    const jobId = Number(id) || id;
+    if (!appliedJobs.includes(jobId)) {
+      appliedJobs.push(jobId);
+      localStorage.setItem('woori_applied_jobs', JSON.stringify(appliedJobs));
+    }
+    setApplied(true);
     showSuccess(t('jobs.applySuccess'));
+  };
+
+  const handleCancelApply = () => {
+    const appliedJobs = JSON.parse(localStorage.getItem('woori_applied_jobs') || '[]');
+    const filtered = appliedJobs.filter((jid) => jid !== Number(id) && jid !== String(id));
+    localStorage.setItem('woori_applied_jobs', JSON.stringify(filtered));
+    setApplied(false);
+    showSuccess('지원이 취소되었습니다.');
   };
 
   if (loading) {
@@ -232,15 +252,30 @@ const JobDetail = () => {
                 </Typography>
               </Box>
 
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                onClick={handleApply}
-                sx={{ mb: 2 }}
-              >
-                {t('jobs.applyJob')}
-              </Button>
+              {applied ? (
+                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                  <Button
+                    fullWidth variant="outlined" disabled size="large"
+                    sx={{ bgcolor: '#E8F5E9', color: '#2E7D32', borderColor: '#2E7D32', '&.Mui-disabled': { bgcolor: '#E8F5E9', color: '#2E7D32', borderColor: '#2E7D32' } }}
+                  >
+                    지원완료
+                  </Button>
+                  <Button
+                    variant="outlined" color="error" size="large"
+                    onClick={handleCancelApply}
+                    sx={{ minWidth: 100 }}
+                  >
+                    지원취소
+                  </Button>
+                </Box>
+              ) : (
+                <Button
+                  fullWidth variant="contained" size="large"
+                  onClick={handleApply} sx={{ mb: 2 }}
+                >
+                  {t('jobs.applyJob')}
+                </Button>
+              )}
 
               <Button
                 fullWidth

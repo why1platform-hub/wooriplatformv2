@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head><title>Supabase Test</title></head>
+<body>
+<h2>Supabase Direct Test</h2>
+<pre id="log"></pre>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+const log = (msg) => { document.getElementById('log').textContent += msg + '\n'; };
+const { createClient } = supabase;
+const sb = createClient(
+  'https://aiyhkdhwfmmbkjsxiqim.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpeWhrZGh3Zm1tYmtqc3hpcWltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MjI3NDcsImV4cCI6MjA4OTk5ODc0N30.-Z7xsBC82OQfb_iQZ1D6yqFEAgV-xt1lxhglvVH2GSA'
+);
+
+(async () => {
+  log('1. Reading program_applications for program 1...');
+  const { data: before, error: e1 } = await sb.from('program_applications').select('id,status').eq('program_id', '1');
+  if (e1) log('READ ERROR: ' + JSON.stringify(e1));
+  const activeBefore = (before||[]).filter(r => r.status !== '취소' && r.status !== '반려').length;
+  log(`   Found ${(before||[]).length} rows, ${activeBefore} active`);
+
+  log('2. Inserting test row...');
+  const { data: ins, error: e2 } = await sb.from('program_applications').insert({
+    user_name: 'BROWSER_TEST', email: 'browsertest@test.com', program_id: '1',
+    program_title: 'test', category: 'test', status: '승인대기',
+    applied_at: '2026.03.26', date: '2026.03.26'
+  }).select().single();
+  if (e2) log('INSERT ERROR: ' + JSON.stringify(e2));
+  else log('   Inserted id=' + ins.id);
+
+  log('3. Reading again...');
+  const { data: after, error: e3 } = await sb.from('program_applications').select('id,status').eq('program_id', '1');
+  if (e3) log('READ ERROR: ' + JSON.stringify(e3));
+  const activeAfter = (after||[]).filter(r => r.status !== '취소' && r.status !== '반려').length;
+  log(`   Found ${(after||[]).length} rows, ${activeAfter} active`);
+
+  if (ins) {
+    log('4. Updating to 취소...');
+    const { error: e4 } = await sb.from('program_applications').update({ status: '취소' }).eq('id', ins.id);
+    if (e4) log('UPDATE ERROR: ' + JSON.stringify(e4));
+    else log('   Updated OK');
+
+    log('5. Reading again...');
+    const { data: after2, error: e5 } = await sb.from('program_applications').select('id,status').eq('program_id', '1');
+    const activeAfter2 = (after2||[]).filter(r => r.status !== '취소' && r.status !== '반려').length;
+    log(`   Found ${(after2||[]).length} rows, ${activeAfter2} active`);
+
+    log('6. Cleanup - deleting test row...');
+    const { error: e6 } = await sb.from('program_applications').delete().eq('id', ins.id);
+    if (e6) log('DELETE ERROR: ' + JSON.stringify(e6));
+    else log('   Deleted OK');
+  }
+
+  log('\nDONE. Expected: step1=12, step3=13, step5=12');
+})();
+</script>
+</body>
+</html>

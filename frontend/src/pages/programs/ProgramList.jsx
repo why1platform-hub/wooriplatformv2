@@ -17,6 +17,7 @@ import {
   Tab,
   Skeleton,
   Grid,
+  useMediaQuery, useTheme,
 } from '@mui/material';
 import {
   Info as InfoIcon,
@@ -32,6 +33,8 @@ const ProgramList = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [tab, setTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [programs, setPrograms] = useState([]);
@@ -94,88 +97,78 @@ const ProgramList = () => {
                 <Tab label="종료" />
               </Tabs>
 
-              {/* Programs Table */}
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>{t('programs.programName')}</TableCell>
-                      <TableCell align="center">{t('programs.category')}</TableCell>
-                      <TableCell align="center">{t('programs.recruitmentPeriod')}</TableCell>
-                      <TableCell align="center">{t('programs.status')}</TableCell>
-                      <TableCell align="center">{t('programs.action')}</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {loading ? (
-                      [...Array(5)].map((_, index) => (
-                        <TableRow key={index}>
-                          <TableCell><Skeleton /></TableCell>
-                          <TableCell><Skeleton /></TableCell>
-                          <TableCell><Skeleton /></TableCell>
-                          <TableCell><Skeleton /></TableCell>
-                          <TableCell><Skeleton /></TableCell>
-                        </TableRow>
-                      ))
-                    ) : filteredPrograms.length === 0 ? (
+              {/* Programs */}
+              {loading ? (
+                [...Array(3)].map((_, i) => <Skeleton key={i} variant="rectangular" height={80} sx={{ mb: 1, borderRadius: 1 }} />)
+              ) : filteredPrograms.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 4 }}><Typography color="text.secondary">프로그램이 없습니다</Typography></Box>
+              ) : isMobile ? (
+                <Box>
+                  {filteredPrograms.map((program) => {
+                    const existing = applications.find((a) => String(a.programId) === String(program.id) && a.email === user?.email && a.status !== '취소');
+                    return (
+                      <Box key={program.id} onClick={() => navigate(`/programs/${program.id}`)}
+                        sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', cursor: 'pointer', '&:hover': { bgcolor: '#F9FAFB' } }}>
+                        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>{program.title_ko || program.title}</Typography>
+                        <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <CategoryBadge category={program.category} />
+                          <StatusBadge status={program.status} />
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">{program.start_date} ~ {program.end_date}</Typography>
+                        <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
+                          {existing ? (
+                            <Button variant="outlined" size="small" color={existing.status === '승인' ? 'success' : 'inherit'} disabled>
+                              {existing.status === '승인' ? '승인됨' : existing.status === '반려' ? '반려됨' : '신청완료'}
+                            </Button>
+                          ) : (
+                            <Button variant="outlined" size="small" disabled={program.status === '종료'} onClick={(e) => handleApply(program.id, e)}>
+                              {program.status === '종료' ? '마감' : t('programs.applyNow')}
+                            </Button>
+                          )}
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              ) : (
+                <TableContainer>
+                  <Table>
+                    <TableHead>
                       <TableRow>
-                        <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                          <Typography color="text.secondary">
-                            프로그램이 없습니다
-                          </Typography>
-                        </TableCell>
+                        <TableCell>{t('programs.programName')}</TableCell>
+                        <TableCell align="center">{t('programs.category')}</TableCell>
+                        <TableCell align="center">{t('programs.recruitmentPeriod')}</TableCell>
+                        <TableCell align="center">{t('programs.status')}</TableCell>
+                        <TableCell align="center">{t('programs.action')}</TableCell>
                       </TableRow>
-                    ) : (
-                      filteredPrograms.map((program) => {
-                        const existing = applications.find(
-                          (a) => String(a.programId) === String(program.id) && a.email === user?.email && a.status !== '취소'
-                        );
+                    </TableHead>
+                    <TableBody>
+                      {filteredPrograms.map((program) => {
+                        const existing = applications.find((a) => String(a.programId) === String(program.id) && a.email === user?.email && a.status !== '취소');
                         return (
-                          <TableRow
-                            key={program.id}
-                            hover
-                            sx={{ cursor: 'pointer' }}
-                            onClick={() => navigate(`/programs/${program.id}`)}
-                          >
-                            <TableCell>
-                              <Typography variant="body2" fontWeight={500}>
-                                {program.title_ko || program.title}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="center">
-                              <CategoryBadge category={program.category} />
-                            </TableCell>
-                            <TableCell align="center">
-                              <Typography variant="body2" color="text.secondary">
-                                {program.start_date} ~ {program.end_date}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="center">
-                              <StatusBadge status={program.status} />
-                            </TableCell>
+                          <TableRow key={program.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/programs/${program.id}`)}>
+                            <TableCell><Typography variant="body2" fontWeight={500}>{program.title_ko || program.title}</Typography></TableCell>
+                            <TableCell align="center"><CategoryBadge category={program.category} /></TableCell>
+                            <TableCell align="center"><Typography variant="body2" color="text.secondary">{program.start_date} ~ {program.end_date}</Typography></TableCell>
+                            <TableCell align="center"><StatusBadge status={program.status} /></TableCell>
                             <TableCell align="center">
                               {existing ? (
                                 <Button variant="outlined" size="small" color={existing.status === '승인' ? 'success' : 'inherit'} disabled>
                                   {existing.status === '승인' ? '승인됨' : existing.status === '반려' ? '반려됨' : '신청완료'}
                                 </Button>
                               ) : (
-                                <Button
-                                  variant="outlined"
-                                  size="small"
-                                  disabled={program.status === '종료'}
-                                  onClick={(e) => handleApply(program.id, e)}
-                                >
+                                <Button variant="outlined" size="small" disabled={program.status === '종료'} onClick={(e) => handleApply(program.id, e)}>
                                   {program.status === '종료' ? '마감' : t('programs.applyNow')}
                                 </Button>
                               )}
                             </TableCell>
                           </TableRow>
                         );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </CardContent>
           </Card>
         </Grid>

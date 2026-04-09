@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, TextField, InputAdornment, Chip, Tabs, Tab, Dialog, DialogTitle,
-  DialogContent, DialogActions, Button, Divider,
+  DialogContent, DialogActions, Button, Divider, useMediaQuery, useTheme,
 } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -19,6 +19,8 @@ const INITIAL_INQUIRIES = [
 const STATUS_FILTERS = ['전체', '대기중', '처리중', '답변완료'];
 
 const InquiryManagement = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { showSuccess } = useNotification();
 
   const [inquiries, setInquiries] = useState(INITIAL_INQUIRIES);
@@ -103,6 +105,32 @@ const InquiryManagement = () => {
           InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
           sx={{ mb: 3 }} />
 
+        {isMobile ? (
+          <Box>
+            {filtered.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Typography color="text.secondary">문의가 없습니다</Typography>
+              </Box>
+            ) : (
+              filtered.map((inquiry) => (
+                <Box key={inquiry.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#fff', cursor: 'pointer' }}
+                  onClick={() => handleRowClick(inquiry)}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Box sx={{ flex: 1, mr: 1 }}>
+                      <Typography variant="body2" fontWeight={inquiry.status === '대기중' ? 600 : 500}>{inquiry.title}</Typography>
+                    </Box>
+                    <Chip label={inquiry.status} size="small" color={getStatusColor(inquiry.status)} />
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+                    <Chip label={inquiry.category} size="small" variant="outlined" color={getCategoryColor(inquiry.category)} />
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>{inquiry.user_name}</Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary">{inquiry.created_at}</Typography>
+                </Box>
+              ))
+            )}
+          </Box>
+        ) : (
         <TableContainer>
           <Table size="small">
             <TableHead>
@@ -147,11 +175,12 @@ const InquiryManagement = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        )}
       </Paper>
 
       {/* Detail/Answer Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Chip label={selectedInquiry?.category} size="small" variant="outlined"

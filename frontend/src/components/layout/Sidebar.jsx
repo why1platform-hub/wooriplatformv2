@@ -69,7 +69,6 @@ const menuItems = [
     path: '/jobs',
     children: [
       { id: 'job-list', labelKey: 'jobs.jobPostings', path: '/jobs' },
-      { id: 'recommendations', labelKey: 'jobs.recommendations', path: '/jobs/recommendations' },
       { id: 'favorites', labelKey: 'jobs.favorites', path: '/jobs/favorites' },
       { id: 'resume', labelKey: 'jobs.resumeManagement', path: '/jobs/resume' },
     ],

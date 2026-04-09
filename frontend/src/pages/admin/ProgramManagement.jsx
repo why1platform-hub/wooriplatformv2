@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, TextField, InputAdornment, IconButton, Chip, Menu, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, Grid, Tabs, Tab,
-  FormControl, InputLabel, Select, Divider,
+  FormControl, InputLabel, Select, Divider, useMediaQuery, useTheme,
 } from '@mui/material';
 import {
   Search as SearchIcon, Add as AddIcon, MoreVert as MoreVertIcon,
@@ -18,6 +18,8 @@ const CATEGORIES = ['금융컨설팅', '부동산', '창업', '사회공헌', '�
 const STATUS_OPTIONS = ['모집중', '마감예정', '진행중', '종료'];
 
 const ProgramManagement = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { showSuccess } = useNotification();
 
   const [tab, setTab] = useState(0);
@@ -145,7 +147,7 @@ const ProgramManagement = () => {
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 1.5 }}>
         <Box>
           <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>프로그램 관리</Typography>
           <Typography variant="body2" color="text.secondary">프로그램 및 신청을 관리합니다</Typography>
@@ -168,6 +170,34 @@ const ProgramManagement = () => {
           sx={{ mb: 3 }} />
 
         {tab === 0 && (
+          isMobile ? (
+            <Box>
+              {filteredPrograms.map((program) => {
+                const appCount = applications.filter(
+                  (a) => String(a.programId) === String(program.id) && a.status !== '취소' && a.status !== '반려'
+                ).length;
+                return (
+                  <Box key={program.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#fff', cursor: 'pointer' }}
+                    onClick={(e) => handleMenuOpen(e, program)}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                      <Typography variant="body2" fontWeight={600} sx={{ flex: 1, mr: 1 }}>{program.title_ko}</Typography>
+                      <Chip label={program.status} size="small" color={getStatusColor(program.status)} />
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+                      <Chip label={program.category} size="small" color={getCategoryColor(program.category)} variant="outlined" />
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>{appCount}/{program.capacity}명</Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">{program.start_date} ~ {program.end_date}</Typography>
+                  </Box>
+                );
+              })}
+              {filteredPrograms.length === 0 && (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <Typography color="text.secondary">프로그램이 없습니다</Typography>
+                </Box>
+              )}
+            </Box>
+          ) : (
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -215,9 +245,40 @@ const ProgramManagement = () => {
               </TableBody>
             </Table>
           </TableContainer>
+          )
         )}
 
         {tab === 1 && (
+          isMobile ? (
+            <Box>
+              {filteredApps.map((app) => (
+                <Box key={app.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#fff' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Box>
+                      <Typography variant="body2" fontWeight={600}>{app.user_name}</Typography>
+                      <Typography variant="caption" color="text.secondary">{app.email}</Typography>
+                    </Box>
+                    <Chip label={app.status} size="small" color={getStatusColor(app.status)} />
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{app.program_title}</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>{app.applied_at}</Typography>
+                  {app.status === '승인대기' && (
+                    <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
+                      <Button size="small" variant="contained" color="success" startIcon={<ApproveIcon />}
+                        onClick={() => handleApprove(app)} sx={{ fontSize: '0.75rem', minWidth: 0, flex: 1 }}>승인</Button>
+                      <Button size="small" variant="outlined" color="error" startIcon={<RejectIcon />}
+                        onClick={() => handleReject(app)} sx={{ fontSize: '0.75rem', minWidth: 0, flex: 1 }}>반려</Button>
+                    </Box>
+                  )}
+                </Box>
+              ))}
+              {filteredApps.length === 0 && (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <Typography color="text.secondary">신청이 없습니다</Typography>
+                </Box>
+              )}
+            </Box>
+          ) : (
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -257,6 +318,7 @@ const ProgramManagement = () => {
               </TableBody>
             </Table>
           </TableContainer>
+          )
         )}
       </Paper>
 
@@ -272,8 +334,8 @@ const ProgramManagement = () => {
       </Menu>
 
       {/* View Detail Dialog — now includes applicant list */}
-      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="md" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>프로그램 상세</DialogTitle>
         <DialogContent dividers>
           {selectedItem && (
@@ -281,30 +343,30 @@ const ProgramManagement = () => {
               <Typography variant="subtitle2" color="text.secondary">프로그램명</Typography>
               <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.title_ko}</Typography>
               <Grid container spacing={2}>
-                <Grid item xs={6} sm={3}>
+                <Grid item xs={6} md={3}>
                   <Typography variant="subtitle2" color="text.secondary">분야</Typography>
                   <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.category}</Typography>
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid item xs={6} md={3}>
                   <Typography variant="subtitle2" color="text.secondary">상태</Typography>
                   <Chip label={selectedItem.status} size="small" color={getStatusColor(selectedItem.status)} sx={{ mb: 2 }} />
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid item xs={6} md={3}>
                   <Typography variant="subtitle2" color="text.secondary">기간</Typography>
                   <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.start_date} ~ {selectedItem.end_date}</Typography>
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid item xs={6} md={3}>
                   <Typography variant="subtitle2" color="text.secondary">정원</Typography>
                   <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.capacity}명</Typography>
                 </Grid>
                 {selectedItem.location && (
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Typography variant="subtitle2" color="text.secondary">장소</Typography>
                     <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.location}</Typography>
                   </Grid>
                 )}
                 {selectedItem.instructor && (
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Typography variant="subtitle2" color="text.secondary">담당 강사</Typography>
                     <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.instructor}</Typography>
                   </Grid>
@@ -367,8 +429,8 @@ const ProgramManagement = () => {
       </Dialog>
 
       {/* Add/Edit Dialog — includes capacity, location, instructor */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>{editMode ? '프로그램 수정' : '새 프로그램 등록'}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ pt: 1 }}>
@@ -428,8 +490,8 @@ const ProgramManagement = () => {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>프로그램 삭제</DialogTitle>
         <DialogContent>
           <Typography>"{selectedItem?.title_ko}" 프로그램을 정말 삭제하시겠습니까?</Typography>

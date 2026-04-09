@@ -23,11 +23,14 @@ import {
   Button,
   Divider,
   IconButton,
+  useMediaQuery, useTheme,
 } from '@mui/material';
 import { Search as SearchIcon, Close as CloseIcon } from '@mui/icons-material';
 
 const Notices = () => {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [loading, setLoading] = useState(true);
   const [notices, setNotices] = useState([]);
@@ -36,17 +39,25 @@ const Notices = () => {
   const [totalPages] = useState(1);
   const [selectedNotice, setSelectedNotice] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [showViewCount, setShowViewCount] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    try {
-      const saved = localStorage.getItem('woori_announcements');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setNotices(Array.isArray(parsed) ? parsed : []);
-      }
-    } catch { /* ignore */ }
-    setLoading(false);
+    const fetchAll = async () => {
+      setLoading(true);
+      try {
+        const { loadPublishedAnnouncements } = await import('../../utils/supportStore');
+        const data = await loadPublishedAnnouncements();
+        setNotices(data);
+      } catch { /* ignore */ }
+      // Load view count setting
+      try {
+        const { supabase } = await import('../../utils/supabase');
+        const { data } = await supabase.from('site_config').select('value').eq('key', 'announcement_settings').single();
+        if (data?.value?.showViewCount !== undefined) setShowViewCount(data.value.showViewCount);
+      } catch { /* ignore */ }
+      setLoading(false);
+    };
+    fetchAll();
   }, []);
 
   // Mock data
@@ -178,6 +189,29 @@ const Notices = () => {
             </Box>
           ) : (
             <>
+              {isMobile ? (
+                /* ── Mobile Card Layout ── */
+                filteredNotices.length === 0 ? (
+                  <Box sx={{ textAlign: 'center', py: 8 }}><Typography color="text.secondary">공지사항이 없습니다</Typography></Box>
+                ) : (
+                  <Box>
+                    {filteredNotices.map((notice) => (
+                      <Box key={notice.id}
+                        onClick={() => { setSelectedNotice(notice); setDetailOpen(true); }}
+                        sx={{ p: 2, mb: 1, borderRadius: '10px', border: '1px solid #E5E7EB', cursor: 'pointer', '&:hover': { bgcolor: '#F9FAFB' } }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                          <Chip label={notice.type} size="small" color={getTypeColor(notice.type)} variant={notice.type === '일반' ? 'outlined' : 'filled'} />
+                          <Typography variant="caption" color="text.secondary">{notice.date}</Typography>
+                        </Box>
+                        <Typography variant="body2" fontWeight={500} sx={{ mt: 0.5 }}>{notice.title}</Typography>
+                        {showViewCount && <Typography variant="caption" color="text.secondary">조회 {notice.views}</Typography>}
+                      </Box>
+                    ))}
+                  </Box>
+                )
+              ) : (
+              /* ── Desktop Table Layout ── */
               <TableContainer>
                 <Table>
                   <TableHead>
@@ -185,55 +219,32 @@ const Notices = () => {
                       <TableCell width={80} align="center">분류</TableCell>
                       <TableCell>제목</TableCell>
                       <TableCell width={120} align="center">등록일</TableCell>
-                      <TableCell width={80} align="center">조회수</TableCell>
+                      {showViewCount && <TableCell width={80} align="center">조회수</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {filteredNotices.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
-                          <Typography color="text.secondary">
-                            공지사항이 없습니다
-                          </Typography>
+                          <Typography color="text.secondary">공지사항이 없습니다</Typography>
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredNotices.map((notice) => (
-                        <TableRow
-                          key={notice.id}
-                          hover
-                          sx={{ cursor: 'pointer' }}
-                          onClick={() => { setSelectedNotice(notice); setDetailOpen(true); }}
-                        >
+                        <TableRow key={notice.id} hover sx={{ cursor: 'pointer' }} onClick={() => { setSelectedNotice(notice); setDetailOpen(true); }}>
                           <TableCell align="center">
-                            <Chip
-                              label={notice.type}
-                              size="small"
-                              color={getTypeColor(notice.type)}
-                              variant={notice.type === '일반' ? 'outlined' : 'filled'}
-                            />
+                            <Chip label={notice.type} size="small" color={getTypeColor(notice.type)} variant={notice.type === '일반' ? 'outlined' : 'filled'} />
                           </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight={500}>
-                              {notice.title}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Typography variant="body2" color="text.secondary">
-                              {notice.date}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Typography variant="body2" color="text.secondary">
-                              {notice.views}
-                            </Typography>
-                          </TableCell>
+                          <TableCell><Typography variant="body2" fontWeight={500}>{notice.title}</Typography></TableCell>
+                          <TableCell align="center"><Typography variant="body2" color="text.secondary">{notice.date}</Typography></TableCell>
+                          {showViewCount && (<TableCell align="center"><Typography variant="body2" color="text.secondary">{notice.views}</Typography></TableCell>)}
                         </TableRow>
                       ))
                     )}
                   </TableBody>
                 </Table>
               </TableContainer>
+              )}
 
               {/* Pagination */}
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
@@ -278,7 +289,7 @@ const Notices = () => {
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="caption" color="text.secondary">등록일: {selectedNotice.date}</Typography>
-                <Typography variant="caption" color="text.secondary">조회수: {selectedNotice.views}</Typography>
+                {showViewCount && <Typography variant="caption" color="text.secondary">조회수: {selectedNotice.views}</Typography>}
               </Box>
               <Typography variant="body2" sx={{ whiteSpace: 'pre-line', lineHeight: 1.8 }}>
                 {selectedNotice.content || '내용이 없습니다.'}

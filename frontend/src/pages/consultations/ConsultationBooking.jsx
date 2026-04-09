@@ -16,6 +16,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { addBooking, getAvailableSlots, getBookedSlots, getKSTDate, formatKSTDate } from '../../utils/consultationStore';
+import { pushToAllAdmins } from '../../utils/notificationHelper';
 
 const STEPS = ['날짜 · 시간 선택', '상담 방법 선택', '예약 확인'];
 
@@ -89,6 +90,7 @@ const ConsultationBooking = () => {
     });
     setBooked(true);
     showSuccess('상담 예약이 접수되었습니다!');
+    pushToAllAdmins(`${user.name_ko}님이 상담 예약을 신청했습니다 (${selectedDate} ${selectedTime})`, '/admin/consultations');
   };
 
   if (booked) {

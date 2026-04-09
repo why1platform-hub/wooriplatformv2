@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, TextField, InputAdornment, IconButton, Chip, Menu, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, Grid, FormControl,
-  InputLabel, Select, Divider,
+  InputLabel, Select, Divider, useMediaQuery, useTheme,
 } from '@mui/material';
 import {
   Search as SearchIcon, Add as AddIcon, MoreVert as MoreVertIcon,
@@ -31,6 +31,8 @@ const saveJobsToStorage = (items) => {
 };
 
 const JobManagement = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { showSuccess } = useNotification();
 
   const [jobs, setJobs] = useState(() => {
@@ -126,7 +128,7 @@ const JobManagement = () => {
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 1.5 }}>
         <Box>
           <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>채용 관리</Typography>
           <Typography variant="body2" color="text.secondary">채용 공고를 관리합니다 ({jobs.length}건)</Typography>
@@ -140,6 +142,32 @@ const JobManagement = () => {
           InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
           sx={{ mb: 3 }} />
 
+        {isMobile ? (
+          <Box>
+            {filtered.map((job) => (
+              <Box key={job.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#fff', cursor: 'pointer' }}
+                onClick={() => { setSelectedJob(job); setViewOpen(true); }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                  <Box sx={{ flex: 1, mr: 1 }}>
+                    <Typography variant="body2" fontWeight={600}>{job.title_ko}</Typography>
+                    <Typography variant="caption" color="text.secondary">{job.company}</Typography>
+                  </Box>
+                  <Chip label={job.status} size="small" color={getStatusColor(job.status)} />
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+                  <Chip label={job.employment_type} size="small" variant="outlined" />
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>{job.location}</Typography>
+                </Box>
+                <Typography variant="caption" color="text.secondary">마감: {job.deadline}</Typography>
+              </Box>
+            ))}
+            {filtered.length === 0 && (
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Typography color="text.secondary">채용 공고가 없습니다</Typography>
+              </Box>
+            )}
+          </Box>
+        ) : (
         <TableContainer>
           <Table size="small">
             <TableHead>
@@ -188,6 +216,7 @@ const JobManagement = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        )}
       </Paper>
 
       {/* Context Menu */}
@@ -202,8 +231,8 @@ const JobManagement = () => {
       </Menu>
 
       {/* View Detail Dialog */}
-      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>채용 공고 상세</DialogTitle>
         <DialogContent dividers>
           {selectedJob && (
@@ -251,8 +280,8 @@ const JobManagement = () => {
       </Dialog>
 
       {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>{editMode ? '채용 공고 수정' : '새 채용 공고 등록'}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ pt: 1 }}>
@@ -309,8 +338,8 @@ const JobManagement = () => {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>채용 공고 삭제</DialogTitle>
         <DialogContent>
           <Typography>"{selectedJob?.title_ko}" 공고를 정말 삭제하시겠습니까?</Typography>

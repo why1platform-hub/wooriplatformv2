@@ -21,16 +21,27 @@ import {
   LocationOn as LocationIcon,
 } from '@mui/icons-material';
 import { jobsAPI } from '../../services/api';
-import { getAllJobs, isBookmarked as checkBookmark, toggleBookmark } from '../../utils/jobStore';
+import { loadJobsSync, isBookmarked as checkBookmark, toggleBookmark } from '../../utils/jobStore';
+
+const getAppliedJobs = () => JSON.parse(localStorage.getItem('woori_applied_jobs') || '[]');
+const removeAppliedJob = (id) => {
+  const jobs = getAppliedJobs().filter((jid) => jid !== Number(id) && jid !== String(id));
+  localStorage.setItem('woori_applied_jobs', JSON.stringify(jobs));
+};
 
 const JobCard = ({ job, onBookmark }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [bookmarked, setBookmarked] = useState(() => checkBookmark(job.id));
+  const [applied, setApplied] = useState(() => {
+    const list = getAppliedJobs();
+    return list.includes(Number(job.id)) || list.includes(String(job.id));
+  });
 
-  // Re-sync bookmark state from localStorage on every mount/navigation
   useEffect(() => {
     setBookmarked(checkBookmark(job.id));
+    const list = getAppliedJobs();
+    setApplied(list.includes(Number(job.id)) || list.includes(String(job.id)));
   }, [job.id]);
 
   const handleBookmark = (e) => {
@@ -38,6 +49,12 @@ const JobCard = ({ job, onBookmark }) => {
     const newState = toggleBookmark(job.id);
     setBookmarked(newState);
     if (onBookmark) onBookmark(job.id, newState);
+  };
+
+  const handleCancel = (e) => {
+    e.stopPropagation();
+    removeAppliedJob(job.id);
+    setApplied(false);
   };
 
   return (
@@ -88,17 +105,30 @@ const JobCard = ({ job, onBookmark }) => {
             {bookmarked ? <BookmarkIcon color="primary" /> : <BookmarkBorderIcon />}
           </IconButton>
         </Box>
-        <Button
-          fullWidth
-          variant="outlined"
-          sx={{ mt: 2 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/jobs/${job.id}`);
-          }}
-        >
-          {t('jobs.applyJob')}
-        </Button>
+        {applied ? (
+          <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+            <Button
+              fullWidth variant="outlined" disabled
+              sx={{ bgcolor: '#E8F5E9', color: '#2E7D32', borderColor: '#2E7D32', '&.Mui-disabled': { bgcolor: '#E8F5E9', color: '#2E7D32', borderColor: '#2E7D32' } }}
+            >
+              지원완료
+            </Button>
+            <Button
+              variant="outlined" color="error" size="small"
+              onClick={handleCancel}
+              sx={{ minWidth: 80 }}
+            >
+              지원취소
+            </Button>
+          </Box>
+        ) : (
+          <Button
+            fullWidth variant="outlined" sx={{ mt: 2 }}
+            onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${job.id}`); }}
+          >
+            {t('jobs.applyJob')}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
@@ -135,7 +165,7 @@ const JobList = () => {
     fetchJobs();
   }, []);
 
-  const allJobs = jobs.length > 0 ? jobs : getAllJobs();
+  const allJobs = jobs.length > 0 ? jobs : loadJobsSync();
 
   const handleBookmarkChange = () => {};
 

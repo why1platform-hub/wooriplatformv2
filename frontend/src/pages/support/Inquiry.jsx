@@ -51,22 +51,15 @@ const Inquiry = () => {
   const onSubmit = async (data) => {
     setSubmitting(true);
     try {
-      // Save to localStorage (no backend server)
-      const INQUIRY_KEY = 'woori_inquiries';
-      const existing = JSON.parse(localStorage.getItem(INQUIRY_KEY) || '[]');
-      const newInquiry = {
-        id: Date.now(),
+      const { addInquiry } = await import('../../utils/supportStore');
+      await addInquiry({
+        user_name: data.name || '익명',
+        user_email: data.email || '',
         category: data.category,
         title: data.title,
         content: data.content,
-        contact_email: data.email,
-        contact_phone: data.phone,
-        status: '대기중',
-        created_at: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
-        response: null,
-      };
-      existing.push(newInquiry);
-      localStorage.setItem(INQUIRY_KEY, JSON.stringify(existing));
+        status: '접수',
+      });
       showSuccess('문의가 성공적으로 등록되었습니다. 빠른 시일 내에 답변 드리겠습니다.');
       reset();
       navigate('/support/inquiry/list');

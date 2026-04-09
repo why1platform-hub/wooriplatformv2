@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, TextField, InputAdornment, IconButton, Chip, Menu, MenuItem, Dialog,
   DialogTitle, DialogContent, DialogActions, Pagination, Grid, Tabs, Tab,
   Avatar, FormControlLabel, Radio, RadioGroup, Paper, Divider,
+  useMediaQuery, useTheme,
 } from '@mui/material';
 import {
   Search as SearchIcon, Add as AddIcon, MoreVert as MoreVertIcon, Edit as EditIcon,
@@ -15,14 +16,32 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import VideoEditorDialog from '../../components/admin/VideoEditorDialog';
+import { getAllCourses, saveCourses as persistCourses, loadCoursesSync } from '../../utils/courseStore';
 
-const initialCourses = [
-  { id: 1, title: '은퇴 후 스마트한 자산 관리', category: '금융', instructor: '김강사', duration: '2시간 15분', lessons: 6, status: '게시중', views: 1234, enrollments: 89, description: '은퇴 후 자산을 효율적으로 관리하는 방법을 배웁니다.', videoType: 'url', videoUrl: 'https://www.youtube.com/watch?v=example1', coverImage: null },
-  { id: 2, title: '성공적인 부동산 투자 전략', category: '부동산', instructor: '이미영', duration: '1시간 45분', lessons: 5, status: '게시중', views: 892, enrollments: 56, description: '부동산 투자의 기초부터 실전까지.', videoType: 'url', videoUrl: 'https://www.youtube.com/watch?v=example2', coverImage: null },
-  { id: 3, title: '시니어 창업 성공 사례', category: '창업', instructor: '박준혁', duration: '2시간 30분', lessons: 8, status: '게시중', views: 567, enrollments: 34, description: '시니어 창업 성공 사례와 노하우를 공유합니다.', videoType: 'file', videoFileName: 'startup_lecture.mp4', videoFileSize: '245MB', coverImage: null },
-  { id: 4, title: '사회공헌 활동 시작하기', category: '사회공헌', instructor: '한소영', duration: '1시간 20분', lessons: 4, status: '게시중', views: 423, enrollments: 28, description: '의미있는 사회공헌 활동을 시작하는 방법.', videoType: 'url', videoUrl: 'https://vimeo.com/example', coverImage: null },
-  { id: 5, title: '디지털 금융 활용법', category: '디지털', instructor: '김강사', duration: '1시간 50분', lessons: 5, status: '준비중', views: 0, enrollments: 0, description: '디지털 금융 서비스 활용 가이드.', videoType: 'url', videoUrl: '', coverImage: null },
-];
+const toAdminCourse = (c) => ({
+  id: c.id,
+  title: c.title,
+  category: c.category || '기타',
+  instructor: c.instructor || '',
+  duration: c.duration || '',
+  lessons: typeof c.lessons === 'number' ? c.lessons : (c.lessons?.length || 0),
+  _lessonsData: Array.isArray(c.lessons) ? c.lessons : (Array.isArray(c._lessonsData) ? c._lessonsData : []),
+  status: c.status || '게시중',
+  views: c.views || 0,
+  enrollments: c.enrollments || 0,
+  description: c.description || '',
+  videoType: c.videoType || 'url',
+  videoUrl: c.videoUrl || c.video_url || '',
+  videoFileName: c.videoFileName || '',
+  videoFileSize: c.videoFileSize || '',
+  coverImage: c.coverImage || c.thumbnail || null,
+});
+
+// eslint-disable-next-line no-unused-vars
+const buildInitialCourses = () => {
+  const stored = loadCoursesSync();
+  return stored.map(toAdminCourse);
+};
 
 const initialStudentRequests = [
   { id: 1, courseId: 1, studentName: '홍길동', email: 'hong@email.com', requestDate: '2026-02-27', status: '대기중' },
@@ -39,10 +58,61 @@ const instructors = ['김강사', '이미영', '박준혁', '한소영', '최수
 const MAX_VIDEO_SIZE_MB = 300;
 
 const CourseManagement = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user, isAdmin } = useAuth();
   const { showSuccess, showError } = useNotification();
 
-  const [courses, setCourses] = useState(initialCourses);
+  const [courses, setCoursesState] = useState([]);
+  const [coursesLoaded, setCoursesLoaded] = useState(false);
+  const normalizeCourse = (c) => {
+    const videoUrl = c.videoUrl || c.video_url || '';
+    let lessons = Array.isArray(c._lessonsData) && c._lessonsData.length > 0
+      ? c._lessonsData
+      : (Array.isArray(c.lessons) ? c.lessons : []);
+    if (lessons.length === 0 && videoUrl) {
+      lessons = [{ id: 'l1', title: c.title, duration: c.duration || '', video_url: videoUrl }];
+    } else if (lessons.length > 0 && videoUrl) {
+      lessons = lessons.map((l) => ({ ...l, video_url: videoUrl }));
+    }
+    return {
+      id: String(c.id),
+      title: c.title,
+      category: c.category || '기타',
+      instructor: c.instructor || '',
+      duration: c.duration || '',
+      views: c.views || 0,
+      created_at: c.created_at || new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
+      thumbnail: c.coverImage || c.thumbnail || '',
+      video_url: videoUrl,
+      status: c.status || '게시중',
+      description: c.description || '',
+      lessons,
+      enrollments: c.enrollments || 0,
+    };
+  };
+
+  const setCourses = (updater) => {
+    setCoursesState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      // Fire Supabase save asynchronously outside state setter
+      const normalized = next.map(normalizeCourse);
+      persistCourses(normalized).catch((e) => console.error('persistCourses failed:', e));
+      return next;
+    });
+  };
+  // Load from Supabase (single source of truth)
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await getAllCourses();
+        if (data.length > 0) {
+          setCoursesState(data.map(toAdminCourse));
+        }
+      } catch { /* ignore */ }
+      setCoursesLoaded(true);
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [studentRequests, setStudentRequests] = useState(initialStudentRequests);
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -241,14 +311,14 @@ const CourseManagement = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: { xs: 1.5, sm: 0 } }}>
         <Box>
           <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>강의 관리</Typography>
           <Typography variant="body2" color="text.secondary">
             {isAdminUser ? '모든 온라인 강의를 관리합니다' : '내 강의를 관리합니다'}
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleAdd}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={handleAdd} sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}>
           새 강의 등록
         </Button>
       </Box>
@@ -273,64 +343,110 @@ const CourseManagement = () => {
               InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
             />
           </Box>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>강의명</TableCell>
-                  <TableCell align="center">분야</TableCell>
-                  {isAdminUser && <TableCell align="center">강사</TableCell>}
-                  <TableCell align="center">강의수</TableCell>
-                  <TableCell align="center">상태</TableCell>
-                  <TableCell align="center">조회/수강</TableCell>
-                  <TableCell align="center">관리</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {paged.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                    <Typography color="text.secondary">등록된 강의가 없습니다</Typography>
-                  </TableCell></TableRow>
-                ) : paged.map((course) => (
-                  <TableRow key={course.id} hover>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        {course.coverImage ? (
-                          <Avatar variant="rounded" src={course.coverImage} sx={{ width: 40, height: 28 }} />
-                        ) : (
-                          <Avatar variant="rounded" sx={{ width: 40, height: 28, bgcolor: '#EBF0FA' }}>
-                            <PlayIcon sx={{ fontSize: 16, color: '#0047BA' }} />
-                          </Avatar>
-                        )}
-                        <Box>
-                          <Typography variant="body2" fontWeight={500}>{course.title}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {course.videoType === 'url' ? '🔗 URL' : '📁 파일'} · {course.duration}
-                          </Typography>
-                        </Box>
+          {isMobile ? (
+            <Box sx={{ p: 2 }}>
+              {!coursesLoaded ? (
+                <Box sx={{ py: 6, textAlign: 'center' }}>
+                  <Typography color="text.secondary">강의 불러오는 중...</Typography>
+                </Box>
+              ) : paged.length === 0 ? (
+                <Box sx={{ py: 6, textAlign: 'center' }}>
+                  <Typography color="text.secondary">등록된 강의가 없습니다</Typography>
+                </Box>
+              ) : paged.map((course) => (
+                <Box key={course.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#fff' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, mr: 1 }}>
+                      {course.coverImage ? (
+                        <Avatar variant="rounded" src={course.coverImage} sx={{ width: 40, height: 28 }} />
+                      ) : (
+                        <Avatar variant="rounded" sx={{ width: 40, height: 28, bgcolor: '#EBF0FA' }}>
+                          <PlayIcon sx={{ fontSize: 16, color: '#0047BA' }} />
+                        </Avatar>
+                      )}
+                      <Box>
+                        <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>{course.title}</Typography>
+                        {isAdminUser && <Typography variant="caption" color="text.secondary">{course.instructor}</Typography>}
                       </Box>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip label={course.category} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
-                    </TableCell>
-                    {isAdminUser && <TableCell align="center" sx={{ fontSize: '0.8125rem' }}>{course.instructor}</TableCell>}
-                    <TableCell align="center">{course.lessons}강</TableCell>
-                    <TableCell align="center">
-                      <Chip label={course.status} size="small" color={getStatusColor(course.status)} />
-                    </TableCell>
-                    <TableCell align="center" sx={{ fontSize: '0.8125rem' }}>
-                      {course.views.toLocaleString()} / {course.enrollments}
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton size="small" onClick={(e) => { setAnchorEl(e.currentTarget); setSelectedCourse(course); }}>
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
+                    </Box>
+                    <IconButton size="small" onClick={(e) => { setAnchorEl(e.currentTarget); setSelectedCourse(course); }}>
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Chip label={course.category} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
+                    <Chip label={course.status} size="small" color={getStatusColor(course.status)} />
+                    <Typography variant="caption" color="text.secondary">{course.duration}</Typography>
+                    <Typography variant="caption" color="text.secondary">{course.lessons}강</Typography>
+                    <Typography variant="caption" color="text.secondary">조회 {course.views.toLocaleString()} / 수강 {course.enrollments}</Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>강의명</TableCell>
+                    <TableCell align="center">분야</TableCell>
+                    {isAdminUser && <TableCell align="center">강사</TableCell>}
+                    <TableCell align="center">강의수</TableCell>
+                    <TableCell align="center">상태</TableCell>
+                    <TableCell align="center">조회/수강</TableCell>
+                    <TableCell align="center">관리</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {!coursesLoaded ? (
+                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                      <Typography color="text.secondary">강의 불러오는 중...</Typography>
+                    </TableCell></TableRow>
+                  ) : paged.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                      <Typography color="text.secondary">등록된 강의가 없습니다</Typography>
+                    </TableCell></TableRow>
+                  ) : paged.map((course) => (
+                    <TableRow key={course.id} hover>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          {course.coverImage ? (
+                            <Avatar variant="rounded" src={course.coverImage} sx={{ width: 40, height: 28 }} />
+                          ) : (
+                            <Avatar variant="rounded" sx={{ width: 40, height: 28, bgcolor: '#EBF0FA' }}>
+                              <PlayIcon sx={{ fontSize: 16, color: '#0047BA' }} />
+                            </Avatar>
+                          )}
+                          <Box>
+                            <Typography variant="body2" fontWeight={500}>{course.title}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {course.videoType === 'url' ? '🔗 URL' : '📁 파일'} · {course.duration}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip label={course.category} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
+                      </TableCell>
+                      {isAdminUser && <TableCell align="center" sx={{ fontSize: '0.8125rem' }}>{course.instructor}</TableCell>}
+                      <TableCell align="center">{course.lessons}강</TableCell>
+                      <TableCell align="center">
+                        <Chip label={course.status} size="small" color={getStatusColor(course.status)} />
+                      </TableCell>
+                      <TableCell align="center" sx={{ fontSize: '0.8125rem' }}>
+                        {course.views.toLocaleString()} / {course.enrollments}
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton size="small" onClick={(e) => { setAnchorEl(e.currentTarget); setSelectedCourse(course); }}>
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
           {totalPages > 1 && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
               <Pagination count={totalPages} page={page} onChange={(_, v) => setPage(v)} color="primary" size="small" />
@@ -342,65 +458,109 @@ const CourseManagement = () => {
       {/* ─── Tab 1: Student Enrollment Requests ──────────────────── */}
       {tab === 1 && (
         <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '8px' }}>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>학생</TableCell>
-                  <TableCell>강의</TableCell>
-                  <TableCell align="center">신청일</TableCell>
-                  <TableCell align="center">상태</TableCell>
-                  <TableCell align="center">처리</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {studentRequests
-                  .filter((s) => isAdminUser || courses.some((c) => c.id === s.courseId && c.instructor === user?.name_ko))
-                  .map((req) => {
-                    const course = courses.find((c) => c.id === req.courseId);
-                    return (
-                      <TableRow key={req.id} hover>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem', bgcolor: '#0047BA' }}>
-                              {req.studentName.charAt(0)}
-                            </Avatar>
-                            <Box>
-                              <Typography variant="body2" fontWeight={500}>{req.studentName}</Typography>
-                              <Typography variant="caption" color="text.secondary">{req.email}</Typography>
-                            </Box>
+          {isMobile ? (
+            <Box sx={{ p: 2 }}>
+              {studentRequests
+                .filter((s) => isAdminUser || courses.some((c) => c.id === s.courseId && c.instructor === user?.name_ko))
+                .map((req) => {
+                  const course = courses.find((c) => c.id === req.courseId);
+                  return (
+                    <Box key={req.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#fff' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                          <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem', bgcolor: '#0047BA' }}>
+                            {req.studentName.charAt(0)}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="body2" fontWeight={600}>{req.studentName}</Typography>
+                            <Typography variant="caption" color="text.secondary">{req.email}</Typography>
                           </Box>
-                        </TableCell>
-                        <TableCell sx={{ fontSize: '0.8125rem' }}>{course?.title || '-'}</TableCell>
-                        <TableCell align="center" sx={{ fontSize: '0.8125rem' }}>{req.requestDate}</TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={req.status} size="small"
-                            color={req.status === '승인' ? 'success' : req.status === '거절' ? 'error' : 'warning'}
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          {req.status === '대기중' ? (
-                            <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                              <Button size="small" variant="contained" color="success" startIcon={<ApproveIcon sx={{ fontSize: '14px !important' }} />}
-                                onClick={() => handleApproveStudent(req.id)} sx={{ fontSize: '0.7rem', py: 0.25 }}>
-                                승인
-                              </Button>
-                              <Button size="small" variant="outlined" color="error" startIcon={<RejectIcon sx={{ fontSize: '14px !important' }} />}
-                                onClick={() => handleRejectStudent(req.id)} sx={{ fontSize: '0.7rem', py: 0.25 }}>
-                                거절
-                              </Button>
+                        </Box>
+                        <Chip
+                          label={req.status} size="small"
+                          color={req.status === '승인' ? 'success' : req.status === '거절' ? 'error' : 'warning'}
+                        />
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                        {course?.title || '-'} · {req.requestDate}
+                      </Typography>
+                      {req.status === '대기중' && (
+                        <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
+                          <Button size="small" variant="contained" color="success" startIcon={<ApproveIcon sx={{ fontSize: '14px !important' }} />}
+                            onClick={() => handleApproveStudent(req.id)} sx={{ fontSize: '0.7rem', py: 0.25, flex: 1 }}>
+                            승인
+                          </Button>
+                          <Button size="small" variant="outlined" color="error" startIcon={<RejectIcon sx={{ fontSize: '14px !important' }} />}
+                            onClick={() => handleRejectStudent(req.id)} sx={{ fontSize: '0.7rem', py: 0.25, flex: 1 }}>
+                            거절
+                          </Button>
+                        </Box>
+                      )}
+                    </Box>
+                  );
+                })}
+            </Box>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>학생</TableCell>
+                    <TableCell>강의</TableCell>
+                    <TableCell align="center">신청일</TableCell>
+                    <TableCell align="center">상태</TableCell>
+                    <TableCell align="center">처리</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {studentRequests
+                    .filter((s) => isAdminUser || courses.some((c) => c.id === s.courseId && c.instructor === user?.name_ko))
+                    .map((req) => {
+                      const course = courses.find((c) => c.id === req.courseId);
+                      return (
+                        <TableRow key={req.id} hover>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem', bgcolor: '#0047BA' }}>
+                                {req.studentName.charAt(0)}
+                              </Avatar>
+                              <Box>
+                                <Typography variant="body2" fontWeight={500}>{req.studentName}</Typography>
+                                <Typography variant="caption" color="text.secondary">{req.email}</Typography>
+                              </Box>
                             </Box>
-                          ) : (
-                            <Typography variant="caption" color="text.secondary">처리완료</Typography>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                          </TableCell>
+                          <TableCell sx={{ fontSize: '0.8125rem' }}>{course?.title || '-'}</TableCell>
+                          <TableCell align="center" sx={{ fontSize: '0.8125rem' }}>{req.requestDate}</TableCell>
+                          <TableCell align="center">
+                            <Chip
+                              label={req.status} size="small"
+                              color={req.status === '승인' ? 'success' : req.status === '거절' ? 'error' : 'warning'}
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            {req.status === '대기중' ? (
+                              <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                <Button size="small" variant="contained" color="success" startIcon={<ApproveIcon sx={{ fontSize: '14px !important' }} />}
+                                  onClick={() => handleApproveStudent(req.id)} sx={{ fontSize: '0.7rem', py: 0.25 }}>
+                                  승인
+                                </Button>
+                                <Button size="small" variant="outlined" color="error" startIcon={<RejectIcon sx={{ fontSize: '14px !important' }} />}
+                                  onClick={() => handleRejectStudent(req.id)} sx={{ fontSize: '0.7rem', py: 0.25 }}>
+                                  거절
+                                </Button>
+                              </Box>
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">처리완료</Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </Paper>
       )}
 
@@ -421,7 +581,8 @@ const CourseManagement = () => {
 
       {/* ─── Add/Edit Dialog ──────────────────────────────────────── */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+        fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle sx={{ fontWeight: 700 }}>
           {editMode ? '강의 수정' : '새 강의 등록'}
         </DialogTitle>
@@ -568,7 +729,8 @@ const CourseManagement = () => {
 
       {/* ─── Preview Dialog ───────────────────────────────────────── */}
       <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} maxWidth="sm" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+        fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6" fontWeight={700} fontSize="1rem">강의 미리보기</Typography>
           <IconButton size="small" onClick={() => setPreviewOpen(false)}><CloseIcon fontSize="small" /></IconButton>

@@ -68,9 +68,23 @@ const AdminLayout = ({ children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [notifAnchor, setNotifAnchor] = useState(null);
-  const [notifCount, setNotifCount] = useState(() => {
-    return localStorage.getItem('woori_admin_notif_read') ? 0 : 3;
+  const adminNotifKey = `woori_admin_notifs_${user?.email || 'admin'}`;
+  const [adminNotifs, setAdminNotifs] = useState(() => {
+    try {
+      const saved = localStorage.getItem(adminNotifKey);
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return [];
   });
+  const notifCount = adminNotifs.length;
+
+  const dismissAdminNotif = (id, path) => {
+    const updated = adminNotifs.filter((n) => n.id !== id);
+    setAdminNotifs(updated);
+    localStorage.setItem(adminNotifKey, JSON.stringify(updated));
+    setNotifAnchor(null);
+    if (path) setTimeout(() => navigate(path), 100);
+  };
 
   const sidebarWidth = collapsed && !isMobile ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH;
 
@@ -251,7 +265,11 @@ const AdminLayout = ({ children }) => {
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
           ModalProps={{ keepMounted: true }}
-          sx={{ '& .MuiDrawer-paper': { width: SIDEBAR_WIDTH, border: 'none' } }}
+          sx={{
+            zIndex: (t) => t.zIndex.drawer + 2,
+            '& .MuiDrawer-paper': { width: SIDEBAR_WIDTH, border: 'none' },
+            '& .MuiBackdrop-root': { backgroundColor: 'rgba(0,0,0,0.4)' },
+          }}
         >
           {sidebarContent}
         </Drawer>
@@ -305,7 +323,7 @@ const AdminLayout = ({ children }) => {
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Tooltip title="알림">
-                <IconButton size="small" onClick={(e) => { setNotifAnchor(e.currentTarget); setNotifCount(0); localStorage.setItem('woori_admin_notif_read', '1'); }}>
+                <IconButton size="small" onClick={(e) => { setNotifAnchor(e.currentTarget); }}>
                   <Badge badgeContent={notifCount} color="error" variant={notifCount > 0 ? 'standard' : 'dot'} invisible={notifCount === 0}>
                     <NotificationsIcon fontSize="small" />
                   </Badge>
@@ -339,6 +357,7 @@ const AdminLayout = ({ children }) => {
                 }}
                 transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                disableScrollLock
               >
                 <Box sx={{ px: 2, py: 1.5 }}>
                   <Typography variant="subtitle2">{user?.name_ko || user?.name || '관리자'}</Typography>
@@ -365,28 +384,35 @@ const AdminLayout = ({ children }) => {
                 anchorEl={notifAnchor}
                 open={Boolean(notifAnchor)}
                 onClose={() => setNotifAnchor(null)}
-                PaperProps={{ sx: { mt: 1, width: 320, maxHeight: 400, borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)' } }}
+                PaperProps={{ sx: { mt: 1, width: { xs: 280, sm: 320 }, maxWidth: '90vw', maxHeight: 400, borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)' } }}
                 transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                disableScrollLock
+                disableRestoreFocus
+                keepMounted={false}
               >
                 <Box sx={{ p: 2, borderBottom: '1px solid #F0F0F0' }}>
                   <Typography variant="subtitle2" fontWeight={700}>알림</Typography>
                 </Box>
-                <MenuItem onClick={() => { setNotifAnchor(null); navigate('/admin/consultations'); }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight={500}>새로운 상담 예약이 접수되었습니다</Typography>
-                    <Typography variant="caption" color="text.secondary">5분 전</Typography>
+                {adminNotifs.length === 0 ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">새로운 알림이 없습니다</Typography>
                   </Box>
-                </MenuItem>
-                <MenuItem onClick={() => { setNotifAnchor(null); navigate('/admin/programs'); }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight={500}>프로그램 신청이 승인 대기 중입니다</Typography>
-                    <Typography variant="caption" color="text.secondary">1시간 전</Typography>
-                  </Box>
-                </MenuItem>
-                <Divider />
-                <MenuItem onClick={() => setNotifAnchor(null)} sx={{ justifyContent: 'center' }}>
-                  <Typography variant="body2" color="primary" fontWeight={600}>모든 알림 확인</Typography>
+                ) : (
+                  adminNotifs.map((n) => (
+                    <MenuItem key={n.id} onClick={() => dismissAdminNotif(n.id, n.path)}>
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>{n.text}</Typography>
+                        <Typography variant="caption" color="text.secondary">{n.time}</Typography>
+                      </Box>
+                    </MenuItem>
+                  ))
+                )}
+                {adminNotifs.length > 0 && <Divider />}
+                <MenuItem onClick={() => { setAdminNotifs([]); localStorage.setItem(adminNotifKey, '[]'); setNotifAnchor(null); }} sx={{ justifyContent: 'center' }}>
+                  <Typography variant="body2" color="primary" fontWeight={600}>
+                    {adminNotifs.length > 0 ? '모두 읽음 처리' : '알림 없음'}
+                  </Typography>
                 </MenuItem>
               </Menu>
             </Box>

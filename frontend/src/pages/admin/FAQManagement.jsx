@@ -4,6 +4,7 @@ import {
   TableRow, Button, TextField, InputAdornment, IconButton, Chip, Menu, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, Grid, FormControl,
   InputLabel, Select, Divider, Tabs, Tab, Tooltip, Switch, FormControlLabel,
+  useMediaQuery, useTheme,
 } from '@mui/material';
 import {
   Search as SearchIcon, Add as AddIcon, MoreVert as MoreVertIcon,
@@ -48,11 +49,24 @@ const INITIAL_FAQS = [
 ];
 
 const FAQManagement = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { showSuccess } = useNotification();
 
   const [tabIndex, setTabIndex] = useState(0);
   const [categories, setCategories] = useState(loadCategories);
   const [faqs, setFaqs] = useState(INITIAL_FAQS);
+
+  // Load from Supabase on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const { loadFAQs } = await import('../../utils/supportStore');
+        const data = await loadFAQs();
+        if (data.length > 0) setFaqs(data);
+      } catch { /* ignore */ }
+    })();
+  }, []);
   const [showViewCount, setShowViewCount] = useState(() => {
     try {
       const saved = localStorage.getItem(FAQ_SETTINGS_KEY);
@@ -119,16 +133,20 @@ const FAQManagement = () => {
     handleMenuClose();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.question.trim() || !form.answer.trim()) return;
+    const { addFAQ, updateFAQ: updateFAQRemote } = await import('../../utils/supportStore');
     if (editMode && selectedItem) {
       setFaqs((prev) => prev.map((f) =>
         f.id === selectedItem.id ? { ...f, ...form } : f
       ));
+      await updateFAQRemote(selectedItem.id, form);
       showSuccess('FAQ가 수정되었습니다');
     } else {
       const newId = Math.max(0, ...faqs.map((f) => f.id)) + 1;
-      setFaqs((prev) => [...prev, { id: newId, ...form, views: 0 }]);
+      const newFaq = { id: newId, ...form, views: 0 };
+      setFaqs((prev) => [...prev, newFaq]);
+      await addFAQ(newFaq);
       showSuccess('FAQ가 등록되었습니다');
     }
     setDialogOpen(false);
@@ -209,7 +227,7 @@ const FAQManagement = () => {
       {/* Tab 0: FAQ List */}
       {tabIndex === 0 && (
         <>
-          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ mb: 2, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 1.5 }}>
             <FormControlLabel
               control={
                 <Switch checked={showViewCount} onChange={(e) => {
@@ -225,7 +243,7 @@ const FAQManagement = () => {
           </Box>
 
           <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
-            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, mb: 3 }}>
               <TextField fullWidth placeholder="질문/답변으로 검색..." value={searchTerm} size="small"
                 onChange={(e) => setSearchTerm(e.target.value)}
                 InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }} />
@@ -246,6 +264,34 @@ const FAQManagement = () => {
               </FormControl>
             </Box>
 
+            {isMobile ? (
+              <Box>
+                {filtered.map((faq) => {
+                  const catStyle = getCatStyle(faq.category);
+                  return (
+                    <Box key={faq.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#fff', cursor: 'pointer' }}
+                      onClick={() => { setSelectedItem(faq); setViewOpen(true); }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                        <Typography variant="body2" fontWeight={600} sx={{ flex: 1, mr: 1 }}>{faq.question}</Typography>
+                        <Chip label={faq.status} size="small" color={faq.status === '게시중' ? 'success' : 'default'} />
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <Chip label={faq.category} size="small"
+                          sx={{ bgcolor: catStyle.bg, color: catStyle.color, fontWeight: 600, fontSize: '0.75rem' }} />
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+                          조회 {faq.views}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <Box sx={{ textAlign: 'center', py: 6 }}>
+                    <Typography color="text.secondary">FAQ가 없습니다</Typography>
+                  </Box>
+                )}
+              </Box>
+            ) : (
             <TableContainer>
               <Table size="small">
                 <TableHead>
@@ -292,6 +338,7 @@ const FAQManagement = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+            )}
           </Paper>
         </>
       )}
@@ -356,8 +403,8 @@ const FAQManagement = () => {
       </Menu>
 
       {/* View Dialog */}
-      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {selectedItem && (() => {
@@ -389,8 +436,8 @@ const FAQManagement = () => {
       </Dialog>
 
       {/* Add/Edit FAQ Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>{editMode ? 'FAQ 수정' : '새 FAQ 등록'}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ pt: 1 }}>
@@ -440,8 +487,8 @@ const FAQManagement = () => {
       </Dialog>
 
       {/* Delete FAQ Confirmation */}
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>FAQ 삭제</DialogTitle>
         <DialogContent>
           <Typography>이 FAQ를 정말 삭제하시겠습니까?</Typography>
@@ -453,8 +500,8 @@ const FAQManagement = () => {
       </Dialog>
 
       {/* Add/Edit Category Dialog */}
-      <Dialog open={catDialogOpen} onClose={() => setCatDialogOpen(false)} maxWidth="xs" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={catDialogOpen} onClose={() => setCatDialogOpen(false)} maxWidth="xs" fullWidth fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>{editingCat ? '카테고리 수정' : '새 카테고리 추가'}</DialogTitle>
         <DialogContent dividers>
           <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -493,8 +540,8 @@ const FAQManagement = () => {
       </Dialog>
 
       {/* Delete Category Confirmation */}
-      <Dialog open={!!catDeleteConfirm} onClose={() => setCatDeleteConfirm(null)}
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={!!catDeleteConfirm} onClose={() => setCatDeleteConfirm(null)} fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>카테고리 삭제</DialogTitle>
         <DialogContent>
           <Typography>"{catDeleteConfirm?.name}" 카테고리를 삭제하시겠습니까?</Typography>

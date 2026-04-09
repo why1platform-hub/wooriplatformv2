@@ -36,11 +36,11 @@ const Favorites = () => {
         if (apiBookmarks.length > 0) {
           setFavorites(apiBookmarks);
         } else {
-          setFavorites(getBookmarkedJobs());
+          setFavorites(await getBookmarkedJobs());
         }
       } catch {
         // No backend — read from localStorage via shared store
-        setFavorites(getBookmarkedJobs());
+        setFavorites(await getBookmarkedJobs());
       } finally {
         setLoading(false);
       }

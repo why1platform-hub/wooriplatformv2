@@ -85,24 +85,11 @@ export const consultationsAPI = {
   getByConsultant: (consultantId) => api.get(`/consultations/admin/by-consultant/${consultantId}`),
 };
 
-// Courses API
-export const coursesAPI = {
-  getAll: (params) => api.get('/courses', { params }),
-  getById: (id) => api.get(`/courses/${id}`),
-  enroll: (id) => api.post(`/courses/${id}/enroll`),
-  updateProgress: (id, data) => api.put(`/courses/${id}/progress`, data),
-  getEnrollments: () => api.get('/courses/enrollments'),
-  // Admin
-  create: (data) => api.post('/courses', data),
-  update: (id, data) => api.put(`/courses/${id}`, data),
-  delete: (id) => api.delete(`/courses/${id}`),
-};
 
 // Jobs API
 export const jobsAPI = {
   getAll: (params) => api.get('/jobs', { params }),
   getById: (id) => api.get(`/jobs/${id}`),
-  getRecommendations: () => api.get('/jobs/recommendations'),
   bookmark: (id) => api.post(`/jobs/${id}/bookmark`),
   removeBookmark: (id) => api.delete(`/jobs/${id}/bookmark`),
   getBookmarks: () => api.get('/jobs/bookmarks'),

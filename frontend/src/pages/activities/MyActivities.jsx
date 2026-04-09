@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTheme, useMediaQuery } from '@mui/material';
 import {
   Box,
   Card,
@@ -28,6 +29,7 @@ import {
   IconButton,
   TextField,
   Paper,
+  Alert,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
@@ -45,9 +47,11 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
-import { consultationsAPI, coursesAPI } from '../../services/api';
+import { consultationsAPI } from '../../services/api';
+import { getInProgressCourses } from '../../utils/courseStore';
 import { loadApplications } from '../../utils/programStore';
-import { getBookingsForUser } from '../../utils/consultationStore';
+import { getBookingsForUser, acceptProposal, rejectProposal } from '../../utils/consultationStore';
+import { pushAdminNotification } from '../../utils/notificationHelper';
 import { getBookmarkedJobs, toggleBookmark } from '../../utils/jobStore';
 import StatusBadge from '../../components/common/StatusBadge';
 import CategoryBadge from '../../components/common/CategoryBadge';
@@ -61,6 +65,7 @@ const methodIcon = {
 const statusColors = {
   '배정대기': { color: '#92400E', bg: '#FEF3C7' },
   '승인대기': { color: '#7C3AED', bg: '#F3F0FF' },
+  '상담제안': { color: '#0369A1', bg: '#E0F2FE' },
   '예약됨': { color: '#1E40AF', bg: '#DBEAFE' },
   '완료': { color: '#166534', bg: '#DCFCE7' },
   '취소': { color: '#991B1B', bg: '#FEE2E2' },
@@ -72,6 +77,8 @@ const MyActivities = () => {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { user } = useAuth();
 
   const getInitialTab = () => {
@@ -122,30 +129,26 @@ const MyActivities = () => {
         } else if (tab === 1) {
           // Read from shared localStorage store
           const myBookings = user ? await getBookingsForUser(user.id) : [];
+          const statusMap = { pending: '배정대기', pending_approval: '상담제안', proposed: '상담제안', confirmed: '예약됨', completed: '완료', rejected: '거절', cancelled: '취소' };
           const mapped = myBookings.map((b) => ({
             id: b.id,
+            rawStatus: b.status,
             date: `${b.date} ${b.time}`,
             scheduled_at: `${b.date} ${b.time}`,
             consultant: b.consultantName || '배정 대기',
             consultant_name: b.consultantName || '배정 대기',
             topic: b.method,
             method: b.method,
-            status: b.status === 'pending' ? '배정대기' : b.status === 'pending_approval' ? '승인대기' : b.status === 'confirmed' ? '예약됨' : b.status === 'completed' ? '완료' : b.status === 'rejected' ? '거절' : '취소',
+            status: statusMap[b.status] || b.status,
             rejectReason: b.rejectReason || '',
             records: [],
           }));
           setConsultations(mapped);
         } else if (tab === 2) {
-          try {
-            const response = await coursesAPI.getEnrollments();
-            setCourses(response.data.enrollments || []);
-          } catch {
-            // No backend - show empty state
-            setCourses([]);
-          }
+          setCourses(await getInProgressCourses());
         } else if (tab === 3) {
           // Load bookmarked jobs from shared store
-          setBookmarkedJobs(getBookmarkedJobs());
+          setBookmarkedJobs(await getBookmarkedJobs());
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -201,6 +204,19 @@ const MyActivities = () => {
       records: [...(prev.records || []), newRecord],
     }));
     setNewNote('');
+  };
+
+  const handleAcceptProposal = async (c) => {
+    await acceptProposal(c.id);
+    setConsultations((prev) => prev.map((x) => x.id === c.id ? { ...x, status: '예약됨', rawStatus: 'confirmed' } : x));
+    // Notify the instructor
+    pushAdminNotification(null, `${user?.name_ko || '사용자'}님이 상담 제안을 승인했습니다 (${c.date})`, '/admin/consultations');
+  };
+
+  const handleRejectProposal = async (c) => {
+    await rejectProposal(c.id);
+    setConsultations((prev) => prev.map((x) => x.id === c.id ? { ...x, status: '취소', rawStatus: 'cancelled' } : x));
+    pushAdminNotification(null, `${user?.name_ko || '사용자'}님이 상담 제안을 거절했습니다 (${c.date})`, '/admin/consultations');
   };
 
   const handleCancel = async (consultation) => {
@@ -267,6 +283,24 @@ const MyActivities = () => {
                       <Box sx={{ textAlign: 'center', py: 8 }}>
                         <Typography color="text.secondary">{t('activities.noApplications')}</Typography>
                       </Box>
+                    ) : isMobile ? (
+                      <Box>
+                        {displayApplications.map((app) => (
+                          <Box key={app.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', borderLeft: '4px solid #0047BA' }}>
+                            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>{app.program_title || app.title || app.program?.title_ko}</Typography>
+                            <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                              <CategoryBadge category={app.category || app.program?.category} />
+                              <StatusBadge status={app.status} />
+                            </Box>
+                            <Typography variant="caption" color="text.secondary">{t('activities.applicationDate')}: {app.date || app.applied_at}</Typography>
+                            <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
+                              <Button size="small" variant="outlined" onClick={() => navigate(`/programs/${app.program_id || app.programId}`)}>
+                                {t('common.viewDetail')}
+                              </Button>
+                            </Box>
+                          </Box>
+                        ))}
+                      </Box>
                     ) : (
                     <TableContainer>
                       <Table>
@@ -306,6 +340,18 @@ const MyActivities = () => {
                   {/* Consultation Records */}
                   {tab === 1 && (
                     <Box>
+                      {/* Proposed consultation banner */}
+                      {displayConsultations.filter((c) => c.rawStatus === 'proposed' || c.rawStatus === 'pending_approval').map((c) => (
+                        <Alert key={c.id} severity="info" sx={{ mb: 2, border: '1px solid #0369A1' }}
+                          action={
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                              <Button size="small" variant="contained" color="success" onClick={() => handleAcceptProposal(c)}>승인</Button>
+                              <Button size="small" variant="outlined" color="error" onClick={() => handleRejectProposal(c)}>거절</Button>
+                            </Box>
+                          }>
+                          <strong>[상담 제안]</strong> {c.consultant} 강사가 {c.date} ({c.method}) 상담을 제안했습니다.
+                        </Alert>
+                      ))}
                       {displayConsultations.length === 0 ? (
                         <Box sx={{ textAlign: 'center', py: 8 }}>
                           <Typography color="text.secondary" sx={{ mb: 2 }}>{t('activities.noConsultations')}</Typography>
@@ -313,7 +359,48 @@ const MyActivities = () => {
                             {t('activities.firstBooking')}
                           </Button>
                         </Box>
+                      ) : isMobile ? (
+                      /* ── Mobile Card Layout ── */
+                      <Box>
+                        {displayConsultations.map((c) => {
+                          const sc = statusColors[c.status];
+                          const isProposal = c.rawStatus === 'proposed' || c.rawStatus === 'pending_approval';
+                          return (
+                            <Box key={c.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid', borderColor: isProposal ? '#0369A1' : '#E5E7EB', borderLeft: `4px solid ${sc?.color || '#999'}`, bgcolor: isProposal ? '#F0F9FF' : '#fff' }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                                <Typography variant="subtitle2" fontWeight={600}>{c.date || c.scheduled_at}</Typography>
+                                <Chip size="small" label={c.status} sx={{ height: 22, fontSize: '0.7rem', fontWeight: 600, bgcolor: sc?.bg || '#F3F4F6', color: sc?.color || '#374151' }} />
+                              </Box>
+                              <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                                <Typography variant="body2" color="text.secondary">{c.consultant || c.consultant_name}</Typography>
+                                {c.method && <Chip size="small" icon={methodIcon[c.method]} label={c.method} sx={{ height: 22, fontSize: '0.7rem' }} />}
+                              </Box>
+                              {c.status === '거절' && c.rejectReason && (
+                                <Typography variant="caption" sx={{ color: '#C62828', display: 'block', mb: 1 }}>
+                                  {t('activities.rejectReason')}: {c.rejectReason}
+                                </Typography>
+                              )}
+                              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'flex-end', mt: 1, pt: 1, borderTop: '1px solid #F3F4F6' }}>
+                                {isProposal && (
+                                  <>
+                                    <Button size="small" variant="contained" color="success" onClick={() => handleAcceptProposal(c)}>승인</Button>
+                                    <Button size="small" variant="outlined" color="error" onClick={() => handleRejectProposal(c)}>거절</Button>
+                                  </>
+                                )}
+                                <Button size="small" variant="outlined" onClick={() => handleViewDetail(c)}>{t('common.viewDetail')}</Button>
+                                {(c.status === '예약됨' || c.status === '배정대기') && (
+                                  <Button size="small" variant="outlined" color="error" onClick={() => { setCancelTarget(c); setCancelConfirmOpen(true); }}>{t('common.cancel')}</Button>
+                                )}
+                                {c.status === '거절' && (
+                                  <Button size="small" variant="contained" onClick={() => navigate('/consultations/booking')}>{t('activities.rebook')}</Button>
+                                )}
+                              </Box>
+                            </Box>
+                          );
+                        })}
+                      </Box>
                       ) : (
+                      /* ── Desktop Table Layout ── */
                       <TableContainer>
                         <Table>
                           <TableHead>
@@ -322,7 +409,6 @@ const MyActivities = () => {
                               <TableCell>{t('activities.consultant')}</TableCell>
                               <TableCell>{t('activities.topic')}</TableCell>
                               <TableCell align="center">{t('activities.method')}</TableCell>
-                              <TableCell align="center">{t('activities.records')}</TableCell>
                               <TableCell align="center">{t('programs.status')}</TableCell>
                               <TableCell align="center"></TableCell>
                             </TableRow>
@@ -337,61 +423,32 @@ const MyActivities = () => {
                                   <TableCell sx={{ fontSize: '0.875rem' }}>{c.consultant || c.consultant_name}</TableCell>
                                   <TableCell sx={{ fontSize: '0.875rem' }}>{c.topic}</TableCell>
                                   <TableCell align="center">
-                                    {c.method && (
-                                      <Chip
-                                        size="small"
-                                        icon={methodIcon[c.method]}
-                                        label={c.method}
-                                        sx={{ height: 24, fontSize: '0.75rem' }}
-                                      />
-                                    )}
+                                    {c.method && <Chip size="small" icon={methodIcon[c.method]} label={c.method} sx={{ height: 24, fontSize: '0.75rem' }} />}
                                   </TableCell>
                                   <TableCell align="center">
-                                    <Typography variant="body2">
-                                      {(c.records?.length || c.records_count || 0) > 0
-                                        ? `${c.records?.length || c.records_count}건`
-                                        : '-'}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell align="center">
-                                    <Chip
-                                      size="small"
-                                      label={c.status}
-                                      sx={{
-                                        height: 24,
-                                        fontSize: '0.75rem',
-                                        fontWeight: 600,
-                                        bgcolor: sc?.bg || '#F3F4F6',
-                                        color: sc?.color || '#374151',
-                                      }}
-                                    />
+                                    <Chip size="small" label={c.status} sx={{ height: 24, fontSize: '0.75rem', fontWeight: 600, bgcolor: sc?.bg || '#F3F4F6', color: sc?.color || '#374151' }} />
                                   </TableCell>
                                   <TableCell align="center">
                                     <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                                      <Button size="small" variant="outlined" onClick={() => handleViewDetail(c)}>
-                                        {t('common.viewDetail')}
-                                      </Button>
-                                      {(c.status === '예약됨' || c.status === '배정대기' || c.status === '승인대기') && (
-                                        <Button
-                                          size="small"
-                                          variant="outlined"
-                                          color="error"
-                                          onClick={() => { setCancelTarget(c); setCancelConfirmOpen(true); }}
-                                        >
-                                          {t('common.cancel')}
-                                        </Button>
+                                      <Button size="small" variant="outlined" onClick={() => handleViewDetail(c)}>{t('common.viewDetail')}</Button>
+                                      {(c.rawStatus === 'proposed' || c.rawStatus === 'pending_approval') && (
+                                        <>
+                                          <Button size="small" variant="contained" color="success" onClick={() => handleAcceptProposal(c)}>승인</Button>
+                                          <Button size="small" variant="outlined" color="error" onClick={() => handleRejectProposal(c)}>거절</Button>
+                                        </>
+                                      )}
+                                      {(c.status === '예약됨' || c.status === '배정대기') && (
+                                        <Button size="small" variant="outlined" color="error" onClick={() => { setCancelTarget(c); setCancelConfirmOpen(true); }}>{t('common.cancel')}</Button>
                                       )}
                                       {c.status === '거절' && (
-                                        <Button size="small" variant="contained" onClick={() => navigate('/consultations/booking')}>
-                                          {t('activities.rebook')}
-                                        </Button>
+                                        <Button size="small" variant="contained" onClick={() => navigate('/consultations/booking')}>{t('activities.rebook')}</Button>
                                       )}
                                     </Box>
                                   </TableCell>
                                 </TableRow>
                                 {c.status === '거절' && c.rejectReason && (
                                   <TableRow>
-                                    <TableCell colSpan={7} sx={{ py: 1, bgcolor: '#FFEBEE', borderBottom: '1px solid #FFCDD2' }}>
+                                    <TableCell colSpan={6} sx={{ py: 1, bgcolor: '#FFEBEE', borderBottom: '1px solid #FFCDD2' }}>
                                       <Typography variant="body2" sx={{ color: '#C62828', whiteSpace: 'pre-line' }}>
                                         <strong>{t('activities.rejectReason')}:</strong> {c.rejectReason}
                                       </Typography>
@@ -490,7 +547,28 @@ const MyActivities = () => {
                             {t('activities.viewJobs')}
                           </Button>
                         </Box>
-                      ) : (
+                      ) : isMobile ? (
+                          <Box>
+                            {bookmarkedJobs.map((job) => (
+                              <Box key={job.id} onClick={() => navigate(`/jobs/${job.id}`)}
+                                sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', cursor: 'pointer', '&:hover': { bgcolor: '#F9FAFB' } }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                  <Box>
+                                    <Typography variant="caption" color="text.secondary">{job.company}</Typography>
+                                    <Typography variant="subtitle2" fontWeight={600}>{job.title_ko || job.position}</Typography>
+                                  </Box>
+                                  <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); toggleBookmark(job.id); setBookmarkedJobs((prev) => prev.filter((j) => j.id !== job.id)); }}>
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                                <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+                                  <Typography variant="caption" color="text.secondary">{job.location}</Typography>
+                                  <Chip label={job.type || job.employment_type} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
+                                </Box>
+                              </Box>
+                            ))}
+                          </Box>
+                        ) : (
                         <TableContainer>
                           <Table>
                             <TableHead>
@@ -505,28 +583,12 @@ const MyActivities = () => {
                             <TableBody>
                               {bookmarkedJobs.map((job) => (
                                 <TableRow key={job.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/jobs/${job.id}`)}>
-                                  <TableCell>
-                                    <Typography variant="body2" fontWeight={500}>{job.company}</Typography>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Typography variant="body2">{job.title_ko || job.position}</Typography>
-                                  </TableCell>
+                                  <TableCell><Typography variant="body2" fontWeight={500}>{job.company}</Typography></TableCell>
+                                  <TableCell><Typography variant="body2">{job.title_ko || job.position}</Typography></TableCell>
+                                  <TableCell align="center"><Typography variant="body2" color="text.secondary">{job.location}</Typography></TableCell>
+                                  <TableCell align="center"><Chip label={job.type || job.employment_type} size="small" sx={{ height: 24, fontSize: '0.75rem' }} /></TableCell>
                                   <TableCell align="center">
-                                    <Typography variant="body2" color="text.secondary">{job.location}</Typography>
-                                  </TableCell>
-                                  <TableCell align="center">
-                                    <Chip label={job.type || job.employment_type} size="small" sx={{ height: 24, fontSize: '0.75rem' }} />
-                                  </TableCell>
-                                  <TableCell align="center">
-                                    <IconButton
-                                      size="small"
-                                      color="error"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleBookmark(job.id);
-                                        setBookmarkedJobs((prev) => prev.filter((j) => j.id !== job.id));
-                                      }}
-                                    >
+                                    <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); toggleBookmark(job.id); setBookmarkedJobs((prev) => prev.filter((j) => j.id !== job.id)); }}>
                                       <DeleteIcon fontSize="small" />
                                     </IconButton>
                                   </TableCell>

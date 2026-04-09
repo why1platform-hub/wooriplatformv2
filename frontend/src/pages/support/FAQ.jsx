@@ -18,7 +18,6 @@ import {
   ExpandMore as ExpandMoreIcon,
   Visibility as ViewIcon,
 } from '@mui/icons-material';
-import { faqAPI } from '../../services/api';
 
 const FAQ_SETTINGS_KEY = 'woori_faq_settings';
 
@@ -44,8 +43,9 @@ const FAQ = () => {
     const fetchFAQs = async () => {
       setLoading(true);
       try {
-        const response = await faqAPI.getAll();
-        setFaqs(response.data.faqs || []);
+        const { loadFAQs } = await import('../../utils/supportStore');
+        const data = await loadFAQs();
+        setFaqs(data);
       } catch (error) {
         console.error('Failed to fetch FAQs:', error);
       } finally {

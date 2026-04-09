@@ -106,10 +106,27 @@ export const cancelBooking = async (bookingId) => {
   } catch { /* ignore */ }
 };
 
+// User accepts a proposed consultation → confirmed
+export const acceptProposal = async (bookingId) => {
+  try {
+    await supabase.from('consultation_bookings').update({ status: 'confirmed' }).eq('id', bookingId);
+  } catch { /* ignore */ }
+};
+
+// User rejects a proposed consultation → cancelled (using 'cancelled' for DB constraint compatibility)
+export const rejectProposal = async (bookingId) => {
+  try {
+    await supabase.from('consultation_bookings').update({ status: 'cancelled' }).eq('id', bookingId);
+  } catch { /* ignore */ }
+};
+
 export const rejectBooking = async (bookingId, reason) => {
   try {
-    // Update status only (reject_reason column may not exist)
-    await supabase.from('consultation_bookings').update({ status: 'rejected' }).eq('id', bookingId);
+    // Try 'rejected' first, fall back to 'cancelled' if CHECK constraint doesn't allow it
+    let { error } = await supabase.from('consultation_bookings').update({ status: 'rejected' }).eq('id', bookingId);
+    if (error) {
+      await supabase.from('consultation_bookings').update({ status: 'cancelled' }).eq('id', bookingId);
+    }
     // Store reject reason in consultation_notes
     if (reason) {
       try {
@@ -126,7 +143,8 @@ export const rejectBooking = async (bookingId, reason) => {
 
 export const getBookingsForUser = async (userId) => {
   const all = await loadBookings();
-  return all.filter((b) => b.userId === userId && b.status !== 'cancelled');
+  // Compare as both number and string for robustness
+  return all.filter((b) => (b.userId === userId || String(b.userId) === String(userId)) && b.status !== 'cancelled');
 };
 
 export const getConsultationHistory = async (userId, consultantId) => {

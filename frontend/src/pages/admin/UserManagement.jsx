@@ -4,6 +4,7 @@ import {
   TableRow, Button, TextField, InputAdornment, IconButton, Chip, Menu, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, Grid, FormControl,
   InputLabel, Select, Divider, Avatar, Tabs, Tab, LinearProgress, Card,
+  useMediaQuery, useTheme,
 } from '@mui/material';
 import {
   Search as SearchIcon, MoreVert as MoreVertIcon, Edit as EditIcon,
@@ -107,6 +108,8 @@ const generateUserStats = (user) => {
 // User Detail Stats Dialog
 const UserDetailDialog = ({ open, onClose, user }) => {
   const [tab, setTab] = useState(0);
+  const detailTheme = useTheme();
+  const detailIsMobile = useMediaQuery(detailTheme.breakpoints.down('md'));
 
   if (!user) return null;
 
@@ -118,30 +121,30 @@ const UserDetailDialog = ({ open, onClose, user }) => {
   const getRoleLabel = (role) => ROLE_OPTIONS.find((r) => r.value === role)?.label || role;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: '12px' } }}>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={detailIsMobile} PaperProps={{ sx: { borderRadius: detailIsMobile ? 0 : '12px' } }}>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
         <Typography variant="h6" fontWeight={700}>사용자 상세 정보</Typography>
         <IconButton size="small" onClick={onClose}><CloseIcon fontSize="small" /></IconButton>
       </DialogTitle>
       <DialogContent dividers sx={{ p: 0 }}>
         {/* User Profile Header */}
-        <Box sx={{ bgcolor: '#F0F4FF', px: 3, py: 2.5, display: 'flex', alignItems: 'center', gap: 2.5 }}>
+        <Box sx={{ bgcolor: '#F0F4FF', px: 3, py: 2.5, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'flex-start', md: 'center' }, gap: 2.5 }}>
           <Avatar sx={{ width: 64, height: 64, bgcolor: '#0047BA', fontSize: '1.5rem' }}>
             {user.name_ko.charAt(0)}
           </Avatar>
           <Box sx={{ flex: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
               <Typography variant="h6" fontWeight={700}>{user.name_ko}</Typography>
               {user.name_en && <Typography variant="body2" color="text.secondary">({user.name_en})</Typography>}
             </Box>
             <Typography variant="body2" color="text.secondary">{user.email}</Typography>
-            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
               <Chip label={getRoleLabel(user.role)} size="small" color="primary" variant="outlined" />
               <Chip label={user.department} size="small" variant="outlined" />
               {user.retirement_date && <Chip label={`퇴직: ${user.retirement_date}`} size="small" variant="outlined" />}
             </Box>
           </Box>
-          <Box sx={{ textAlign: 'right' }}>
+          <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
             <Typography variant="caption" color="text.secondary" display="block">가입일: {user.created_at}</Typography>
             <Typography variant="caption" color="text.secondary" display="block">최근 로그인: {user.last_login}</Typography>
             {user.phone && <Typography variant="caption" color="text.secondary" display="block">{user.phone}</Typography>}
@@ -161,56 +164,56 @@ const UserDetailDialog = ({ open, onClose, user }) => {
             <Grid container spacing={2}>
               {isLearner && (
                 <>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <SchoolIcon color="primary" />
                       <Typography variant="h4" fontWeight={700}>{stats.enrolledCourses}</Typography>
                       <Typography variant="caption" color="text.secondary">수강 중 강좌</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <ActiveIcon color="success" />
                       <Typography variant="h4" fontWeight={700}>{stats.completedCourses}</Typography>
                       <Typography variant="caption" color="text.secondary">완료 강좌</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <TimeIcon color="info" />
                       <Typography variant="h4" fontWeight={700}>{stats.totalLearningHours}</Typography>
                       <Typography variant="caption" color="text.secondary">총 학습 시간(h)</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <TrendingUpIcon color="warning" />
                       <Typography variant="h4" fontWeight={700}>{stats.overallProgress}%</Typography>
                       <Typography variant="caption" color="text.secondary">전체 진도율</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <AssignmentIcon sx={{ color: '#7C3AED' }} />
                       <Typography variant="h4" fontWeight={700}>{stats.appliedPrograms}</Typography>
                       <Typography variant="caption" color="text.secondary">프로그램 신청</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <ChatIcon sx={{ color: '#059669' }} />
                       <Typography variant="h4" fontWeight={700}>{stats.consultations}</Typography>
                       <Typography variant="caption" color="text.secondary">상담 횟수</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <WorkIcon sx={{ color: '#EA580C' }} />
                       <Typography variant="h4" fontWeight={700}>{stats.jobApplications}</Typography>
                       <Typography variant="caption" color="text.secondary">채용 지원</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <StarIcon sx={{ color: '#D97706' }} />
                       <Typography variant="h4" fontWeight={700}>{stats.certificates}</Typography>
@@ -222,42 +225,42 @@ const UserDetailDialog = ({ open, onClose, user }) => {
 
               {isConsultant && (
                 <>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <SchoolIcon color="primary" />
                       <Typography variant="h4" fontWeight={700}>{stats.coursesCreated}</Typography>
                       <Typography variant="caption" color="text.secondary">개설 강좌</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <AssignmentIcon color="info" />
                       <Typography variant="h4" fontWeight={700}>{stats.totalStudents}</Typography>
                       <Typography variant="caption" color="text.secondary">총 수강생</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <StarIcon sx={{ color: '#D97706' }} />
                       <Typography variant="h4" fontWeight={700}>{stats.avgRating}</Typography>
                       <Typography variant="caption" color="text.secondary">평균 평점</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <TrendingUpIcon color="success" />
                       <Typography variant="h4" fontWeight={700}>{stats.completionRate}%</Typography>
                       <Typography variant="caption" color="text.secondary">수료율</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <TimeIcon color="warning" />
                       <Typography variant="h4" fontWeight={700}>{stats.totalHours}</Typography>
                       <Typography variant="caption" color="text.secondary">총 강의 시간(h)</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <CalendarIcon sx={{ color: '#7C3AED' }} />
                       <Typography variant="h4" fontWeight={700}>{stats.totalLessons}</Typography>
@@ -269,28 +272,28 @@ const UserDetailDialog = ({ open, onClose, user }) => {
 
               {isCounselor && (
                 <>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <ChatIcon color="primary" />
                       <Typography variant="h4" fontWeight={700}>{stats.totalConsultations}</Typography>
                       <Typography variant="caption" color="text.secondary">총 상담 건수</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <ActiveIcon color="success" />
                       <Typography variant="h4" fontWeight={700}>{stats.completedConsultations}</Typography>
                       <Typography variant="caption" color="text.secondary">완료 상담</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <TimeIcon color="info" />
                       <Typography variant="h4" fontWeight={700}>{stats.avgSessionTime}분</Typography>
                       <Typography variant="caption" color="text.secondary">평균 상담 시간</Typography>
                     </Card>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid item xs={6} md={3}>
                     <Card variant="outlined" sx={{ textAlign: 'center', p: 2 }}>
                       <TrendingUpIcon color="warning" />
                       <Typography variant="h4" fontWeight={700}>{stats.satisfactionRate}%</Typography>
@@ -435,6 +438,8 @@ const UserDetailDialog = ({ open, onClose, user }) => {
 };
 
 const UserManagement = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { showSuccess } = useNotification();
   const { isAdmin } = useAuth();
 
@@ -574,7 +579,7 @@ const UserManagement = () => {
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, gap: 1.5 }}>
         <Box>
           <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>사용자 관리</Typography>
           <Typography variant="body2" color="text.secondary">플랫폼 회원을 관리합니다 ({filtered.length}명)</Typography>
@@ -587,7 +592,7 @@ const UserManagement = () => {
       </Box>
 
       <Paper elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
-        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, mb: 3 }}>
           <TextField fullWidth placeholder="이름, 이메일로 검색..." value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }}
@@ -601,62 +606,93 @@ const UserManagement = () => {
           </FormControl>
         </Box>
 
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>사용자</TableCell>
-                <TableCell>이메일</TableCell>
-                <TableCell align="center">역할</TableCell>
-                <TableCell align="center">부서</TableCell>
-                <TableCell align="center">상태</TableCell>
-                <TableCell align="center">가입일</TableCell>
-                <TableCell align="center">최근 로그인</TableCell>
-                <TableCell align="center" width={100}>관리</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filtered.map((user) => (
-                <TableRow key={user.id} hover>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      <Avatar sx={{ width: 32, height: 32, bgcolor: '#0047BA', fontSize: '0.8rem' }}>
-                        {user.name_ko.charAt(0)}
-                      </Avatar>
-                      <Typography variant="body2" fontWeight={500}>{user.name_ko}</Typography>
+        {isMobile ? (
+          <Box>
+            {filtered.map((user) => (
+              <Box key={user.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#fff' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Avatar sx={{ width: 36, height: 36, bgcolor: '#0047BA', fontSize: '0.85rem' }}>{user.name_ko.charAt(0)}</Avatar>
+                    <Box>
+                      <Typography variant="body2" fontWeight={600}>{user.name_ko}</Typography>
+                      <Typography variant="caption" color="text.secondary">{user.email}</Typography>
                     </Box>
-                  </TableCell>
-                  <TableCell><Typography variant="body2">{user.email}</Typography></TableCell>
-                  <TableCell align="center">
-                    <Chip label={getRoleLabel(user.role)} size="small" color={getRoleColor(user.role)} variant="outlined" />
-                  </TableCell>
-                  <TableCell align="center"><Typography variant="body2">{user.department}</Typography></TableCell>
-                  <TableCell align="center">
-                    <Chip label={getStatusLabel(user.status)} size="small" color={getStatusColor(user.status)} />
-                  </TableCell>
-                  <TableCell align="center"><Typography variant="body2">{user.created_at}</Typography></TableCell>
-                  <TableCell align="center"><Typography variant="body2">{user.last_login}</Typography></TableCell>
-                  <TableCell align="center">
-                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-                      <Button size="small" variant="outlined" sx={{ minWidth: 'auto', px: 1, fontSize: '0.75rem' }}
-                        onClick={() => handleDetail(user)}>
-                        상세
-                      </Button>
-                      <IconButton size="small" onClick={(e) => handleMenuOpen(e, user)}>
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </TableCell>
+                  </Box>
+                  <IconButton size="small" onClick={(e) => handleMenuOpen(e, user)}><MoreVertIcon fontSize="small" /></IconButton>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                  <Chip label={getRoleLabel(user.role)} size="small" color={getRoleColor(user.role)} variant="outlined" />
+                  <Chip label={getStatusLabel(user.status)} size="small" color={getStatusColor(user.status)} />
+                  {user.department && <Chip label={user.department} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />}
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">가입: {user.created_at}</Typography>
+                  <Button size="small" variant="outlined" sx={{ minWidth: 'auto', px: 1.5, fontSize: '0.75rem' }} onClick={() => handleDetail(user)}>상세</Button>
+                </Box>
+              </Box>
+            ))}
+            {filtered.length === 0 && (
+              <Box sx={{ textAlign: 'center', py: 6 }}><Typography color="text.secondary">검색 결과가 없습니다</Typography></Box>
+            )}
+          </Box>
+        ) : (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>사용자</TableCell>
+                  <TableCell>이메일</TableCell>
+                  <TableCell align="center">역할</TableCell>
+                  <TableCell align="center">부서</TableCell>
+                  <TableCell align="center">상태</TableCell>
+                  <TableCell align="center">가입일</TableCell>
+                  <TableCell align="center">최근 로그인</TableCell>
+                  <TableCell align="center" width={100}>관리</TableCell>
                 </TableRow>
-              ))}
-              {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 6 }}>
-                  <Typography color="text.secondary">검색 결과가 없습니다</Typography>
-                </TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {filtered.map((user) => (
+                  <TableRow key={user.id} hover>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Avatar sx={{ width: 32, height: 32, bgcolor: '#0047BA', fontSize: '0.8rem' }}>
+                          {user.name_ko.charAt(0)}
+                        </Avatar>
+                        <Typography variant="body2" fontWeight={500}>{user.name_ko}</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell><Typography variant="body2">{user.email}</Typography></TableCell>
+                    <TableCell align="center">
+                      <Chip label={getRoleLabel(user.role)} size="small" color={getRoleColor(user.role)} variant="outlined" />
+                    </TableCell>
+                    <TableCell align="center"><Typography variant="body2">{user.department}</Typography></TableCell>
+                    <TableCell align="center">
+                      <Chip label={getStatusLabel(user.status)} size="small" color={getStatusColor(user.status)} />
+                    </TableCell>
+                    <TableCell align="center"><Typography variant="body2">{user.created_at}</Typography></TableCell>
+                    <TableCell align="center"><Typography variant="body2">{user.last_login}</Typography></TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                        <Button size="small" variant="outlined" sx={{ minWidth: 'auto', px: 1, fontSize: '0.75rem' }}
+                          onClick={() => handleDetail(user)}>
+                          상세
+                        </Button>
+                        <IconButton size="small" onClick={(e) => handleMenuOpen(e, user)}>
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filtered.length === 0 && (
+                  <TableRow><TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                    <Typography color="text.secondary">검색 결과가 없습니다</Typography>
+                  </TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </Paper>
 
       {/* Action Menu */}
@@ -678,8 +714,8 @@ const UserManagement = () => {
       </Menu>
 
       {/* Add/Edit Dialog (extended fields) */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>{editMode ? '사용자 수정' : '새 사용자 등록'}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ pt: 1 }}>
@@ -752,8 +788,8 @@ const UserManagement = () => {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}
-        PaperProps={{ sx: { borderRadius: '12px' } }}>
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
         <DialogTitle fontWeight={700}>사용자 삭제</DialogTitle>
         <DialogContent>
           <Typography>"{selectedUser?.name_ko}" 사용자를 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</Typography>

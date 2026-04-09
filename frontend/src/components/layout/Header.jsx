@@ -68,7 +68,6 @@ const Header = ({ onMenuToggle }) => {
       id: 'jobs', label: t('nav.jobs'), path: '/jobs', icon: <WorkIcon />,
       children: [
         { label: t('nav.jobPostings'), path: '/jobs' },
-        { label: t('nav.recommendations'), path: '/jobs/recommendations' },
         { label: t('nav.favorites'), path: '/jobs/favorites' },
         { label: t('nav.resumeManagement'), path: '/jobs/resume' },
       ],
@@ -102,10 +101,23 @@ const Header = ({ onMenuToggle }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
   const [hoveredNav, setHoveredNav] = useState(null);
-  const [notifCount, setNotifCount] = useState(() => {
-    const read = localStorage.getItem('woori_notif_read');
-    return read ? 0 : 3;
+  const notifKey = `woori_notifs_${user?.email || 'guest'}`;
+  const [notifications, setNotifications] = useState(() => {
+    try {
+      const saved = localStorage.getItem(notifKey);
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return [];
   });
+  const notifCount = notifications.length;
+
+  const dismissNotif = (id, path) => {
+    const updated = notifications.filter((n) => n.id !== id);
+    setNotifications(updated);
+    localStorage.setItem(notifKey, JSON.stringify(updated));
+    setNotificationAnchor(null);
+    if (path) setTimeout(() => navigate(path), 100);
+  };
 
   // Load custom logo
   const [customLogo, setCustomLogo] = useState(null);
@@ -122,9 +134,11 @@ const Header = ({ onMenuToggle }) => {
   };
 
   const handleNav = (path) => {
-    navigate(path);
     setMobileOpen(false);
+    setExpandedItems({});
     setHoveredNav(null);
+    // Delay navigation slightly to let drawer close animation start
+    setTimeout(() => navigate(path), 50);
   };
 
   const handleLogout = async () => {
@@ -268,7 +282,7 @@ const Header = ({ onMenuToggle }) => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
             <LanguageToggle />
 
-            <IconButton onClick={(e) => { setNotificationAnchor(e.currentTarget); setNotifCount(0); localStorage.setItem('woori_notif_read', '1'); }} sx={{ color: '#555' }}>
+            <IconButton onClick={(e) => { setNotificationAnchor(e.currentTarget); }} sx={{ color: '#555' }}>
               <Badge badgeContent={notifCount} color="error" sx={{ '& .MuiBadge-badge': { fontSize: '0.65rem', minWidth: 16, height: 16 } }}>
                 <NotificationsIcon sx={{ fontSize: 22 }} />
               </Badge>
@@ -310,26 +324,32 @@ const Header = ({ onMenuToggle }) => {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         disableScrollLock
+        disableRestoreFocus
+        keepMounted={false}
         PaperProps={{ sx: { width: 320, maxHeight: 400, borderRadius: '12px', mt: 0.5 } }}
       >
         <Box sx={{ p: 2, borderBottom: '1px solid #F0F0F0' }}>
           <Typography variant="subtitle1" fontWeight={700}>{t('notifications.title')}</Typography>
         </Box>
-        <MenuItem onClick={() => setNotificationAnchor(null)}>
-          <Box>
-            <Typography variant="body2" fontWeight={500}>{t('notifications.newProgram')}</Typography>
-            <Typography variant="caption" color="text.secondary">{t('notifications.timeAgo5min')}</Typography>
+        {notifications.length === 0 ? (
+          <Box sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">새로운 알림이 없습니다</Typography>
           </Box>
-        </MenuItem>
-        <MenuItem onClick={() => setNotificationAnchor(null)}>
-          <Box>
-            <Typography variant="body2" fontWeight={500}>{t('notifications.applicationApproved')}</Typography>
-            <Typography variant="caption" color="text.secondary">{t('notifications.timeAgo1hour')}</Typography>
-          </Box>
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={() => { setNotificationAnchor(null); navigate('/activities'); }} sx={{ justifyContent: 'center' }}>
-          <Typography variant="body2" color="primary" fontWeight={600}>{t('notifications.viewAll')}</Typography>
+        ) : (
+          notifications.map((n) => (
+            <MenuItem key={n.id} onClick={() => dismissNotif(n.id, n.path)}>
+              <Box>
+                <Typography variant="body2" fontWeight={500}>{t(n.text)}</Typography>
+                <Typography variant="caption" color="text.secondary">{t(n.time)}</Typography>
+              </Box>
+            </MenuItem>
+          ))
+        )}
+        {notifications.length > 0 && <Divider />}
+        <MenuItem onClick={() => { setNotifications([]); localStorage.setItem(notifKey, '[]'); setNotificationAnchor(null); }} sx={{ justifyContent: 'center' }}>
+          <Typography variant="body2" color="primary" fontWeight={600}>
+            {notifications.length > 0 ? '모두 읽음 처리' : t('notifications.viewAll')}
+          </Typography>
         </MenuItem>
       </Menu>
 
@@ -378,8 +398,9 @@ const Header = ({ onMenuToggle }) => {
       {/* Mobile Drawer */}
       <Drawer
         anchor="left"
+        variant="temporary"
         open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
+        onClose={() => { setMobileOpen(false); setExpandedItems({}); }}
         sx={{ zIndex: (theme) => theme.zIndex.drawer + 2 }}
         PaperProps={{ sx: { width: 300, borderRadius: '0 16px 16px 0' } }}
         ModalProps={{ keepMounted: false }}
@@ -397,7 +418,7 @@ const Header = ({ onMenuToggle }) => {
               {t('common.appName')}
             </Typography>
           </Box>
-          <IconButton onClick={() => setMobileOpen(false)} size="small">
+          <IconButton onClick={() => { setMobileOpen(false); setExpandedItems({}); }} size="small">
             <CloseIcon />
           </IconButton>
         </Box>
