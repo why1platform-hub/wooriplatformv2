@@ -12,7 +12,7 @@ export const useAuth = () => {
   return context;
 };
 
-// All accounts in the system (exported for data consistency)
+// System accounts (admin + consultants). Learners are loaded from Supabase at runtime.
 export const ALL_USERS = {
   'admin@woori.com': {
     id: 1, email: 'admin@woori.com', name_ko: '관리자', name_en: 'Admin',
@@ -25,21 +25,6 @@ export const ALL_USERS = {
   'instructor2@woori.com': {
     id: 3, email: 'instructor2@woori.com', name_ko: '이민호', name_en: 'Lee Minho',
     role: 'consultant', department: '전직지원팀',
-  },
-  'user1@woori.com': {
-    id: 4, email: 'user1@woori.com', name_ko: '홍길동', name_en: 'Hong Gildong',
-    role: 'learner', department: '금융컨설팅팀', retirement_date: '2026-01-15',
-    skills: ['자산관리', '투자상담', '고객관리'],
-  },
-  'user2@woori.com': {
-    id: 5, email: 'user2@woori.com', name_ko: '김영희', name_en: 'Kim Younghee',
-    role: 'learner', department: '부동산팀', retirement_date: '2026-03-01',
-    skills: ['부동산분석', '고객상담'],
-  },
-  'user3@woori.com': {
-    id: 6, email: 'user3@woori.com', name_ko: '이철수', name_en: 'Lee Cheolsu',
-    role: 'learner', department: '자산관리팀', retirement_date: '2026-06-30',
-    skills: ['자산운용', '리스크관리'],
   },
 };
 

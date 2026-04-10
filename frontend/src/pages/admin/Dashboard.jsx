@@ -19,7 +19,8 @@ import { loadPrograms, loadApplications } from '../../utils/programStore';
 import {
   getConsultationStats, getConsultantStats, CONSULTANTS, loadBookings,
 } from '../../utils/consultationStore';
-import { useAuth, ALL_USERS } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../utils/supabase';
 
 const methodIcon = { '온라인': <OnlineIcon sx={{ fontSize: 14 }} />, '오프라인': <OfflineIcon sx={{ fontSize: 14 }} />, '전화': <PhoneIcon sx={{ fontSize: 14 }} /> };
 const statusLabels = { pending: '배정대기', pending_approval: '승인대기', proposed: '상담제안', confirmed: '확정', completed: '완료', rejected: '거절' };
@@ -56,6 +57,7 @@ const AdminDashboard = () => {
   const [consultStats, setConsultStats] = useState({});
   const [consultantStats, setConsultantStats] = useState({});
   const [bookings, setBookings] = useState([]);
+  const [userCount, setUserCount] = useState(0);
 
   useEffect(() => {
     const loadAsync = async () => {
@@ -71,12 +73,16 @@ const AdminDashboard = () => {
       setConsultStats(cs);
       setConsultantStats(cas);
       setBookings(bk);
+      // Count registered users from Supabase
+      try {
+        const { data } = await supabase.from('site_config').select('value').eq('key', 'registered_users').single();
+        setUserCount((data?.value || []).length);
+      } catch { setUserCount(0); }
     };
     loadAsync();
     const interval = setInterval(loadAsync, 5000);
     return () => clearInterval(interval);
   }, []);
-  const userCount = Object.values(ALL_USERS).filter((u) => u.role === 'learner').length;
 
   // Instructor-specific data
   const myBookings = isConsultantRole
