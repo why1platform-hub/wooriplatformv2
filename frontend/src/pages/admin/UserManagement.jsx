@@ -20,8 +20,6 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../utils/supabase';
 
-const INITIAL_USERS = [];
-
 const ROLE_OPTIONS = [
   { value: 'learner', label: '학습자' },
   { value: 'consultant', label: '상담사' },
