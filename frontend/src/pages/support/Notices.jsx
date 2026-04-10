@@ -154,11 +154,8 @@ const Notices = () => {
     <Box>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>
+        <Typography variant="h5" fontWeight={700}>
           {t('support.notices')}
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          {t('support.noticesDescription')}
         </Typography>
       </Box>
 

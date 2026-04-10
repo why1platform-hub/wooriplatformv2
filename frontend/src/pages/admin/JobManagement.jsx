@@ -11,13 +11,7 @@ import {
 } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
 
-const INITIAL_JOBS = [
-  { id: 1, company: '우리은행', title_ko: '시니어 금융 컨설턴트', location: '서울 중구', employment_type: '계약직', status: '게시중', deadline: '2024.06.20', views: 234, applications: 12, salary_range: '4,000~5,000만원', description: '금융 컨설팅 경험이 풍부한 시니어 전문가를 모집합니다.' },
-  { id: 2, company: '삼성생명', title_ko: '퇴직연금 전문 상담역', location: '서울 강남구', employment_type: '정규직', status: '게시중', deadline: '2024.06.15', views: 189, applications: 8, salary_range: '5,000~6,000만원', description: '퇴직연금 관련 전문 상담 업무를 담당합니다.' },
-  { id: 3, company: '현대건설', title_ko: '부동산 자문위원', location: '경기 성남시', employment_type: '프리랜서', status: '마감', deadline: '2024.05.20', views: 156, applications: 15, salary_range: '협의', description: '부동산 개발 프로젝트 자문 업무입니다.' },
-  { id: 4, company: '서울시 사회공헌센터', title_ko: '시니어 사회공헌 프로젝트 매니저', location: '서울 여의도', employment_type: '계약직', status: '게시중', deadline: '2024.06.30', views: 98, applications: 5, salary_range: '3,500~4,000만원', description: '사회공헌 프로젝트 기획 및 운영을 담당합니다.' },
-  { id: 5, company: 'KB증권', title_ko: '자산관리 전문가', location: '서울 여의도', employment_type: '정규직', status: '임시저장', deadline: '2024.07.10', views: 0, applications: 0, salary_range: '6,000만원~', description: '고액자산가 대상 자산관리 서비스를 제공합니다.' },
-];
+const INITIAL_JOBS = [];
 
 const EMPLOYMENT_TYPES = ['정규직', '계약직', '프리랜서', '파트타임'];
 const STATUS_OPTIONS = ['게시중', '마감', '임시저장'];

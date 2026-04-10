@@ -20,14 +20,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../utils/supabase';
 
-const INITIAL_USERS = [
-  { id: 1, name_ko: '관리자', name_en: 'Admin', email: 'admin@woori.com', role: 'admin', status: 'active', department: '시스템관리팀', phone: '', created_at: '2024.01.01', last_login: '2026.03.25', retirement_date: '', birth_date: '', address: '', skills: '', bio: '시스템 관리자' },
-  { id: 2, name_ko: '박지영', name_en: 'Park Jiyoung', email: 'instructor1@woori.com', role: 'consultant', status: 'active', department: '전직지원팀', phone: '010-1234-5678', created_at: '2024.01.10', last_login: '2026.03.25', retirement_date: '', birth_date: '1978.05.12', address: '서울시 중구', skills: '커리어상담, 금융컨설팅', bio: '전직지원 전문 상담사 10년 경력' },
-  { id: 3, name_ko: '이민호', name_en: 'Lee Minho', email: 'instructor2@woori.com', role: 'consultant', status: 'active', department: '전직지원팀', phone: '010-2345-6789', created_at: '2024.01.10', last_login: '2026.03.25', retirement_date: '', birth_date: '1980.11.03', address: '서울시 강남구', skills: '창업상담, 진로설계', bio: '전직지원 상담사 8년 경력' },
-  { id: 4, name_ko: '홍길동', name_en: 'Hong Gildong', email: 'user1@woori.com', role: 'learner', status: 'active', department: '금융컨설팅팀', phone: '010-3456-7890', created_at: '2024.01.15', last_login: '2026.03.25', retirement_date: '2026.01.15', birth_date: '1968.03.15', address: '서울시 강남구', skills: '자산관리, 투자상담, 고객관리', bio: '우리은행 금융컨설팅팀 28년 근무' },
-  { id: 5, name_ko: '김영희', name_en: 'Kim Younghee', email: 'user2@woori.com', role: 'learner', status: 'active', department: '부동산팀', phone: '010-4567-8901', created_at: '2024.02.10', last_login: '2026.03.25', retirement_date: '2026.03.01', birth_date: '1970.07.22', address: '서울시 서초구', skills: '부동산분석, 고객상담', bio: '부동산팀 근무 경력' },
-  { id: 6, name_ko: '이철수', name_en: 'Lee Cheolsu', email: 'user3@woori.com', role: 'learner', status: 'active', department: '자산관리팀', phone: '010-5678-9012', created_at: '2024.03.05', last_login: '2026.03.25', retirement_date: '2026.06.30', birth_date: '1965.09.10', address: '경기도 성남시', skills: '자산운용, 리스크관리', bio: '자산관리팀 25년 근무' },
-];
+const INITIAL_USERS = [];
 
 const ROLE_OPTIONS = [
   { value: 'learner', label: '학습자' },

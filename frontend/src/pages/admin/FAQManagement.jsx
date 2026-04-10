@@ -39,14 +39,7 @@ const loadCategories = () => {
   return DEFAULT_CATEGORIES;
 };
 
-const INITIAL_FAQS = [
-  { id: 1, category: '회원', question: '회원가입은 어떻게 하나요?', answer: '홈페이지 우측 상단의 "회원가입" 버튼을 클릭하여 필요한 정보를 입력하시면 됩니다.', status: '게시중', views: 234 },
-  { id: 2, category: '회원', question: '비밀번호를 잊어버렸어요.', answer: '로그인 페이지에서 "비밀번호 찾기"를 클릭하시면 이메일을 통해 비밀번호를 재설정할 수 있습니다.', status: '게시중', views: 189 },
-  { id: 3, category: '프로그램', question: '프로그램 신청은 어떻게 하나요?', answer: '프로그램 목록에서 원하시는 프로그램을 선택한 후 "신청하기" 버튼을 클릭해주세요.', status: '게시중', views: 156 },
-  { id: 4, category: '채용', question: '채용정보는 어떻게 확인하나요?', answer: '상단 메뉴의 "채용정보"를 클릭하시면 등록된 채용 공고를 확인할 수 있습니다.', status: '게시중', views: 123 },
-  { id: 5, category: '학습', question: '온라인 강의는 어떻게 수강하나요?', answer: '학습자료 메뉴에서 원하는 강의를 선택하시면 바로 수강하실 수 있습니다.', status: '게시중', views: 98 },
-  { id: 6, category: '기타', question: '문의는 어디에 하나요?', answer: '고객지원 > 문의하기에서 문의를 등록하시면 빠른 시간 내에 답변드리겠습니다.', status: '비공개', views: 45 },
-];
+const INITIAL_FAQS = [];
 
 const FAQManagement = () => {
   const theme = useTheme();

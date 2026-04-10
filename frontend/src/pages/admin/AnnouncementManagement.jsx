@@ -60,14 +60,7 @@ const saveAnnouncements = async (items) => {
   localStorage.setItem('woori_announcements_admin', JSON.stringify(items));
 };
 
-const INITIAL_ANNOUNCEMENTS = [
-  { id: 1, title: '[긴급] 2024년 2분기 시니어 프로그램 모집 안내', type: '긴급', status: '게시중', date: '2024.05.20', views: 1234, content: '2024년 2분기 시니어 프로그램 모집을 시작합니다. 금융컨설팅, 부동산, 창업 등 다양한 프로그램에 참여하세요.' },
-  { id: 2, title: '플랫폼 서비스 점검 안내 (5/25 02:00-06:00)', type: '안내', status: '게시중', date: '2024.05.18', views: 567, content: '서비스 안정성 향상을 위한 정기 점검이 예정되어 있습니다.' },
-  { id: 3, title: '신규 채용정보 등록 안내', type: '일반', status: '게시중', date: '2024.05.15', views: 892, content: '새로운 채용 정보가 등록되었습니다. 채용공고 페이지를 확인해보세요.' },
-  { id: 4, title: '[중요] 개인정보처리방침 변경 안내', type: '중요', status: '게시중', date: '2024.05.10', views: 789, content: '개인정보처리방침이 변경되었습니다. 상세 내용을 확인해주세요.' },
-  { id: 5, title: '5월 상담 예약 일정 안내', type: '안내', status: '예약', date: '2024.05.25', views: 0, content: '5월 상담 예약 일정을 안내드립니다.' },
-  { id: 6, title: '신규 온라인 강좌 오픈 안내', type: '일반', status: '비공개', date: '2024.05.08', views: 45, content: '새로운 온라인 강좌가 오픈되었습니다.' },
-];
+const INITIAL_ANNOUNCEMENTS = [];
 
 const STATUS_OPTIONS = ['게시중', '예약', '비공개'];
 

@@ -7,14 +7,7 @@ import {
 import { Search as SearchIcon } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
 
-const INITIAL_INQUIRIES = [
-  { id: 1, user_name: '홍길동', email: 'hong@woori.com', category: '프로그램', title: '프로그램 신청 후 승인 기간 문의', content: '프로그램을 신청했는데 승인까지 얼마나 걸리나요? 빠른 처리 부탁드립니다.', created_at: '2024.05.20', status: '대기중', answer: '' },
-  { id: 2, user_name: '김영희', email: 'kim@woori.com', category: '채용', title: '이력서 파일 업로드 오류', content: '이력서를 PDF로 업로드하려고 하는데 계속 오류가 발생합니다. 파일 크기는 2MB입니다.', created_at: '2024.05.19', status: '처리중', answer: '' },
-  { id: 3, user_name: '이철수', email: 'lee@woori.com', category: '학습', title: '온라인 강의 수료증 발급 문의', content: '온라인 강의를 모두 완료했는데 수료증은 어떻게 발급받을 수 있나요?', created_at: '2024.05.18', status: '답변완료', answer: '모든 강의를 완료하시면 마이페이지 > 수강내역에서 수료증 발급 버튼이 활성화됩니다. 확인해보시기 바랍니다.' },
-  { id: 4, user_name: '박민수', email: 'park@woori.com', category: '회원', title: '비밀번호 변경이 안됩니다', content: '비밀번호 변경을 시도했으나 이전 비밀번호가 맞지 않다고 나옵니다. 확인 부탁드립니다.', created_at: '2024.05.17', status: '대기중', answer: '' },
-  { id: 5, user_name: '정수연', email: 'jung@woori.com', category: '기타', title: '플랫폼 이용 관련 건의사항', content: '모바일에서 이용할 때 화면이 잘 안 보입니다. 모바일 최적화를 해주셨으면 합니다.', created_at: '2024.05.16', status: '답변완료', answer: '건의해주신 내용 검토 후 반영하겠습니다. 감사합니다. 현재 모바일 최적화 작업이 진행 중이며, 다음 업데이트에서 개선될 예정입니다.' },
-  { id: 6, user_name: '강민호', email: 'kang@woori.com', category: '프로그램', title: '수강료 결제 방법 문의', content: '프로그램 수강료를 카드로 결제할 수 있나요?', created_at: '2024.05.14', status: '대기중', answer: '' },
-];
+const INITIAL_INQUIRIES = [];
 
 const STATUS_FILTERS = ['전체', '대기중', '처리중', '답변완료'];
 

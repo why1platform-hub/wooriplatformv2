@@ -45,15 +45,7 @@ const buildInitialCourses = () => {
   return stored.map(toAdminCourse);
 };
 
-const initialStudentRequests = [
-  { id: 1, courseId: 1, studentName: '홍길동', email: 'hong@email.com', requestDate: '2026-02-27', status: '대기중' },
-  { id: 2, courseId: 1, studentName: '박민수', email: 'park@email.com', requestDate: '2026-02-26', status: '대기중' },
-  { id: 3, courseId: 2, studentName: '이영희', email: 'lee@email.com', requestDate: '2026-02-26', status: '승인' },
-  { id: 4, courseId: 1, studentName: '최지우', email: 'choi@email.com', requestDate: '2026-02-25', status: '승인' },
-  { id: 5, courseId: 3, studentName: '강서연', email: 'kang@email.com', requestDate: '2026-02-25', status: '대기중' },
-  { id: 6, courseId: 2, studentName: '윤재호', email: 'yoon@email.com', requestDate: '2026-02-24', status: '거절' },
-  { id: 7, courseId: 5, studentName: '서하나', email: 'seo@email.com', requestDate: '2026-02-24', status: '대기중' },
-];
+const initialStudentRequests = [];
 
 const categories = ['금융', '부동산', '창업', '사회공헌', '디지털', '건강', '여가', '재무'];
 const instructors = ['김강사', '이미영', '박준혁', '한소영', '최수진', '정민호'];
