@@ -17,11 +17,20 @@ export const formatKSTDate = (d) => {
 };
 export const getKSTToday = () => formatKSTDate();
 
-// ── System consultants (matches AuthContext) ──
-export const CONSULTANTS = [
-  { id: 2, name_ko: '박지영', email: 'instructor1@woori.com', department: '전직지원팀' },
-  { id: 3, name_ko: '이민호', email: 'instructor2@woori.com', department: '전직지원팀' },
-];
+// ── Consultants — loaded from Supabase users table ──
+// Mutable cache, populated by loadConsultants(). Components call loadConsultants() on mount.
+export let CONSULTANTS = [];
+
+export const loadConsultants = async () => {
+  try {
+    const { data, error } = await supabase.from('users').select('id, name_ko, email, department').eq('role', 'consultant').eq('status', 'active');
+    if (!error && data && data.length > 0) {
+      CONSULTANTS = data;
+      return data;
+    }
+  } catch { /* fallback */ }
+  return CONSULTANTS;
+};
 
 // ── Available time slots ──
 export const getAvailableSlots = (dateStr) => {

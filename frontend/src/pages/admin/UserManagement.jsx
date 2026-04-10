@@ -436,42 +436,33 @@ const UserManagement = () => {
   const { showSuccess } = useNotification();
   const { isAdmin } = useAuth();
 
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const [users, setUsers] = useState([]);
 
-  // Load registered users from Supabase (shared across all browsers)
+  // Load all users from Supabase users table
   useEffect(() => {
-    const loadRegisteredUsers = async () => {
+    const loadUsers = async () => {
       try {
-        const { data: row } = await supabase.from('site_config').select('value').eq('key', 'registered_users').single();
-        const registered = row?.value || [];
-        if (registered.length > 0) {
-          const registeredMapped = registered.map((u) => ({
-            id: u.id || Date.now() + Math.random(),
+        const { data, error } = await supabase.from('users').select('*').order('id');
+        if (!error && data) {
+          setUsers(data.map((u) => ({
+            ...u,
             name_ko: u.name_ko || '',
             name_en: u.name_en || '',
-            email: u.email,
-            role: u.role || 'learner',
-            status: 'active',
+            status: u.status || 'active',
             department: u.department || '',
             phone: u.phone || '',
             created_at: u.created_at || '-',
-            last_login: '-',
-            retirement_date: '', birth_date: '', address: '',
-            skills: '', bio: '신규 가입 회원',
-          }));
-          const existingEmails = new Set(INITIAL_USERS.map((u) => u.email));
-          const newUsers = registeredMapped.filter((u) => !existingEmails.has(u.email));
-          if (newUsers.length > 0) {
-            setUsers((prev) => {
-              const prevEmails = new Set(prev.map((u) => u.email));
-              const toAdd = newUsers.filter((u) => !prevEmails.has(u.email));
-              return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
-            });
-          }
+            last_login: u.last_login || '-',
+            retirement_date: u.retirement_date || '',
+            birth_date: u.birth_date || '',
+            address: u.address || '',
+            skills: u.skills || '',
+            bio: u.bio || '',
+          })));
         }
       } catch { /* ignore */ }
     };
-    loadRegisteredUsers();
+    loadUsers();
   }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -529,35 +520,54 @@ const UserManagement = () => {
     handleMenuClose();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name_ko.trim() || !form.email.trim()) return;
     if (editMode && selectedUser) {
+      try {
+        await supabase.from('users').update(form).eq('id', selectedUser.id);
+      } catch { /* ignore */ }
       setUsers((prev) => prev.map((u) => u.id === selectedUser.id ? { ...u, ...form } : u));
       showSuccess('사용자 정보가 수정되었습니다');
     } else {
-      const newId = Math.max(0, ...users.map((u) => u.id)) + 1;
-      setUsers((prev) => [...prev, {
-        id: newId, ...form,
+      const newUser = {
+        ...form,
+        password: form.password || 'demo1234',
         created_at: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
         last_login: '-',
-      }]);
+      };
+      try {
+        const { data } = await supabase.from('users').insert(newUser).select().single();
+        if (data) {
+          setUsers((prev) => [...prev, data]);
+        } else {
+          setUsers((prev) => [...prev, { ...newUser, id: Date.now() }]);
+        }
+      } catch {
+        setUsers((prev) => [...prev, { ...newUser, id: Date.now() }]);
+      }
       showSuccess('새 사용자가 등록되었습니다');
     }
     setDialogOpen(false);
     setSelectedUser(null);
   };
 
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (!selectedUser) return;
     const newStatus = selectedUser.status === 'active' ? 'suspended' : 'active';
+    try {
+      await supabase.from('users').update({ status: newStatus }).eq('id', selectedUser.id);
+    } catch { /* ignore */ }
     setUsers((prev) => prev.map((u) => u.id === selectedUser.id ? { ...u, status: newStatus } : u));
     showSuccess(`회원 상태가 "${getStatusLabel(newStatus)}"(으)로 변경되었습니다`);
     handleMenuClose();
   };
 
   const handleDelete = () => { setDeleteConfirmOpen(true); handleMenuClose(); };
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!selectedUser) return;
+    try {
+      await supabase.from('users').delete().eq('id', selectedUser.id);
+    } catch { /* ignore */ }
     setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id));
     showSuccess('사용자가 삭제되었습니다');
     setDeleteConfirmOpen(false);

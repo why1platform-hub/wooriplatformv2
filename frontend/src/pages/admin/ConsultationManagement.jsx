@@ -35,7 +35,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import {
   loadBookings, assignConsultant, approveBooking, completeBooking, rejectBooking,
   getConsultationStats, getConsultantStats,
-  getConsultationHistory, CONSULTANTS,
+  getConsultationHistory, CONSULTANTS, loadConsultants,
   getAvailableInstructorsForSlot,
   getInstructorAvailability, setInstructorAvailability,
   getInstructorSessionDuration, setInstructorSessionDuration,
@@ -164,12 +164,13 @@ const ConsultationManagement = () => {
   const [daySlots, setDaySlots] = useState([]);
   const [sessionDur, setSessionDur] = useState(30);
 
-  // Load bookings + auto-refresh every 5 seconds for real-time sync
+  // Load consultants + bookings on mount, auto-refresh bookings every 5s
   const refreshBookings = useCallback(async () => {
     setBookings(await loadBookings());
   }, []);
 
   useEffect(() => {
+    loadConsultants();
     refreshBookings();
     const interval = setInterval(refreshBookings, 5000);
     const onStorage = (e) => { if (e.key === 'woori_consultation_bookings') refreshBookings(); };

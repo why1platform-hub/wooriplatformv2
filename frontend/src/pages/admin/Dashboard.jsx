@@ -17,7 +17,7 @@ import {
 } from '@mui/icons-material';
 import { loadPrograms, loadApplications } from '../../utils/programStore';
 import {
-  getConsultationStats, getConsultantStats, CONSULTANTS, loadBookings,
+  getConsultationStats, getConsultantStats, CONSULTANTS, loadConsultants, loadBookings,
 } from '../../utils/consultationStore';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../utils/supabase';
@@ -61,6 +61,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const loadAsync = async () => {
+      await loadConsultants();
       const [progs, apps, cs, cas, bk] = await Promise.all([
         loadPrograms(),
         loadApplications(),
@@ -73,10 +74,10 @@ const AdminDashboard = () => {
       setConsultStats(cs);
       setConsultantStats(cas);
       setBookings(bk);
-      // Count registered users from Supabase
+      // Count registered learners from Supabase users table
       try {
-        const { data } = await supabase.from('site_config').select('value').eq('key', 'registered_users').single();
-        setUserCount((data?.value || []).length);
+        const { count } = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'learner').eq('status', 'active');
+        setUserCount(count || 0);
       } catch { setUserCount(0); }
     };
     loadAsync();

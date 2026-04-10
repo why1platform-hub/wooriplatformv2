@@ -12,25 +12,53 @@ export const useAuth = () => {
   return context;
 };
 
-// System accounts (admin + consultants). Learners are loaded from Supabase at runtime.
-export const ALL_USERS = {
-  'admin@woori.com': {
-    id: 1, email: 'admin@woori.com', name_ko: '관리자', name_en: 'Admin',
-    role: 'admin', department: '시스템관리팀',
-  },
-  'instructor1@woori.com': {
-    id: 2, email: 'instructor1@woori.com', name_ko: '박지영', name_en: 'Park Jiyoung',
-    role: 'consultant', department: '전직지원팀',
-  },
-  'instructor2@woori.com': {
-    id: 3, email: 'instructor2@woori.com', name_ko: '이민호', name_en: 'Lee Minho',
-    role: 'consultant', department: '전직지원팀',
-  },
+// ── Supabase user helpers ──
+
+// Load all users from Supabase
+export const loadAllUsers = async () => {
+  try {
+    const { data, error } = await supabase.from('users').select('*').order('id');
+    if (!error && data) return data;
+  } catch { /* fallback */ }
+  return [];
 };
 
-export const getUserById = (id) => Object.values(ALL_USERS).find((u) => u.id === id) || null;
-export const getLearners = () => Object.values(ALL_USERS).filter((u) => u.role === 'learner');
-export const getConsultants = () => Object.values(ALL_USERS).filter((u) => u.role === 'consultant');
+// Find user by email
+export const findUserByEmail = async (email) => {
+  try {
+    const { data } = await supabase.from('users').select('*').eq('email', email).single();
+    return data || null;
+  } catch { return null; }
+};
+
+// Helpers for other components
+export const getUserById = async (id) => {
+  try {
+    const { data } = await supabase.from('users').select('*').eq('id', id).single();
+    return data || null;
+  } catch { return null; }
+};
+
+export const getLearners = async () => {
+  try {
+    const { data } = await supabase.from('users').select('*').eq('role', 'learner').eq('status', 'active');
+    return data || [];
+  } catch { return []; }
+};
+
+export const getConsultants = async () => {
+  try {
+    const { data } = await supabase.from('users').select('*').eq('role', 'consultant').eq('status', 'active');
+    return data || [];
+  } catch { return []; }
+};
+
+// Strip password from user object before storing in state/localStorage
+const stripPassword = (u) => {
+  if (!u) return u;
+  const { password, ...safe } = u;
+  return safe;
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -70,41 +98,27 @@ export const AuthProvider = ({ children }) => {
   const login = useCallback(async (email, password) => {
     setError(null);
 
-    // Demo account login
-    if (password === 'demo1234' && ALL_USERS[email]) {
-      const mockUser = ALL_USERS[email];
+    // Check user in Supabase users table
+    const dbUser = await findUserByEmail(email);
+    if (dbUser && dbUser.password === password) {
+      if (dbUser.status === 'suspended') {
+        const message = '계정이 정지되었습니다. 관리자에게 문의하세요.';
+        setError(message);
+        return { success: false, error: message };
+      }
+      const safeUser = stripPassword(dbUser);
       const mockToken = 'mock-jwt-token-' + Date.now();
       localStorage.setItem('token', mockToken);
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      setUser(mockUser);
-      return { success: true };
-    }
-
-    // Check registered users (localStorage + Supabase)
-    let registeredUsers = JSON.parse(localStorage.getItem('registered_users') || '[]');
-    let registeredUser = registeredUsers.find((u) => u.email === email && u.password === password);
-    if (!registeredUser) {
-      // Try Supabase
+      localStorage.setItem('user', JSON.stringify(safeUser));
+      setUser(safeUser);
+      // Update last_login
       try {
-        const { data: row } = await supabase.from('site_config').select('value').eq('key', 'registered_users').single();
-        const sbUsers = row?.value || [];
-        registeredUser = sbUsers.find((u) => u.email === email && u.password === password);
-        if (registeredUser) {
-          // Sync to local for future logins
-          registeredUsers.push(registeredUser);
-          localStorage.setItem('registered_users', JSON.stringify(registeredUsers));
-        }
+        await supabase.from('users').update({ last_login: new Date().toISOString().slice(0, 10).replace(/-/g, '.') }).eq('id', dbUser.id);
       } catch { /* ignore */ }
-    }
-    if (registeredUser) {
-      const { password: _, ...userWithoutPassword } = registeredUser;
-      const mockToken = 'mock-jwt-token-' + Date.now();
-      localStorage.setItem('token', mockToken);
-      localStorage.setItem('user', JSON.stringify(userWithoutPassword));
-      setUser(userWithoutPassword);
       return { success: true };
     }
 
+    // Fallback to backend API
     try {
       const response = await authAPI.login({ email, password });
       const { token, user: userData } = response.data;
@@ -133,61 +147,48 @@ export const AuthProvider = ({ children }) => {
       setError(message);
       return { success: false, error: message };
     }
-    // Check duplicate email among demo accounts
-    if (ALL_USERS[userData.email]) {
+
+    // Check duplicate email in Supabase users table
+    const existing = await findUserByEmail(userData.email);
+    if (existing) {
       const message = '이미 등록된 이메일 주소입니다.';
       setError(message);
       return { success: false, error: message };
     }
-    // Check duplicate in Supabase registered users
-    try {
-      const { data: existing } = await supabase.from('site_config').select('value').eq('key', 'registered_users').single();
-      const supabaseUsers = existing?.value || [];
-      if (supabaseUsers.some((u) => u.email === userData.email)) {
-        const message = '이미 등록된 이메일 주소입니다.';
-        setError(message);
-        return { success: false, error: message };
-      }
-    } catch { /* table may not exist yet, continue */ }
 
-    // Demo registration — save to Supabase (shared) + localStorage
+    // Insert new user into Supabase users table
     const newUser = {
-      id: Date.now(),
       email: userData.email,
+      password: userData.password,
       name_ko: userData.name_ko,
       name_en: userData.name_en || '',
       phone: userData.phone || '',
       employee_id: userData.employee_id || '',
       role: 'learner',
       department: '',
+      status: 'active',
       created_at: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
     };
-    const mockToken = 'mock-jwt-token-' + Date.now();
 
-    // Save to Supabase so admin can see all registered users
     try {
-      let current = [];
-      try {
-        const { data: row } = await supabase.from('site_config').select('value').eq('key', 'registered_users').single();
-        current = row?.value || [];
-      } catch { /* row may not exist yet */ }
-      current.push({ ...newUser, password: userData.password });
-      await supabase.from('site_config').upsert({ key: 'registered_users', value: current, updated_at: new Date().toISOString() });
-    } catch (e) { console.error('Failed to save user to Supabase:', e); }
-
-    // Also save locally for login persistence
-    const registeredUsers = JSON.parse(localStorage.getItem('registered_users') || '[]');
-    registeredUsers.push({ ...newUser, password: userData.password });
-    localStorage.setItem('registered_users', JSON.stringify(registeredUsers));
-    localStorage.setItem('token', mockToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    setUser(newUser);
-    return { success: true };
+      const { data, error: insertError } = await supabase.from('users').insert(newUser).select().single();
+      if (insertError) throw insertError;
+      const safeUser = stripPassword(data);
+      const mockToken = 'mock-jwt-token-' + Date.now();
+      localStorage.setItem('token', mockToken);
+      localStorage.setItem('user', JSON.stringify(safeUser));
+      setUser(safeUser);
+      return { success: true };
+    } catch (e) {
+      console.error('Registration failed:', e);
+      const message = '회원가입에 실패했습니다. 다시 시도해주세요.';
+      setError(message);
+      return { success: false, error: message };
+    }
   }, []);
 
   const logout = useCallback(async () => {
     try { await authAPI.logout(); } catch { /* ignore */ }
-    // Only clear auth tokens — keep all app data (bookings, notes, banners, etc.)
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
