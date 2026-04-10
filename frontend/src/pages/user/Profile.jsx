@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
 import {
   Box, Typography, Card, CardContent, Grid, TextField, Button, Avatar,
-  Divider, Alert,
+  Divider, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import {
   Save as SaveIcon,
   PhotoCamera as CameraIcon,
+  PersonOff as WithdrawIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
+import { supabase } from '../../utils/supabase';
 
 const Profile = () => {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const { showSuccess } = useNotification();
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
 
   const [form, setForm] = useState({
     name_ko: user?.name_ko || '',
@@ -179,16 +185,61 @@ const Profile = () => {
                 </Grid>
               </Grid>
 
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-                <Button variant="contained" startIcon={<SaveIcon />}
-                  onClick={handleSave} disabled={saving}>
-                  {saving ? '저장 중...' : '프로필 저장'}
-                </Button>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
+                {user?.role !== 'admin' && (
+                  <Button
+                    variant="text" color="error" size="small"
+                    startIcon={<WithdrawIcon />}
+                    onClick={() => setWithdrawOpen(true)}
+                    sx={{ fontSize: '0.8rem' }}
+                  >
+                    회원 탈퇴
+                  </Button>
+                )}
+                <Box sx={{ ml: 'auto' }}>
+                  <Button variant="contained" startIcon={<SaveIcon />}
+                    onClick={handleSave} disabled={saving}>
+                    {saving ? '저장 중...' : '프로필 저장'}
+                  </Button>
+                </Box>
               </Box>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
+
+      {/* Withdraw Confirmation Dialog */}
+      <Dialog open={withdrawOpen} onClose={() => setWithdrawOpen(false)}
+        PaperProps={{ sx: { borderRadius: '12px', maxWidth: 400 } }}>
+        <DialogTitle fontWeight={700} sx={{ color: 'error.main' }}>회원 탈퇴</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            정말로 탈퇴하시겠습니까?
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            탈퇴 시 계정 정보가 영구적으로 삭제되며, 이 작업은 되돌릴 수 없습니다.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setWithdrawOpen(false)}>취소</Button>
+          <Button
+            variant="contained" color="error"
+            disabled={withdrawing}
+            onClick={async () => {
+              setWithdrawing(true);
+              try {
+                if (user?.id) {
+                  await supabase.from('users').delete().eq('id', user.id);
+                }
+              } catch { /* ignore */ }
+              await logout();
+              navigate('/login');
+            }}
+          >
+            {withdrawing ? '처리 중...' : '탈퇴 확인'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
