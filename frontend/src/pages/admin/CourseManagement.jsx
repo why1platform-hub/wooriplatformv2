@@ -12,6 +12,8 @@ import {
   CloudUpload as UploadIcon, Link as LinkIcon, Image as ImageIcon, Close as CloseIcon,
   CheckCircle as ApproveIcon, Cancel as RejectIcon, VideoLibrary as VideoIcon,
   Person as PersonIcon,
+  ArrowUpward as MoveUpIcon, ArrowDownward as MoveDownIcon,
+  DragIndicator as DragIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -72,8 +74,9 @@ const CourseManagement = () => {
       : (Array.isArray(c.lessons) ? c.lessons : []);
     if (lessons.length === 0 && videoUrl) {
       lessons = [{ id: 'l1', title: c.title, duration: c.duration || '', video_url: videoUrl }];
-    } else if (lessons.length > 0 && videoUrl) {
-      lessons = lessons.map((l) => ({ ...l, video_url: videoUrl }));
+    } else if (lessons.length > 0) {
+      // Only fill in video_url for lessons that don't have their own
+      lessons = lessons.map((l) => ({ ...l, video_url: l.video_url || videoUrl }));
     }
     return {
       id: String(c.id),
@@ -131,6 +134,7 @@ const CourseManagement = () => {
     title: '', category: '금융', instructor: '', description: '',
     videoType: 'url', videoUrl: '', videoFile: null, videoFileName: '', videoFileSize: '',
     coverImage: null, coverImagePreview: null, status: '준비중',
+    lessonsData: [],
   });
 
   const videoInputRef = useRef(null);
@@ -160,6 +164,7 @@ const CourseManagement = () => {
       title: '', category: '금융', instructor: isAdminUser ? '' : (user?.name_ko || ''),
       description: '', videoType: 'url', videoUrl: '', videoFile: null, videoFileName: '',
       videoFileSize: '', coverImage: null, coverImagePreview: null, status: '준비중',
+      lessonsData: [],
     });
   };
 
@@ -175,6 +180,9 @@ const CourseManagement = () => {
   const handleEdit = () => {
     if (!selectedCourse) return;
     setEditMode(true);
+    const existingLessons = Array.isArray(selectedCourse._lessonsData) && selectedCourse._lessonsData.length > 0
+      ? selectedCourse._lessonsData
+      : [];
     setForm({
       title: selectedCourse.title,
       category: selectedCourse.category,
@@ -188,6 +196,7 @@ const CourseManagement = () => {
       coverImage: null,
       coverImagePreview: selectedCourse.coverImage || null,
       status: selectedCourse.status,
+      lessonsData: existingLessons,
     });
     setDialogOpen(true);
     setAnchorEl(null);
@@ -220,6 +229,8 @@ const CourseManagement = () => {
               description: form.description, videoType: form.videoType, videoUrl: form.videoUrl,
               videoFileName: form.videoFileName, videoFileSize: form.videoFileSize,
               coverImage: form.coverImagePreview, status: form.status,
+              lessons: form.lessonsData.length,
+              _lessonsData: form.lessonsData,
             }
           : c
       ));
@@ -228,7 +239,9 @@ const CourseManagement = () => {
       const newCourse = {
         id: Math.max(0, ...courses.map((c) => c.id)) + 1,
         title: form.title, category: form.category, instructor: form.instructor,
-        description: form.description, duration: '0분', lessons: 0,
+        description: form.description, duration: '0분',
+        lessons: form.lessonsData.length,
+        _lessonsData: form.lessonsData,
         status: form.status, views: 0, enrollments: 0,
         videoType: form.videoType, videoUrl: form.videoUrl,
         videoFileName: form.videoFileName, videoFileSize: form.videoFileSize,
@@ -708,6 +721,113 @@ const CourseManagement = () => {
                   </Box>
                 )}
               </Box>
+            </Grid>
+
+            {/* ─── Lesson Editor ─── */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={600}>강의 구성 (레슨)</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    각 레슨에 제목, 영상 URL, 시간을 설정합니다 ({form.lessonsData.length}개)
+                  </Typography>
+                </Box>
+                <Button
+                  size="small" variant="contained" startIcon={<AddIcon />}
+                  onClick={() => {
+                    const newId = `l${Date.now()}`;
+                    setForm((p) => ({
+                      ...p,
+                      lessonsData: [...p.lessonsData, { id: newId, title: `${p.lessonsData.length + 1}강. `, duration: '', video_url: p.videoUrl || '' }],
+                    }));
+                  }}
+                >
+                  레슨 추가
+                </Button>
+              </Box>
+
+              {form.lessonsData.length === 0 ? (
+                <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', borderStyle: 'dashed' }}>
+                  <VideoIcon sx={{ fontSize: 36, color: 'text.disabled', mb: 1 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    레슨이 없습니다. "레슨 추가" 버튼을 눌러 강의를 구성하세요.
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    레슨을 추가하지 않으면 영상 URL이 단일 레슨으로 자동 생성됩니다.
+                  </Typography>
+                </Paper>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {form.lessonsData.map((lesson, index) => (
+                    <Paper key={lesson.id} variant="outlined" sx={{ p: 1.5, display: 'flex', gap: 1, alignItems: 'flex-start', bgcolor: '#FAFAFA', '&:hover': { bgcolor: '#F0F4FF' } }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 0.5 }}>
+                        <DragIcon fontSize="small" sx={{ color: 'text.disabled', mb: 0.5 }} />
+                        <Chip label={index + 1} size="small" sx={{ fontWeight: 700, minWidth: 28, height: 22 }} color="primary" variant="outlined" />
+                      </Box>
+                      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <TextField
+                          fullWidth size="small" label="레슨 제목"
+                          value={lesson.title}
+                          onChange={(e) => {
+                            const updated = [...form.lessonsData];
+                            updated[index] = { ...updated[index], title: e.target.value };
+                            setForm((p) => ({ ...p, lessonsData: updated }));
+                          }}
+                          placeholder={`${index + 1}강. 레슨 제목 입력`}
+                        />
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <TextField
+                            size="small" label="영상 URL" sx={{ flex: 1 }}
+                            value={lesson.video_url}
+                            onChange={(e) => {
+                              const updated = [...form.lessonsData];
+                              updated[index] = { ...updated[index], video_url: e.target.value };
+                              setForm((p) => ({ ...p, lessonsData: updated }));
+                            }}
+                            placeholder="https://youtube.com/watch?v=..."
+                            InputProps={{ startAdornment: <InputAdornment position="start"><LinkIcon sx={{ fontSize: 16 }} /></InputAdornment> }}
+                          />
+                          <TextField
+                            size="small" label="시간" sx={{ width: 100 }}
+                            value={lesson.duration}
+                            onChange={(e) => {
+                              const updated = [...form.lessonsData];
+                              updated[index] = { ...updated[index], duration: e.target.value };
+                              setForm((p) => ({ ...p, lessonsData: updated }));
+                            }}
+                            placeholder="15:00"
+                          />
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, pt: 0.5 }}>
+                        <IconButton size="small" disabled={index === 0}
+                          onClick={() => {
+                            const updated = [...form.lessonsData];
+                            [updated[index - 1], updated[index]] = [updated[index], updated[index - 1]];
+                            setForm((p) => ({ ...p, lessonsData: updated }));
+                          }}>
+                          <MoveUpIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                        <IconButton size="small" disabled={index === form.lessonsData.length - 1}
+                          onClick={() => {
+                            const updated = [...form.lessonsData];
+                            [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+                            setForm((p) => ({ ...p, lessonsData: updated }));
+                          }}>
+                          <MoveDownIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                        <IconButton size="small" color="error"
+                          onClick={() => {
+                            setForm((p) => ({ ...p, lessonsData: p.lessonsData.filter((_, i) => i !== index) }));
+                          }}>
+                          <DeleteIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Box>
+                    </Paper>
+                  ))}
+                </Box>
+              )}
             </Grid>
           </Grid>
         </DialogContent>
