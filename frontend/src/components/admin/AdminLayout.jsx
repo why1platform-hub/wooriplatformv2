@@ -37,6 +37,7 @@ import {
   KeyboardArrowRight as ExpandIcon,
   Settings as SettingsIcon,
   ViewCarousel as BannerIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -364,14 +365,20 @@ const AdminLayout = ({ children }) => {
                   <Typography variant="caption" color="text.secondary">{user?.email || 'admin@woori.com'}</Typography>
                 </Box>
                 <Divider />
+                <MenuItem onClick={() => { setAnchorEl(null); navigate('/profile'); }}>
+                  <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
+                  마이 프로필
+                </MenuItem>
                 <MenuItem onClick={() => { setAnchorEl(null); navigate('/'); }}>
                   <ListItemIcon><HomeIcon fontSize="small" /></ListItemIcon>
                   사용자 페이지
                 </MenuItem>
-                <MenuItem onClick={() => { setAnchorEl(null); navigate('/admin/settings'); }}>
-                  <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
-                  설정
-                </MenuItem>
+                {user?.role === 'admin' && (
+                  <MenuItem onClick={() => { setAnchorEl(null); navigate('/admin/settings'); }}>
+                    <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
+                    설정
+                  </MenuItem>
+                )}
                 <Divider />
                 <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
                   <ListItemIcon><LogoutIcon fontSize="small" sx={{ color: 'error.main' }} /></ListItemIcon>
