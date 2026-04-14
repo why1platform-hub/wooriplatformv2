@@ -934,28 +934,25 @@ const ConsultationManagement = () => {
       </Dialog>
 
       {/* ─── Availability Calendar Dialog ─── */}
-      <Dialog open={availOpen} onClose={() => setAvailOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile} PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
-        <DialogTitle fontWeight={700}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ClockIcon color="primary" />
-            {availInstructor?.name_ko} - 가용시간 설정
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          {/* Session duration */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            <Typography variant="body2" fontWeight={600}>세션 단위:</Typography>
+      <Dialog open={availOpen} onClose={() => setAvailOpen(false)} maxWidth="lg" fullWidth fullScreen={isMobile} PaperProps={{ sx: { borderRadius: isMobile ? 0 : '12px' } }}>
+        <DialogTitle fontWeight={700} sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ClockIcon color="primary" />
+              <Typography variant="h6" fontWeight={700}>{availInstructor?.name_ko} - 가용시간 설정</Typography>
+            </Box>
             <ToggleButtonGroup value={sessionDur} exclusive onChange={handleDurationChange} size="small">
               <ToggleButton value={15}>15분</ToggleButton>
               <ToggleButton value={30}>30분</ToggleButton>
               <ToggleButton value={60}>1시간</ToggleButton>
             </ToggleButtonGroup>
           </Box>
-
-          <Grid container spacing={2}>
-            {/* Calendar */}
-            <Grid item xs={12} md={5}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, minHeight: { md: 460 } }}>
+            {/* ── Left: Calendar ── */}
+            <Box sx={{ width: { xs: '100%', md: 340 }, flexShrink: 0, p: 3, borderRight: { md: '1px solid #E5E7EB' }, borderBottom: { xs: '1px solid #E5E7EB', md: 'none' } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
                 <IconButton size="small" onClick={prevMonth}><ChevronLeft /></IconButton>
                 <Typography variant="subtitle1" fontWeight={700}>{calYear}년 {MONTH_NAMES[calMonth]}</Typography>
                 <IconButton size="small" onClick={nextMonth}><ChevronRight /></IconButton>
@@ -970,7 +967,6 @@ const ConsultationManagement = () => {
                   const savedSlots = calAvailMap[ds] || [];
                   const dow = new Date(calYear, calMonth, day).getDay();
                   const isWeekday = dow >= 1 && dow <= 5;
-                  // Show default slots count for unsaved weekdays
                   const slots = savedSlots.length > 0 ? savedSlots : (isWeekday ? getDefaultWeekdaySlots(sessionDur) : []);
                   const isSelected = day === selectedDay;
                   const isToday = ds === formatKSTDate();
@@ -981,64 +977,80 @@ const ConsultationManagement = () => {
                       onClick={() => selectDay(day)}
                       sx={{
                         p: 0.5, cursor: 'pointer', borderRadius: '8px', textAlign: 'center',
-                        border: '2px solid', minHeight: 44,
+                        border: '2px solid', minHeight: 40,
                         borderColor: isSelected ? '#0047BA' : isToday ? '#EA580C' : 'transparent',
                         bgcolor: isSelected ? '#EBF0FA' : slots.length > 0 ? '#F0FDF4' : isWeekend ? '#FAFAFA' : '#fff',
                         '&:hover': { borderColor: '#0047BA' },
                       }}
                     >
-                      <Typography variant="body2" fontWeight={isSelected ? 700 : 500} sx={{ color: isWeekend ? '#9CA3AF' : 'text.primary' }}>{day}</Typography>
+                      <Typography variant="body2" fontWeight={isSelected ? 700 : 500} sx={{ color: isWeekend ? '#9CA3AF' : 'text.primary', fontSize: '0.8rem' }}>{day}</Typography>
                       {slots.length > 0 && (
-                        <Typography variant="caption" sx={{ fontSize: '0.6rem', color: '#059669', fontWeight: 600 }}>{slots.length}</Typography>
+                        <Typography variant="caption" sx={{ fontSize: '0.6rem', color: '#059669', fontWeight: 600, lineHeight: 1 }}>{slots.length}</Typography>
                       )}
                     </Paper>
                   );
                 })}
               </Box>
-            </Grid>
+              <Box sx={{ mt: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#DCFCE7', border: '1px solid #059669' }} />
+                  <Typography variant="caption" color="text.secondary">열림</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#FAFAFA', border: '1px solid #E5E7EB' }} />
+                  <Typography variant="caption" color="text.secondary">주말</Typography>
+                </Box>
+              </Box>
+            </Box>
 
-            {/* Time slots for selected day */}
-            <Grid item xs={12} md={7}>
+            {/* ── Right: Time slots ── */}
+            <Box sx={{ flex: 1, p: 3 }}>
               {selectedDay ? (
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                    <Typography variant="subtitle2" fontWeight={600}>
-                      {calMonth + 1}/{selectedDay} ({DAY_NAMES[new Date(calYear, calMonth, selectedDay).getDay()]}) — 시간 선택
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      {calMonth + 1}/{selectedDay} ({DAY_NAMES[new Date(calYear, calMonth, selectedDay).getDay()]})
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Tooltip title="매주 같은 요일에 복사"><IconButton size="small" onClick={copyToWeek}><CopyIcon fontSize="small" /></IconButton></Tooltip>
-                      <Chip label="매주 복사" size="small" onClick={copyToWeek} sx={{ cursor: 'pointer', fontSize: '0.7rem' }} />
-                      <Chip label="이달 전체" size="small" onClick={copyToMonth} sx={{ cursor: 'pointer', fontSize: '0.7rem' }} />
+                      <Chip label="매주 복사" size="small" variant="outlined" onClick={copyToWeek} icon={<CopyIcon sx={{ fontSize: '14px !important' }} />} sx={{ cursor: 'pointer', fontSize: '0.75rem' }} />
+                      <Chip label="이달 전체" size="small" variant="outlined" onClick={copyToMonth} icon={<CopyIcon sx={{ fontSize: '14px !important' }} />} sx={{ cursor: 'pointer', fontSize: '0.75rem' }} />
                     </Box>
                   </Box>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxHeight: 320, overflow: 'auto' }}>
-                    {timeSlots.map((t) => (
-                      <Chip
-                        key={t} label={t} size="small"
-                        onClick={() => toggleSlot(t)}
-                        sx={{
-                          fontWeight: 600, fontSize: '0.75rem', height: 30, minWidth: 60, cursor: 'pointer',
-                          border: '2px solid',
-                          borderColor: daySlots.includes(t) ? '#059669' : '#E5E7EB',
-                          bgcolor: daySlots.includes(t) ? '#DCFCE7' : '#fff',
-                          color: daySlots.includes(t) ? '#166534' : '#6B7280',
-                          '&:hover': { borderColor: '#059669' },
-                        }}
-                      />
-                    ))}
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                    클릭하여 시간을 열거나 닫습니다. 녹색 = 열림 (선택됨: {daySlots.length}슬롯)
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, maxHeight: 300, overflow: 'auto', pb: 1 }}>
+                    {timeSlots.map((t) => {
+                      const active = daySlots.includes(t);
+                      return (
+                        <Chip
+                          key={t} label={t} size="small"
+                          onClick={() => toggleSlot(t)}
+                          sx={{
+                            fontWeight: 600, fontSize: '0.8rem', height: 34, minWidth: 68, cursor: 'pointer',
+                            border: '2px solid',
+                            borderColor: active ? '#059669' : '#E5E7EB',
+                            bgcolor: active ? '#DCFCE7' : '#fff',
+                            color: active ? '#166534' : '#9CA3AF',
+                            '&:hover': { borderColor: '#059669', bgcolor: active ? '#BBF7D0' : '#F0FDF4' },
+                          }}
+                        />
+                      );
+                    })}
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
-                    <Typography variant="caption" color="text.secondary">선택됨: {daySlots.length}슬롯</Typography>
-                    <Button variant="contained" size="small" onClick={saveDaySlots}>저장</Button>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2.5 }}>
+                    <Button variant="contained" onClick={saveDaySlots} sx={{ px: 4 }}>저장</Button>
                   </Box>
                 </Box>
               ) : (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 200 }}>
-                  <Typography color="text.secondary">캘린더에서 날짜를 선택하세요</Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 300, gap: 1 }}>
+                  <ClockIcon sx={{ fontSize: 48, color: '#D1D5DB' }} />
+                  <Typography color="text.secondary" fontWeight={500}>캘린더에서 날짜를 선택하세요</Typography>
+                  <Typography variant="caption" color="text.secondary">시간 슬롯을 설정할 수 있습니다</Typography>
                 </Box>
               )}
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}><Button onClick={() => setAvailOpen(false)}>닫기</Button></DialogActions>
       </Dialog>
