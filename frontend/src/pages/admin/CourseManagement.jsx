@@ -52,7 +52,7 @@ const MAX_VIDEO_SIZE_MB = 300;
 const CourseManagement = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { user, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const { showSuccess, showError } = useNotification();
 
   const [courses, setCoursesState] = useState([]);
