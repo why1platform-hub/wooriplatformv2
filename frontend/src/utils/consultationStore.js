@@ -74,16 +74,45 @@ export const loadBookings = async () => {
   return [];
 };
 
+// ── Sticky instructor: find user's most recently assigned instructor ──
+export const getUserDefaultInstructor = async (userId) => {
+  try {
+    const { data } = await supabase.from('consultation_bookings')
+      .select('consultant_id, consultant_name')
+      .eq('user_id', userId)
+      .not('consultant_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (data && data.consultant_id) {
+      return { id: data.consultant_id, name: data.consultant_name };
+    }
+  } catch { /* no previous assignment */ }
+  return null;
+};
+
 export const addBooking = async (booking) => {
+  // Check if user has a sticky (default) instructor from previous bookings
+  const defaultInstructor = await getUserDefaultInstructor(booking.userId);
+
   const row = {
     user_id: booking.userId, user_name: booking.userName, user_email: booking.userEmail,
     date: booking.date, time: booking.time, method: booking.method,
-    status: 'pending', consultant_id: null, consultant_name: null,
+    status: defaultInstructor ? 'pending_approval' : 'pending',
+    consultant_id: defaultInstructor?.id || null,
+    consultant_name: defaultInstructor?.name || null,
   };
   try {
     const { data, error } = await supabase.from('consultation_bookings').insert(row).select().single();
     if (!error && data) {
-      return { id: data.id, ...booking, status: 'pending', consultantId: null, consultantName: null, createdAt: data.created_at };
+      return {
+        id: data.id, ...booking,
+        status: row.status,
+        consultantId: row.consultant_id,
+        consultantName: row.consultant_name,
+        createdAt: data.created_at,
+        autoAssigned: !!defaultInstructor,
+      };
     }
   } catch { /* fallback */ }
   return null;

@@ -160,8 +160,10 @@ const ConsultationBooking = () => {
     return true;
   };
 
+  const [bookingResult, setBookingResult] = useState(null);
+
   const handleBook = async () => {
-    await addBooking({
+    const result = await addBooking({
       userId: user.id,
       userName: user.name_ko,
       userEmail: user.email,
@@ -169,18 +171,27 @@ const ConsultationBooking = () => {
       time: selectedTime,
       method: selectedMethod,
     });
+    setBookingResult(result);
     setBooked(true);
-    showSuccess('상담 예약이 접수되었습니다!');
-    pushToAllAdmins(`${user.name_ko}님이 상담 예약을 신청했습니다 (${selectedDate} ${selectedTime})`, '/admin/consultations');
+    if (result?.autoAssigned) {
+      showSuccess(`${result.consultantName} 강사에게 자동 배정되었습니다!`);
+      pushToAllAdmins(`${user.name_ko}님이 상담 예약 → ${result.consultantName} 강사 자동 배정 (${selectedDate} ${selectedTime})`, '/admin/consultations');
+    } else {
+      showSuccess('상담 예약이 접수되었습니다!');
+      pushToAllAdmins(`${user.name_ko}님이 상담 예약을 신청했습니다 (${selectedDate} ${selectedTime})`, '/admin/consultations');
+    }
   };
 
   if (booked) {
+    const wasAutoAssigned = bookingResult?.autoAssigned;
     return (
       <Box sx={{ maxWidth: 560, mx: 'auto', textAlign: 'center', py: 6 }}>
         <CheckIcon sx={{ fontSize: 56, color: '#059669', mb: 2 }} />
         <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>예약 접수 완료</Typography>
         <Typography color="text.secondary" sx={{ mb: 3 }}>
-          관리자가 상담사를 배정한 후 확정 안내를 드리겠습니다.
+          {wasAutoAssigned
+            ? `${bookingResult.consultantName} 강사에게 자동 배정되었습니다. 강사 승인 후 확정됩니다.`
+            : '관리자가 상담사를 배정한 후 확정 안내를 드리겠습니다.'}
         </Typography>
         <Paper elevation={0} sx={{ p: 3, borderRadius: '12px', bgcolor: '#F8F9FA', textAlign: 'left', mb: 3 }}>
           <Grid container spacing={2}>
@@ -196,9 +207,19 @@ const ConsultationBooking = () => {
               <Typography variant="caption" color="text.secondary">상담 방법</Typography>
               <Typography variant="body2" fontWeight={600}>{selectedMethod}</Typography>
             </Grid>
+            {wasAutoAssigned && (
+              <Grid item xs={6}>
+                <Typography variant="caption" color="text.secondary">배정 강사</Typography>
+                <Typography variant="body2" fontWeight={600}>{bookingResult.consultantName}</Typography>
+              </Grid>
+            )}
             <Grid item xs={6}>
               <Typography variant="caption" color="text.secondary">상태</Typography>
-              <Chip label="배정 대기" size="small" sx={{ bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 600 }} />
+              {wasAutoAssigned ? (
+                <Chip label="강사 승인 대기" size="small" sx={{ bgcolor: '#F3F0FF', color: '#7C3AED', fontWeight: 600 }} />
+              ) : (
+                <Chip label="배정 대기" size="small" sx={{ bgcolor: '#FEF3C7', color: '#92400E', fontWeight: 600 }} />
+              )}
             </Grid>
           </Grid>
         </Paper>
