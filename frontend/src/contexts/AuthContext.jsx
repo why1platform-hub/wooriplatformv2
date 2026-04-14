@@ -197,29 +197,47 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = useCallback(async (data) => {
     setError(null);
     try {
-      const response = await authAPI.updateProfile(data);
-      const updatedUser = response.data.user;
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      setUser(updatedUser);
+      // Update in Supabase
+      if (user?.id) {
+        const { password, ...safeData } = data; // never overwrite password via profile update
+        await supabase.from('users').update(safeData).eq('id', user.id);
+      }
+      const updatedUser = { ...user, ...data };
+      const { password: _, ...safeUser } = updatedUser;
+      localStorage.setItem('user', JSON.stringify(safeUser));
+      setUser(safeUser);
       return { success: true };
     } catch (err) {
-      const message = err.response?.data?.message || 'Profile update failed';
+      const message = '프로필 업데이트에 실패했습니다.';
       setError(message);
       return { success: false, error: message };
     }
-  }, []);
+  }, [user]);
 
   const changePassword = useCallback(async (currentPassword, newPassword) => {
     setError(null);
+    if (!user?.id) {
+      setError('로그인 정보를 확인할 수 없습니다.');
+      return { success: false, error: '로그인 정보를 확인할 수 없습니다.' };
+    }
+    // Verify current password against Supabase
     try {
-      await authAPI.changePassword({ currentPassword, newPassword });
+      const dbUser = await findUserByEmail(user.email);
+      if (!dbUser || dbUser.password !== currentPassword) {
+        const message = '현재 비밀번호가 일치하지 않습니다.';
+        setError(message);
+        return { success: false, error: message };
+      }
+      // Update password in Supabase
+      const { error: updateError } = await supabase.from('users').update({ password: newPassword }).eq('id', user.id);
+      if (updateError) throw updateError;
       return { success: true };
     } catch (err) {
-      const message = err.response?.data?.message || 'Password change failed';
+      const message = '비밀번호 변경에 실패했습니다.';
       setError(message);
       return { success: false, error: message };
     }
-  }, []);
+  }, [user]);
 
   const hasRole = useCallback((roles) => {
     if (!user) return false;

@@ -381,9 +381,11 @@ const Header = ({ onMenuToggle }) => {
         <MenuItem onClick={() => { setAnchorEl(null); navigate('/profile'); }}>
           <PersonIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> {t('profile.title')}
         </MenuItem>
-        <MenuItem onClick={() => { setAnchorEl(null); navigate('/settings'); }}>
-          <SettingsIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> {t('profile.settings')}
-        </MenuItem>
+        {isAdmin() && (
+          <MenuItem onClick={() => { setAnchorEl(null); navigate('/settings'); }}>
+            <SettingsIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> {t('profile.settings')}
+          </MenuItem>
+        )}
         {(isAdmin() || isHRManager() || isConsultant()) && isMobile && (
           <MenuItem onClick={() => { setAnchorEl(null); navigate('/admin'); }}>
             <AdminIcon sx={{ mr: 1.5, fontSize: 20, color: '#888' }} /> {isAdmin() ? t('nav.adminPanel') : t('nav.instructorDashboard')}

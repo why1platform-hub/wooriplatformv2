@@ -17,6 +17,7 @@ import {
   Tab,
   Skeleton,
   Grid,
+  Avatar,
   useMediaQuery, useTheme,
 } from '@mui/material';
 import {
@@ -109,6 +110,10 @@ const ProgramList = () => {
                     return (
                       <Box key={program.id} onClick={() => navigate(`/programs/${program.id}`)}
                         sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', cursor: 'pointer', '&:hover': { bgcolor: '#F9FAFB' } }}>
+                        {program.thumbnail && (
+                          <Box component="img" src={program.thumbnail} alt={program.title_ko}
+                            sx={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: '8px', mb: 1 }} />
+                        )}
                         <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>{program.title_ko || program.title}</Typography>
                         <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                           <CategoryBadge category={program.category} />
@@ -147,7 +152,14 @@ const ProgramList = () => {
                         const existing = applications.find((a) => String(a.programId) === String(program.id) && a.email === user?.email && a.status !== '취소');
                         return (
                           <TableRow key={program.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/programs/${program.id}`)}>
-                            <TableCell><Typography variant="body2" fontWeight={500}>{program.title_ko || program.title}</Typography></TableCell>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                {program.thumbnail && (
+                                  <Avatar variant="rounded" src={program.thumbnail} sx={{ width: 40, height: 28 }} />
+                                )}
+                                <Typography variant="body2" fontWeight={500}>{program.title_ko || program.title}</Typography>
+                              </Box>
+                            </TableCell>
                             <TableCell align="center"><CategoryBadge category={program.category} /></TableCell>
                             <TableCell align="center"><Typography variant="body2" color="text.secondary">{program.start_date} ~ {program.end_date}</Typography></TableCell>
                             <TableCell align="center"><StatusBadge status={program.status} /></TableCell>

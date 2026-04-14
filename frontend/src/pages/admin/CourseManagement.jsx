@@ -11,7 +11,6 @@ import {
   Delete as DeleteIcon, Visibility as VisibilityIcon, PlayCircle as PlayIcon,
   CloudUpload as UploadIcon, Link as LinkIcon, Image as ImageIcon, Close as CloseIcon,
   CheckCircle as ApproveIcon, Cancel as RejectIcon, VideoLibrary as VideoIcon,
-  Person as PersonIcon,
   ArrowUpward as MoveUpIcon, ArrowDownward as MoveDownIcon,
   DragIndicator as DragIcon,
 } from '@mui/icons-material';
@@ -48,7 +47,6 @@ const buildInitialCourses = () => {
 const initialStudentRequests = [];
 
 const categories = ['금융', '부동산', '창업', '사회공헌', '디지털', '건강', '여가', '재무'];
-const instructors = ['김강사', '이미영', '박준혁', '한소영', '최수진', '정민호'];
 const MAX_VIDEO_SIZE_MB = 300;
 
 const CourseManagement = () => {
@@ -123,7 +121,7 @@ const CourseManagement = () => {
 
   // Form state
   const [form, setForm] = useState({
-    title: '', category: '금융', instructor: '', description: '',
+    title: '', category: '금융', description: '',
     videoType: 'url', videoUrl: '', videoFile: null, videoFileName: '', videoFileSize: '',
     coverImage: null, coverImagePreview: null, status: '준비중',
     lessonsData: [],
@@ -132,15 +130,11 @@ const CourseManagement = () => {
   const videoInputRef = useRef(null);
   const imageInputRef = useRef(null);
 
-  // Filter courses for instructor role
   const isAdminUser = isAdmin();
-  const visibleCourses = isAdminUser
-    ? courses
-    : courses.filter((c) => c.instructor === user?.name_ko);
+  const visibleCourses = courses;
 
   const filtered = visibleCourses.filter((c) =>
-    c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.instructor.toLowerCase().includes(searchTerm.toLowerCase())
+    c.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const perPage = 10;
@@ -153,7 +147,7 @@ const CourseManagement = () => {
 
   const resetForm = () => {
     setForm({
-      title: '', category: '금융', instructor: isAdminUser ? '' : (user?.name_ko || ''),
+      title: '', category: '금융',
       description: '', videoType: 'url', videoUrl: '', videoFile: null, videoFileName: '',
       videoFileSize: '', coverImage: null, coverImagePreview: null, status: '준비중',
       lessonsData: [],
@@ -163,9 +157,6 @@ const CourseManagement = () => {
   const handleAdd = () => {
     setEditMode(false);
     resetForm();
-    if (!isAdminUser) {
-      setForm((prev) => ({ ...prev, instructor: user?.name_ko || '' }));
-    }
     setDialogOpen(true);
   };
 
@@ -178,7 +169,6 @@ const CourseManagement = () => {
     setForm({
       title: selectedCourse.title,
       category: selectedCourse.category,
-      instructor: selectedCourse.instructor,
       description: selectedCourse.description || '',
       videoType: selectedCourse.videoType || 'url',
       videoUrl: selectedCourse.videoUrl || '',
@@ -211,13 +201,12 @@ const CourseManagement = () => {
 
   const handleSave = () => {
     if (!form.title.trim()) { showError('강의명을 입력해주세요'); return; }
-    if (!form.instructor.trim()) { showError('강사를 선택해주세요'); return; }
 
     if (editMode && selectedCourse) {
       setCourses((prev) => prev.map((c) =>
         c.id === selectedCourse.id
           ? {
-              ...c, title: form.title, category: form.category, instructor: form.instructor,
+              ...c, title: form.title, category: form.category,
               description: form.description, videoType: form.videoType, videoUrl: form.videoUrl,
               videoFileName: form.videoFileName, videoFileSize: form.videoFileSize,
               coverImage: form.coverImagePreview, status: form.status,
@@ -230,7 +219,7 @@ const CourseManagement = () => {
     } else {
       const newCourse = {
         id: Math.max(0, ...courses.map((c) => c.id)) + 1,
-        title: form.title, category: form.category, instructor: form.instructor,
+        title: form.title, category: form.category,
         description: form.description, duration: '0분',
         lessons: form.lessonsData.length,
         _lessonsData: form.lessonsData,
@@ -343,7 +332,7 @@ const CourseManagement = () => {
         <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '8px' }}>
           <Box sx={{ p: 2 }}>
             <TextField
-              fullWidth size="small" placeholder="강의명, 강사명으로 검색..."
+              fullWidth size="small" placeholder="강의명으로 검색..."
               value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
               InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
             />
@@ -371,7 +360,6 @@ const CourseManagement = () => {
                       )}
                       <Box>
                         <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>{course.title}</Typography>
-                        {isAdminUser && <Typography variant="caption" color="text.secondary">{course.instructor}</Typography>}
                       </Box>
                     </Box>
                     <IconButton size="small" onClick={(e) => { setAnchorEl(e.currentTarget); setSelectedCourse(course); }}>
@@ -395,7 +383,6 @@ const CourseManagement = () => {
                   <TableRow>
                     <TableCell>강의명</TableCell>
                     <TableCell align="center">분야</TableCell>
-                    {isAdminUser && <TableCell align="center">강사</TableCell>}
                     <TableCell align="center">강의수</TableCell>
                     <TableCell align="center">상태</TableCell>
                     <TableCell align="center">조회/수강</TableCell>
@@ -404,11 +391,11 @@ const CourseManagement = () => {
                 </TableHead>
                 <TableBody>
                   {!coursesLoaded ? (
-                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                    <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                       <Typography color="text.secondary">강의 불러오는 중...</Typography>
                     </TableCell></TableRow>
                   ) : paged.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                    <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                       <Typography color="text.secondary">등록된 강의가 없습니다</Typography>
                     </TableCell></TableRow>
                   ) : paged.map((course) => (
@@ -433,7 +420,6 @@ const CourseManagement = () => {
                       <TableCell align="center">
                         <Chip label={course.category} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
                       </TableCell>
-                      {isAdminUser && <TableCell align="center" sx={{ fontSize: '0.8125rem' }}>{course.instructor}</TableCell>}
                       <TableCell align="center">{course.lessons}강</TableCell>
                       <TableCell align="center">
                         <Chip label={course.status} size="small" color={getStatusColor(course.status)} />
@@ -466,7 +452,7 @@ const CourseManagement = () => {
           {isMobile ? (
             <Box sx={{ p: 2 }}>
               {studentRequests
-                .filter((s) => isAdminUser || courses.some((c) => c.id === s.courseId && c.instructor === user?.name_ko))
+                .filter((s) => isAdminUser || courses.some((c) => c.id === s.courseId))
                 .map((req) => {
                   const course = courses.find((c) => c.id === req.courseId);
                   return (
@@ -519,7 +505,7 @@ const CourseManagement = () => {
                 </TableHead>
                 <TableBody>
                   {studentRequests
-                    .filter((s) => isAdminUser || courses.some((c) => c.id === s.courseId && c.instructor === user?.name_ko))
+                    .filter((s) => isAdminUser || courses.some((c) => c.id === s.courseId))
                     .map((req) => {
                       const course = courses.find((c) => c.id === req.courseId);
                       return (
@@ -597,20 +583,13 @@ const CourseManagement = () => {
               <TextField fullWidth label="강의명" value={form.title}
                 onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} required />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={6}>
               <TextField fullWidth label="분야" select value={form.category}
                 onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}>
                 {categories.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField fullWidth label="강사" select value={form.instructor}
-                onChange={(e) => setForm((p) => ({ ...p, instructor: e.target.value }))}
-                disabled={!isAdminUser} required>
-                {instructors.map((i) => <MenuItem key={i} value={i}>{i}</MenuItem>)}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={6}>
               <TextField fullWidth label="상태" select value={form.status}
                 onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}>
                 <MenuItem value="준비중">준비중</MenuItem>
@@ -619,8 +598,24 @@ const CourseManagement = () => {
               </TextField>
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth label="강의 설명" multiline rows={3} value={form.description}
-                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>강의 내용</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                일반 텍스트 또는 HTML을 입력할 수 있습니다.
+              </Typography>
+              <TextField
+                fullWidth multiline rows={6} value={form.description}
+                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                placeholder="강의 내용을 입력하세요. HTML 태그를 사용할 수 있습니다. (예: <h2>제목</h2>, <p>내용</p>, <ul><li>항목</li></ul>)"
+                sx={{
+                  '& .MuiInputBase-root': { fontFamily: 'monospace', fontSize: '0.85rem' },
+                }}
+              />
+              {form.description && form.description.includes('<') && (
+                <Paper variant="outlined" sx={{ mt: 1, p: 2, borderRadius: '8px', maxHeight: 200, overflow: 'auto' }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>미리보기 (Preview)</Typography>
+                  <Box dangerouslySetInnerHTML={{ __html: form.description }} sx={{ fontSize: '0.875rem', '& h1,& h2,& h3': { mt: 1, mb: 0.5 }, '& p': { mb: 0.5 }, '& ul,& ol': { pl: 2 } }} />
+                </Paper>
+              )}
             </Grid>
 
             {/* Video Source */}
@@ -863,11 +858,15 @@ const CourseManagement = () => {
               <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
                 <Chip label={selectedCourse.category} size="small" variant="outlined" />
                 <Chip label={selectedCourse.status} size="small" color={getStatusColor(selectedCourse.status)} />
-                <Chip icon={<PersonIcon sx={{ fontSize: '14px !important' }} />} label={selectedCourse.instructor} size="small" />
               </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {selectedCourse.description || '설명이 없습니다.'}
-              </Typography>
+              {selectedCourse.description && selectedCourse.description.includes('<') ? (
+                <Box dangerouslySetInnerHTML={{ __html: selectedCourse.description }}
+                  sx={{ mb: 2, fontSize: '0.875rem', color: 'text.secondary', '& h1,& h2,& h3': { mt: 1, mb: 0.5, color: 'text.primary' }, '& p': { mb: 0.5 }, '& ul,& ol': { pl: 2 } }} />
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2, whiteSpace: 'pre-line' }}>
+                  {selectedCourse.description || '설명이 없습니다.'}
+                </Typography>
+              )}
               <Divider sx={{ my: 2 }} />
               <Grid container spacing={2}>
                 <Grid item xs={4}>

@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, TextField, InputAdornment, IconButton, Chip, Menu, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, Grid, Tabs, Tab,
-  FormControl, InputLabel, Select, Divider, useMediaQuery, useTheme,
+  FormControl, InputLabel, Select, Divider, useMediaQuery, useTheme, Avatar,
 } from '@mui/material';
 import {
   Search as SearchIcon, Add as AddIcon, MoreVert as MoreVertIcon,
   Edit as EditIcon, Delete as DeleteIcon, Visibility as ViewIcon,
   CheckCircle as ApproveIcon, Cancel as RejectIcon,
+  Image as ImageIcon, Close as CloseIcon,
 } from '@mui/icons-material';
 import { useNotification } from '../../contexts/NotificationContext';
 import { loadPrograms, addProgram, updateProgram, deleteProgram, syncProgramApplicants } from '../../utils/programStore';
@@ -35,8 +36,19 @@ const ProgramManagement = () => {
 
   const [form, setForm] = useState({
     title_ko: '', category: '금융컨설팅', status: '모집중', start_date: '', end_date: '',
-    capacity: 30, description: '', location: '', instructor: '',
+    capacity: 30, description: '', location: '', instructor: '', thumbnail: null, thumbnailPreview: null,
   });
+  const thumbnailInputRef = useRef(null);
+
+  const handleThumbnailChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setForm((prev) => ({ ...prev, thumbnail: ev.target.result, thumbnailPreview: ev.target.result }));
+    };
+    reader.readAsDataURL(file);
+  };
 
   const fetchData = useCallback(async () => {
     const [programData, appData] = await Promise.all([
@@ -77,7 +89,7 @@ const ProgramManagement = () => {
 
   const handleAddNew = () => {
     setEditMode(false);
-    setForm({ title_ko: '', category: '금융컨설팅', status: '모집중', start_date: '', end_date: '', capacity: 30, description: '', location: '', instructor: '' });
+    setForm({ title_ko: '', category: '금융컨설팅', status: '모집중', start_date: '', end_date: '', capacity: 30, description: '', location: '', instructor: '', thumbnail: null, thumbnailPreview: null });
     setDialogOpen(true);
   };
 
@@ -93,6 +105,7 @@ const ProgramManagement = () => {
       start_date: selectedItem.start_date, end_date: selectedItem.end_date,
       capacity: selectedItem.capacity || 30, description: selectedItem.description || '',
       location: selectedItem.location || '', instructor: selectedItem.instructor || '',
+      thumbnail: selectedItem.thumbnail || null, thumbnailPreview: selectedItem.thumbnail || null,
     });
     setDialogOpen(true);
     handleMenuClose();
@@ -100,11 +113,13 @@ const ProgramManagement = () => {
 
   const handleSave = async () => {
     if (!form.title_ko.trim()) return;
+    const saveData = { ...form, thumbnail: form.thumbnail || null };
+    delete saveData.thumbnailPreview;
     if (editMode && selectedItem) {
-      await updateProgram(selectedItem.id, form);
+      await updateProgram(selectedItem.id, saveData);
       showSuccess('프로그램이 수정되었습니다');
     } else {
-      await addProgram({ ...form, applicants: 0 });
+      await addProgram({ ...saveData, applicants: 0 });
       showSuccess('프로그램이 등록되었습니다');
     }
     setDialogOpen(false);
@@ -180,7 +195,12 @@ const ProgramManagement = () => {
                   <Box key={program.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', bgcolor: '#fff', cursor: 'pointer' }}
                     onClick={(e) => handleMenuOpen(e, program)}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                      <Typography variant="body2" fontWeight={600} sx={{ flex: 1, mr: 1 }}>{program.title_ko}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, mr: 1 }}>
+                        {program.thumbnail && (
+                          <Avatar variant="rounded" src={program.thumbnail} sx={{ width: 36, height: 24 }} />
+                        )}
+                        <Typography variant="body2" fontWeight={600}>{program.title_ko}</Typography>
+                      </Box>
                       <Chip label={program.status} size="small" color={getStatusColor(program.status)} />
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
@@ -218,7 +238,16 @@ const ProgramManagement = () => {
                   const displayApplicants = appCount;
                   return (
                     <TableRow key={program.id} hover>
-                      <TableCell><Typography variant="body2" fontWeight={500}>{program.title_ko}</Typography></TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          {program.thumbnail ? (
+                            <Avatar variant="rounded" src={program.thumbnail} sx={{ width: 40, height: 28 }} />
+                          ) : (
+                            <Avatar variant="rounded" sx={{ width: 40, height: 28, bgcolor: '#EBF0FA', fontSize: '0.7rem', color: '#0047BA' }}>P</Avatar>
+                          )}
+                          <Typography variant="body2" fontWeight={500}>{program.title_ko}</Typography>
+                        </Box>
+                      </TableCell>
                       <TableCell align="center">
                         <Chip label={program.category} size="small" color={getCategoryColor(program.category)} variant="outlined" />
                       </TableCell>
@@ -340,6 +369,10 @@ const ProgramManagement = () => {
         <DialogContent dividers>
           {selectedItem && (
             <Box>
+              {selectedItem.thumbnail && (
+                <Box component="img" src={selectedItem.thumbnail} alt={selectedItem.title_ko}
+                  sx={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: '8px', mb: 2 }} />
+              )}
               <Typography variant="subtitle2" color="text.secondary">프로그램명</Typography>
               <Typography variant="body1" sx={{ mb: 2 }}>{selectedItem.title_ko}</Typography>
               <Grid container spacing={2}>
@@ -478,6 +511,33 @@ const ProgramManagement = () => {
             <Grid item xs={12}>
               <TextField fullWidth label="설명" multiline rows={4} value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            </Grid>
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                썸네일 이미지 (선택사항)
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                프로그램 목록에 표시될 대표 이미지를 업로드하세요.
+              </Typography>
+              <input type="file" accept="image/*" ref={thumbnailInputRef} hidden onChange={handleThumbnailChange} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Button variant="outlined" startIcon={<ImageIcon />} onClick={() => thumbnailInputRef.current?.click()}>
+                  이미지 선택
+                </Button>
+                {form.thumbnailPreview && (
+                  <Box sx={{ position: 'relative' }}>
+                    <Avatar variant="rounded" src={form.thumbnailPreview}
+                      sx={{ width: 120, height: 68, border: '1px solid', borderColor: 'divider' }} />
+                    <IconButton size="small"
+                      onClick={() => setForm((p) => ({ ...p, thumbnail: null, thumbnailPreview: null }))}
+                      sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'error.main', color: '#fff', width: 20, height: 20,
+                        '&:hover': { bgcolor: 'error.dark' } }}>
+                      <CloseIcon sx={{ fontSize: 12 }} />
+                    </IconButton>
+                  </Box>
+                )}
+              </Box>
             </Grid>
           </Grid>
         </DialogContent>

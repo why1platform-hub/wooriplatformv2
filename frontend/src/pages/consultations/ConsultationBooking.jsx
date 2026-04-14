@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Card, CardContent, Button, Grid, Stepper, Step, StepLabel,
-  Chip, Paper, Divider, Alert,
+  Chip, Paper, Divider, Alert, IconButton, CircularProgress,
 } from '@mui/material';
 import {
   CalendarToday as CalendarIcon,
@@ -12,10 +12,16 @@ import {
   Phone as PhoneIcon,
   CheckCircle as CheckIcon,
   ArrowBack as BackIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  ErrorOutline as ErrorIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotification } from '../../contexts/NotificationContext';
-import { addBooking, getAvailableSlots, getBookedSlots, getKSTDate, formatKSTDate } from '../../utils/consultationStore';
+import {
+  addBooking, getBookedSlots, getKSTDate, formatKSTDate,
+  hasAvailableInstructor, loadConsultants,
+} from '../../utils/consultationStore';
 import { pushToAllAdmins } from '../../utils/notificationHelper';
 
 const STEPS = ['날짜 · 시간 선택', '상담 방법 선택', '예약 확인'];
@@ -25,6 +31,21 @@ const METHODS = [
   { value: '오프라인', icon: <OfflineIcon />, color: '#059669', desc: '우리은행 본점 상담실' },
   { value: '전화', icon: <PhoneIcon />, color: '#EA580C', desc: '유선 통화로 진행' },
 ];
+
+const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+
+// Generate 30-min time slots from startHour to endHour
+const generateTimeSlots = () => {
+  const slots = [];
+  for (let h = 9; h < 17; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    }
+  }
+  return slots;
+};
+
+const ALL_TIMES = generateTimeSlots();
 
 const ConsultationBooking = () => {
   const navigate = useNavigate();
@@ -37,44 +58,104 @@ const ConsultationBooking = () => {
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [booked, setBooked] = useState(false);
 
-  // Generate next 14 weekdays
-  // Generate next 14 weekdays in KST
-  const dates = useMemo(() => {
-    const result = [];
-    const kstNow = getKSTDate();
-    const d = new Date(kstNow);
-    d.setDate(d.getDate() + 1);
-    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-    while (result.length < 14) {
-      const day = d.getDay();
-      if (day !== 0 && day !== 6) {
-        result.push({ date: formatKSTDate(d), label: `${d.getMonth() + 1}/${d.getDate()}`, day: dayNames[day] });
-      }
-      d.setDate(d.getDate() + 1);
-    }
-    return result;
-  }, []);
+  // Calendar state
+  const kstNow = useMemo(() => getKSTDate(), []);
+  const [calendarMonth, setCalendarMonth] = useState(kstNow.getMonth());
+  const [calendarYear, setCalendarYear] = useState(kstNow.getFullYear());
 
-  const [timeSlots, setTimeSlots] = useState([]);
+  // Time slot states
+  const [bookedSlots, setBookedSlots] = useState([]);
+  const [availabilityMap, setAvailabilityMap] = useState({}); // time -> boolean
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+
+  // Load consultants on mount
+  useEffect(() => { loadConsultants(); }, []);
+
+  // Today string for comparison
+  const todayStr = useMemo(() => formatKSTDate(kstNow), [kstNow]);
+
+  // Build calendar grid for the current month
+  const calendarDays = useMemo(() => {
+    const firstDay = new Date(calendarYear, calendarMonth, 1);
+    const lastDay = new Date(calendarYear, calendarMonth + 1, 0);
+    const startPad = firstDay.getDay(); // 0=Sun
+    const days = [];
+
+    // Padding for days before month start
+    for (let i = 0; i < startPad; i++) days.push(null);
+    // Actual days
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+      const date = new Date(calendarYear, calendarMonth, d);
+      const dayOfWeek = date.getDay();
+      const dateStr = `${calendarYear}.${String(calendarMonth + 1).padStart(2, '0')}.${String(d).padStart(2, '0')}`;
+      const isPast = dateStr <= todayStr;
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      days.push({ day: d, date, dateStr, dayOfWeek, isPast, isWeekend, disabled: isPast || isWeekend });
+    }
+    return days;
+  }, [calendarYear, calendarMonth, todayStr]);
+
+  const monthLabel = `${calendarYear}년 ${calendarMonth + 1}월`;
+
+  const canGoPrev = useMemo(() => {
+    return calendarYear > kstNow.getFullYear() || calendarMonth > kstNow.getMonth();
+  }, [calendarYear, calendarMonth, kstNow]);
+
+  const handlePrevMonth = () => {
+    if (!canGoPrev) return;
+    if (calendarMonth === 0) { setCalendarYear((y) => y - 1); setCalendarMonth(11); }
+    else setCalendarMonth((m) => m - 1);
+  };
+
+  const handleNextMonth = () => {
+    if (calendarMonth === 11) { setCalendarYear((y) => y + 1); setCalendarMonth(0); }
+    else setCalendarMonth((m) => m + 1);
+  };
+
+  // When a date is selected, load booked slots AND check instructor availability
+  const checkAvailability = useCallback(async (dateStr) => {
+    setCheckingAvailability(true);
+    setAvailabilityMap({});
+    try {
+      const booked = await getBookedSlots(dateStr);
+      setBookedSlots(booked);
+
+      // Check each time slot for instructor availability
+      const map = {};
+      await Promise.all(
+        ALL_TIMES.map(async (t) => {
+          if (booked.includes(t)) {
+            map[t] = false;
+          } else {
+            map[t] = await hasAvailableInstructor(dateStr, t);
+          }
+        })
+      );
+      setAvailabilityMap(map);
+    } catch {
+      // On error, show all as unavailable
+      const map = {};
+      ALL_TIMES.forEach((t) => { map[t] = false; });
+      setAvailabilityMap(map);
+    }
+    setCheckingAvailability(false);
+  }, []);
 
   useEffect(() => {
     if (!selectedDate) {
-      setTimeSlots([]);
+      setBookedSlots([]);
+      setAvailabilityMap({});
       return;
     }
-    let cancelled = false;
-    (async () => {
-      const all = getAvailableSlots(selectedDate);
-      const booked = await getBookedSlots(selectedDate);
-      if (!cancelled) {
-        setTimeSlots(all.map((t) => ({ time: t, available: !booked.includes(t) })));
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [selectedDate]);
+    checkAvailability(selectedDate);
+  }, [selectedDate, checkAvailability]);
+
+  // Check if any instructor is available for the selected time
+  const noInstructorAvailable = selectedTime && availabilityMap[selectedTime] === false;
+  const hasAnyAvailableSlot = Object.values(availabilityMap).some(Boolean);
 
   const canNext = () => {
-    if (step === 0) return selectedDate && selectedTime;
+    if (step === 0) return selectedDate && selectedTime && !noInstructorAvailable;
     if (step === 1) return selectedMethod;
     return true;
   };
@@ -148,49 +229,140 @@ const ConsultationBooking = () => {
         <CardContent sx={{ p: 3 }}>
           {step === 0 && (
             <Box>
+              {/* ── Calendar ── */}
               <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CalendarIcon fontSize="small" color="primary" /> 날짜 선택
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
-                {dates.map((d) => (
-                  <Paper
-                    key={d.date} elevation={0}
-                    onClick={() => { setSelectedDate(d.date); setSelectedTime(null); }}
-                    sx={{
-                      px: 2, py: 1.5, borderRadius: '10px', cursor: 'pointer', textAlign: 'center',
-                      border: '2px solid', minWidth: 64,
-                      borderColor: selectedDate === d.date ? '#0047BA' : '#E5E7EB',
-                      bgcolor: selectedDate === d.date ? '#EBF0FA' : '#fff',
-                      '&:hover': { borderColor: '#0047BA' },
-                    }}
-                  >
-                    <Typography variant="caption" color="text.secondary">{d.day}</Typography>
-                    <Typography variant="body2" fontWeight={600}>{d.label}</Typography>
-                  </Paper>
-                ))}
-              </Box>
 
+              <Paper elevation={0} sx={{ p: 2, borderRadius: '12px', border: '1px solid #E5E7EB', mb: 3 }}>
+                {/* Month navigation */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <IconButton size="small" onClick={handlePrevMonth} disabled={!canGoPrev}>
+                    <ChevronLeftIcon />
+                  </IconButton>
+                  <Typography variant="subtitle1" fontWeight={700}>{monthLabel}</Typography>
+                  <IconButton size="small" onClick={handleNextMonth}>
+                    <ChevronRightIcon />
+                  </IconButton>
+                </Box>
+
+                {/* Day-of-week headers */}
+                <Grid container columns={7} sx={{ mb: 0.5 }}>
+                  {DAY_NAMES.map((name, i) => (
+                    <Grid item xs={1} key={name} sx={{ textAlign: 'center' }}>
+                      <Typography variant="caption" fontWeight={600}
+                        color={i === 0 ? 'error.main' : i === 6 ? 'primary.main' : 'text.secondary'}>
+                        {name}
+                      </Typography>
+                    </Grid>
+                  ))}
+                </Grid>
+
+                {/* Calendar grid */}
+                <Grid container columns={7}>
+                  {calendarDays.map((cell, idx) => (
+                    <Grid item xs={1} key={idx} sx={{ textAlign: 'center', py: 0.25 }}>
+                      {cell ? (
+                        <Box
+                          onClick={() => {
+                            if (!cell.disabled) {
+                              setSelectedDate(cell.dateStr);
+                              setSelectedTime(null);
+                            }
+                          }}
+                          sx={{
+                            width: 36, height: 36, mx: 'auto', borderRadius: '50%',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: cell.disabled ? 'default' : 'pointer',
+                            bgcolor: selectedDate === cell.dateStr ? '#0047BA' : 'transparent',
+                            color: selectedDate === cell.dateStr
+                              ? '#fff'
+                              : cell.disabled
+                                ? '#D1D5DB'
+                                : cell.dayOfWeek === 0 ? '#DC2626' : cell.dayOfWeek === 6 ? '#0047BA' : 'text.primary',
+                            fontWeight: selectedDate === cell.dateStr ? 700 : 400,
+                            fontSize: '0.875rem',
+                            transition: 'all 0.15s',
+                            '&:hover': cell.disabled ? {} : {
+                              bgcolor: selectedDate === cell.dateStr ? '#0047BA' : '#EBF0FA',
+                            },
+                          }}
+                        >
+                          {cell.day}
+                        </Box>
+                      ) : null}
+                    </Grid>
+                  ))}
+                </Grid>
+              </Paper>
+
+              {/* ── Time Selection ── */}
               {selectedDate && (
                 <>
                   <Divider sx={{ mb: 2 }} />
-                  <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <TimeIcon fontSize="small" color="primary" /> 시간 선택
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {timeSlots.map((s) => (
-                      <Chip
-                        key={s.time} label={s.time} disabled={!s.available}
-                        onClick={() => s.available && setSelectedTime(s.time)}
-                        sx={{
-                          fontWeight: 600, fontSize: '0.8rem', height: 36, minWidth: 72,
-                          border: '2px solid',
-                          borderColor: selectedTime === s.time ? '#0047BA' : 'transparent',
-                          bgcolor: selectedTime === s.time ? '#EBF0FA' : s.available ? '#F8F9FA' : '#F3F4F6',
-                          color: s.available ? 'text.primary' : 'text.disabled',
-                        }}
-                      />
-                    ))}
-                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                    {selectedDate} — 30분 단위로 선택 가능합니다
+                  </Typography>
+
+                  {checkingAvailability ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4, gap: 1.5 }}>
+                      <CircularProgress size={20} />
+                      <Typography variant="body2" color="text.secondary">가용 시간을 확인 중입니다...</Typography>
+                    </Box>
+                  ) : (
+                    <>
+                      {!hasAnyAvailableSlot && Object.keys(availabilityMap).length > 0 && (
+                        <Alert severity="warning" icon={<ErrorIcon />} sx={{ mb: 2, borderRadius: '8px' }}>
+                          이 날짜에는 가용한 강사가 없습니다. 다른 날짜를 선택해주세요.
+                          <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
+                            No instructor available on this date. Please select another date.
+                          </Typography>
+                        </Alert>
+                      )}
+
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        {ALL_TIMES.map((t) => {
+                          const isBooked = bookedSlots.includes(t);
+                          const hasInstructor = availabilityMap[t] === true;
+                          const isDisabled = isBooked || !hasInstructor;
+                          const isSelected = selectedTime === t;
+
+                          return (
+                            <Chip
+                              key={t}
+                              label={t}
+                              disabled={isDisabled}
+                              onClick={() => !isDisabled && setSelectedTime(t)}
+                              sx={{
+                                fontWeight: 600, fontSize: '0.8rem', height: 36, minWidth: 72,
+                                border: '2px solid',
+                                borderColor: isSelected ? '#0047BA' : 'transparent',
+                                bgcolor: isSelected ? '#EBF0FA' : isDisabled ? '#F3F4F6' : '#F8F9FA',
+                                color: isDisabled ? 'text.disabled' : 'text.primary',
+                                '&.Mui-disabled': {
+                                  opacity: 0.5,
+                                },
+                              }}
+                            />
+                          );
+                        })}
+                      </Box>
+
+                      {selectedTime && !availabilityMap[selectedTime] && (
+                        <Alert severity="error" sx={{ mt: 2, borderRadius: '8px' }}>
+                          <Typography variant="body2" fontWeight={600}>
+                            가용한 강사가 없습니다
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            No instructor available
+                          </Typography>
+                        </Alert>
+                      )}
+                    </>
+                  )}
                 </>
               )}
             </Box>

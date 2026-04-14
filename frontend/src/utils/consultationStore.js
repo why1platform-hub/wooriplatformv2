@@ -293,6 +293,21 @@ export const copyAvailabilityToRange = async (instructorId, sourceDate, targetDa
   } catch { /* ignore */ }
 };
 
+// Check if ANY instructor is available for a given date+time
+export const hasAvailableInstructor = async (dateStr, timeStr) => {
+  if (!CONSULTANTS.length) await loadConsultants();
+  const bookings = await loadBookings();
+  const booked = bookings.filter(
+    (b) => b.date === dateStr && b.time === timeStr && b.status !== 'cancelled'
+  );
+  const bookedIds = booked.map((b) => b.consultantId);
+  for (const c of CONSULTANTS) {
+    const slots = await getInstructorAvailability(c.id, dateStr);
+    if (slots.includes(timeStr) && !bookedIds.includes(c.id)) return true;
+  }
+  return false;
+};
+
 export const getAvailableInstructorsForSlot = async (dateStr, timeStr) => {
   const bookings = await loadBookings();
   const booked = bookings.filter(
