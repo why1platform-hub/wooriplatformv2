@@ -29,7 +29,6 @@ import {
   IconButton,
   TextField,
   Paper,
-  Alert,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
@@ -50,8 +49,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { consultationsAPI } from '../../services/api';
 import { getInProgressCourses } from '../../utils/courseStore';
 import { loadApplications } from '../../utils/programStore';
-import { getBookingsForUser, acceptProposal, rejectProposal } from '../../utils/consultationStore';
-import { pushAdminNotification } from '../../utils/notificationHelper';
+import { getBookingsForUser } from '../../utils/consultationStore';
+
 import { getBookmarkedJobs, toggleBookmark } from '../../utils/jobStore';
 import StatusBadge from '../../components/common/StatusBadge';
 import CategoryBadge from '../../components/common/CategoryBadge';
@@ -64,13 +63,9 @@ const methodIcon = {
 
 const statusColors = {
   '배정대기': { color: '#92400E', bg: '#FEF3C7' },
-  '승인대기': { color: '#7C3AED', bg: '#F3F0FF' },
-  '상담제안': { color: '#0369A1', bg: '#E0F2FE' },
-  '예약됨': { color: '#1E40AF', bg: '#DBEAFE' },
+  '예약완료': { color: '#1E40AF', bg: '#DBEAFE' },
   '완료': { color: '#166534', bg: '#DCFCE7' },
   '취소': { color: '#991B1B', bg: '#FEE2E2' },
-  '거절': { color: '#C62828', bg: '#FFEBEE' },
-  '노쇼': { color: '#92400E', bg: '#FEF3C7' },
 };
 
 const MyActivities = () => {
@@ -129,7 +124,7 @@ const MyActivities = () => {
         } else if (tab === 1) {
           // Read from shared localStorage store
           const myBookings = user ? await getBookingsForUser(user.id) : [];
-          const statusMap = { pending: '배정대기', pending_approval: '상담제안', proposed: '상담제안', confirmed: '예약됨', completed: '완료', rejected: '거절', cancelled: '취소' };
+          const statusMap = { pending: '배정대기', pending_approval: '배정대기', proposed: '예약완료', confirmed: '예약완료', completed: '완료', rejected: '취소', cancelled: '취소' };
           const mapped = myBookings.map((b) => ({
             id: b.id,
             rawStatus: b.status,
@@ -206,19 +201,6 @@ const MyActivities = () => {
     setNewNote('');
   };
 
-  const handleAcceptProposal = async (c) => {
-    await acceptProposal(c.id);
-    setConsultations((prev) => prev.map((x) => x.id === c.id ? { ...x, status: '예약됨', rawStatus: 'confirmed' } : x));
-    // Notify the instructor
-    pushAdminNotification(null, `${user?.name_ko || '사용자'}님이 상담 제안을 승인했습니다 (${c.date})`, '/admin/consultations');
-  };
-
-  const handleRejectProposal = async (c) => {
-    await rejectProposal(c.id);
-    setConsultations((prev) => prev.map((x) => x.id === c.id ? { ...x, status: '취소', rawStatus: 'cancelled' } : x));
-    pushAdminNotification(null, `${user?.name_ko || '사용자'}님이 상담 제안을 거절했습니다 (${c.date})`, '/admin/consultations');
-  };
-
   const handleCancel = async (consultation) => {
     try {
       await consultationsAPI.cancel(consultation.id);
@@ -239,7 +221,7 @@ const MyActivities = () => {
   };
 
   // Next scheduled consultation
-  const nextConsultation = displayConsultations.find((c) => c.status === '예약됨');
+  const nextConsultation = displayConsultations.find((c) => c.status === '예약완료');
 
   return (
     <Box>
@@ -340,18 +322,6 @@ const MyActivities = () => {
                   {/* Consultation Records */}
                   {tab === 1 && (
                     <Box>
-                      {/* Proposed consultation banner */}
-                      {displayConsultations.filter((c) => c.rawStatus === 'proposed' || c.rawStatus === 'pending_approval').map((c) => (
-                        <Alert key={c.id} severity="info" sx={{ mb: 2, border: '1px solid #0369A1' }}
-                          action={
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                              <Button size="small" variant="contained" color="success" onClick={() => handleAcceptProposal(c)}>승인</Button>
-                              <Button size="small" variant="outlined" color="error" onClick={() => handleRejectProposal(c)}>거절</Button>
-                            </Box>
-                          }>
-                          <strong>[상담 제안]</strong> {c.consultant} 강사가 {c.date} ({c.method}) 상담을 제안했습니다.
-                        </Alert>
-                      ))}
                       {displayConsultations.length === 0 ? (
                         <Box sx={{ textAlign: 'center', py: 8 }}>
                           <Typography color="text.secondary" sx={{ mb: 2 }}>{t('activities.noConsultations')}</Typography>
@@ -364,9 +334,8 @@ const MyActivities = () => {
                       <Box>
                         {displayConsultations.map((c) => {
                           const sc = statusColors[c.status];
-                          const isProposal = c.rawStatus === 'proposed' || c.rawStatus === 'pending_approval';
                           return (
-                            <Box key={c.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid', borderColor: isProposal ? '#0369A1' : '#E5E7EB', borderLeft: `4px solid ${sc?.color || '#999'}`, bgcolor: isProposal ? '#F0F9FF' : '#fff' }}>
+                            <Box key={c.id} sx={{ p: 2, mb: 1.5, borderRadius: '10px', border: '1px solid #E5E7EB', borderLeft: `4px solid ${sc?.color || '#999'}`, bgcolor: '#fff' }}>
                               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                                 <Typography variant="subtitle2" fontWeight={600}>{c.date || c.scheduled_at}</Typography>
                                 <Chip size="small" label={c.status} sx={{ height: 22, fontSize: '0.7rem', fontWeight: 600, bgcolor: sc?.bg || '#F3F4F6', color: sc?.color || '#374151' }} />
@@ -375,24 +344,10 @@ const MyActivities = () => {
                                 <Typography variant="body2" color="text.secondary">{c.consultant || c.consultant_name}</Typography>
                                 {c.method && <Chip size="small" icon={methodIcon[c.method]} label={c.method} sx={{ height: 22, fontSize: '0.7rem' }} />}
                               </Box>
-                              {c.status === '거절' && c.rejectReason && (
-                                <Typography variant="caption" sx={{ color: '#C62828', display: 'block', mb: 1 }}>
-                                  {t('activities.rejectReason')}: {c.rejectReason}
-                                </Typography>
-                              )}
                               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'flex-end', mt: 1, pt: 1, borderTop: '1px solid #F3F4F6' }}>
-                                {isProposal && (
-                                  <>
-                                    <Button size="small" variant="contained" color="success" onClick={() => handleAcceptProposal(c)}>승인</Button>
-                                    <Button size="small" variant="outlined" color="error" onClick={() => handleRejectProposal(c)}>거절</Button>
-                                  </>
-                                )}
                                 <Button size="small" variant="outlined" onClick={() => handleViewDetail(c)}>{t('common.viewDetail')}</Button>
-                                {(c.status === '예약됨' || c.status === '배정대기') && (
+                                {c.status === '배정대기' && (
                                   <Button size="small" variant="outlined" color="error" onClick={() => { setCancelTarget(c); setCancelConfirmOpen(true); }}>{t('common.cancel')}</Button>
-                                )}
-                                {c.status === '거절' && (
-                                  <Button size="small" variant="contained" onClick={() => navigate('/consultations/booking')}>{t('activities.rebook')}</Button>
                                 )}
                               </Box>
                             </Box>
@@ -431,30 +386,12 @@ const MyActivities = () => {
                                   <TableCell align="center">
                                     <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
                                       <Button size="small" variant="outlined" onClick={() => handleViewDetail(c)}>{t('common.viewDetail')}</Button>
-                                      {(c.rawStatus === 'proposed' || c.rawStatus === 'pending_approval') && (
-                                        <>
-                                          <Button size="small" variant="contained" color="success" onClick={() => handleAcceptProposal(c)}>승인</Button>
-                                          <Button size="small" variant="outlined" color="error" onClick={() => handleRejectProposal(c)}>거절</Button>
-                                        </>
-                                      )}
-                                      {(c.status === '예약됨' || c.status === '배정대기') && (
+                                      {c.status === '배정대기' && (
                                         <Button size="small" variant="outlined" color="error" onClick={() => { setCancelTarget(c); setCancelConfirmOpen(true); }}>{t('common.cancel')}</Button>
-                                      )}
-                                      {c.status === '거절' && (
-                                        <Button size="small" variant="contained" onClick={() => navigate('/consultations/booking')}>{t('activities.rebook')}</Button>
                                       )}
                                     </Box>
                                   </TableCell>
                                 </TableRow>
-                                {c.status === '거절' && c.rejectReason && (
-                                  <TableRow>
-                                    <TableCell colSpan={6} sx={{ py: 1, bgcolor: '#FFEBEE', borderBottom: '1px solid #FFCDD2' }}>
-                                      <Typography variant="body2" sx={{ color: '#C62828', whiteSpace: 'pre-line' }}>
-                                        <strong>{t('activities.rejectReason')}:</strong> {c.rejectReason}
-                                      </Typography>
-                                    </TableCell>
-                                  </TableRow>
-                                )}
                                 </React.Fragment>
                               );
                             })}
