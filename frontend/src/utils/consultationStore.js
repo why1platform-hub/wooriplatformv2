@@ -247,13 +247,27 @@ export const hasIntakeForm = async (userId) => {
 // ── INSTRUCTOR AVAILABILITY ──────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════
 
+// Default: all weekday 09:00-18:00 slots are OPEN unless instructor explicitly set availability
+const DEFAULT_SLOTS = (() => {
+  const s = [];
+  for (let h = 9; h < 17; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      s.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    }
+  }
+  return s;
+})();
+
 export const getInstructorAvailability = async (instructorId, dateStr) => {
   try {
     const { data } = await supabase.from('instructor_availability')
       .select('slots').eq('instructor_id', instructorId).eq('date', dateStr).single();
     if (data) return data.slots || [];
-  } catch { /* ignore */ }
-  return [];
+  } catch { /* ignore — no record means use defaults */ }
+  // No explicit record → default all slots open (weekdays only)
+  const d = new Date(dateStr.replace(/\./g, '-'));
+  if (d.getDay() === 0 || d.getDay() === 6) return []; // weekends closed
+  return DEFAULT_SLOTS;
 };
 
 export const setInstructorAvailability = async (instructorId, dateStr, slots) => {

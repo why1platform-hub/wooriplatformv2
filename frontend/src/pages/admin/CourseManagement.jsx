@@ -123,7 +123,7 @@ const CourseManagement = () => {
   const [form, setForm] = useState({
     title: '', category: '금융', description: '',
     videoType: 'url', videoUrl: '', videoFile: null, videoFileName: '', videoFileSize: '',
-    coverImage: null, coverImagePreview: null, status: '준비중',
+    coverImage: null, coverImagePreview: null, status: '게시중',
     lessonsData: [],
   });
 
@@ -149,7 +149,7 @@ const CourseManagement = () => {
     setForm({
       title: '', category: '금융',
       description: '', videoType: 'url', videoUrl: '', videoFile: null, videoFileName: '',
-      videoFileSize: '', coverImage: null, coverImagePreview: null, status: '준비중',
+      videoFileSize: '', coverImage: null, coverImagePreview: null, status: '게시중',
       lessonsData: [],
     });
   };
